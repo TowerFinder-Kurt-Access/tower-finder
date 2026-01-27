@@ -128,46 +128,101 @@ app.get('/api/owner', async (req, res) => {
 
     console.log(`[DEBUG] Fetching owner for Lat: ${lat}, Lon: ${lon}`);
 
-    // ReportAll API requires WKT (Well Known Text) format for points
-    const pointWKT = `POINT(${lon} ${lat})`;
-
     try {
-        const response = await axios.get('https://reportallusa.com/api/parcels', {
+        // Step 1: Reverse Geocode to get address (User requested flow)
+        console.log("[DEBUG] Step 1: Reverse Geocoding via Nominatim...");
+        const geoResponse = await axios.get('https://nominatim.openstreetmap.org/reverse', {
             params: {
-                client: CLIENT_KEY,
-                v: 9,
-                spatial_nearest: pointWKT,
-                si_srid: 4326,
-                limit: 1
+                format: 'json',
+                lat: lat,
+                lon: lon,
+                zoom: 18,
+                addressdetails: 1
             },
-            timeout: 60000
+            headers: { 'User-Agent': 'TowerFinderApp/1.0' }
         });
 
-        const data = response.data;
+        const addressObj = geoResponse.data.address;
         let finalParcel = null;
 
-        if (data.results && data.results.length > 0) {
-            // Take the first result
-            const rawParcel = data.results[0];
+        if (addressObj) {
+            // Construct address query string for ReportAll
+            // Try to make it as specific as possible: "House Number Street, City, State"
+            const street = addressObj.road || '';
+            const number = addressObj.house_number || '';
+            const city = addressObj.city || addressObj.town || addressObj.village || '';
+            const state = addressObj.state || '';
+            const zip = addressObj.postcode || '';
 
-            // Parse WKT to GeoJSON here on the server
-            const geojson = parseWKT(rawParcel.geom_as_wkt);
+            // We need at least a state/region to make a decent query, ideally street info
+            if (street && state) {
+                const addressQuery = `${number} ${street}, ${city}, ${state} ${zip}`.trim();
+                console.log(`[DEBUG] Step 2: Querying ReportAll by Address: "${addressQuery}"`);
 
-            finalParcel = {
-                ...rawParcel,
-                geometry: geojson
-            };
+                const reportAllResponse = await axios.get('https://reportallusa.com/api/parcels', {
+                    params: {
+                        client: CLIENT_KEY,
+                        v: 9,
+                        q: addressQuery, // Address query
+                        limit: 1
+                    },
+                    timeout: 60000
+                });
 
-            console.log("Processed Parcel Owner:", finalParcel.owner || "Unknown");
-        } else {
-            console.log("No parcels found.");
+                if (reportAllResponse.data.results && reportAllResponse.data.results.length > 0) {
+                    console.log("[DEBUG] Found parcel via Address Query.");
+                    const rawParcel = reportAllResponse.data.results[0];
+                    finalParcel = {
+                        ...rawParcel,
+                        geometry: parseWKT(rawParcel.geom_as_wkt),
+                        _method: 'address_query' // Debug info
+                    };
+                } else {
+                    console.log("[DEBUG] No results from Address Query.");
+                }
+            } else {
+                console.log("[DEBUG] Not enough address info for query (missing street or state).");
+            }
         }
 
-        // Send back the processed single parcel (or null)
-        res.json({ result: finalParcel });
+        // Step 3: Fallback to Spatial Query if Address Query failed
+        if (!finalParcel) {
+            console.log("[DEBUG] Fallback: Querying ReportAll by Spatial Point...");
+            const pointWKT = `POINT(${lon} ${lat})`;
+
+            const response = await axios.get('https://reportallusa.com/api/parcels', {
+                params: {
+                    client: CLIENT_KEY,
+                    v: 9,
+                    spatial_nearest: pointWKT,
+                    si_srid: 4326,
+                    limit: 1
+                },
+                timeout: 60000
+            });
+
+            if (response.data.results && response.data.results.length > 0) {
+                console.log("[DEBUG] Found parcel via Spatial Query.");
+                const rawParcel = response.data.results[0];
+                finalParcel = {
+                    ...rawParcel,
+                    geometry: parseWKT(rawParcel.geom_as_wkt),
+                    _method: 'spatial_fallback'
+                };
+            }
+        }
+
+        // Send Result
+        if (finalParcel) {
+            console.log("Processed Parcel Owner:", finalParcel.owner || "Unknown");
+            res.json({ result: finalParcel });
+        } else {
+            console.log("No parcels found via any method.");
+            res.json({ result: null });
+        }
 
     } catch (error) {
-        console.error("ReportAll API Error:", error.message);
+        console.error("API Error:", error.message);
         if (error.response) {
             console.error("API Response Details:", error.response.data);
             return res.status(error.response.status).json({ error: 'External API Error', details: error.response.data });
