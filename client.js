@@ -175,13 +175,18 @@ async function getOwner(lat, lon, divId) {
 
             // Draw Polygon (Geometry is now pre-parsed by server)
             if (parcel.geometry) {
-                L.geoJSON(parcel.geometry, {
+                const geoJsonLayer = L.geoJSON(parcel.geometry, {
                     style: {
-                        color: 'red',
-                        weight: 3,
-                        fillOpacity: 0.1
+                        color: '#ff0000',        // Bright red border
+                        weight: 3,               // Border thickness
+                        fillColor: '#ff0000',    // Red fill
+                        fillOpacity: 0.2         // Semi-transparent fill
                     }
                 }).addTo(parcelsLayer);
+
+                // Zoom map to fit the parcel boundary
+                map.fitBounds(geoJsonLayer.getBounds(), { padding: [50, 50] });
+                console.log("Drew parcel polygon on map");
             } else {
                 console.warn("No geometry found in parcel result");
             }

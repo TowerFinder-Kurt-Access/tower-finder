@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const axios = require('axios');
 const path = require('path');
@@ -122,94 +123,41 @@ app.get('/api/owner', async (req, res) => {
         return res.status(400).json({ error: 'Missing lat or lon parameter' });
     }
 
-    // Credentials provided by user
-    // NOTE: 'QNEkJ8eGe8' is a DEMO key. It creates "Isles of Scilly" results for many US locations.
-    const CLIENT_KEY = 'QNEkJ8eGe8';
+    // Get API key from environment variable
+    const CLIENT_KEY = process.env.REPORTALL_API_KEY;
+
+    if (!CLIENT_KEY) {
+        console.error('[ERROR] REPORTALL_API_KEY not set in .env file');
+        return res.status(500).json({ error: 'API key not configured. Please add REPORTALL_API_KEY to .env file' });
+    }
 
     console.log(`[DEBUG] Fetching owner for Lat: ${lat}, Lon: ${lon}`);
 
     try {
-        // Step 1: Reverse Geocode to get address (User requested flow)
-        console.log("[DEBUG] Step 1: Reverse Geocoding via Nominatim...");
-        const geoResponse = await axios.get('https://nominatim.openstreetmap.org/reverse', {
+        // Query ReportAll directly by coordinates using spatial_nearest
+        console.log("[DEBUG] Querying ReportAll by coordinates...");
+        const pointWKT = `POINT(${lon} ${lat})`;
+
+        const response = await axios.get('https://reportallusa.com/api/parcels', {
             params: {
-                format: 'json',
-                lat: lat,
-                lon: lon,
-                zoom: 18,
-                addressdetails: 1
+                client: CLIENT_KEY,
+                v: 9,
+                spatial_nearest: pointWKT,
+                sn_srid: 4326,
+                limit: 1
             },
-            headers: { 'User-Agent': 'TowerFinderApp/1.0' }
+            timeout: 60000
         });
 
-        const addressObj = geoResponse.data.address;
         let finalParcel = null;
 
-        if (addressObj) {
-            // Construct address query string for ReportAll
-            // Try to make it as specific as possible: "House Number Street, City, State"
-            const street = addressObj.road || '';
-            const number = addressObj.house_number || '';
-            const city = addressObj.city || addressObj.town || addressObj.village || '';
-            const state = addressObj.state || '';
-            const zip = addressObj.postcode || '';
-
-            // We need at least a state/region to make a decent query, ideally street info
-            if (street && state) {
-                const addressQuery = `${number} ${street}, ${city}, ${state} ${zip}`.trim();
-                console.log(`[DEBUG] Step 2: Querying ReportAll by Address: "${addressQuery}"`);
-
-                const reportAllResponse = await axios.get('https://reportallusa.com/api/parcels', {
-                    params: {
-                        client: CLIENT_KEY,
-                        v: 9,
-                        q: addressQuery, // Address query
-                        limit: 1
-                    },
-                    timeout: 60000
-                });
-
-                if (reportAllResponse.data.results && reportAllResponse.data.results.length > 0) {
-                    console.log("[DEBUG] Found parcel via Address Query.");
-                    const rawParcel = reportAllResponse.data.results[0];
-                    finalParcel = {
-                        ...rawParcel,
-                        geometry: parseWKT(rawParcel.geom_as_wkt),
-                        _method: 'address_query' // Debug info
-                    };
-                } else {
-                    console.log("[DEBUG] No results from Address Query.");
-                }
-            } else {
-                console.log("[DEBUG] Not enough address info for query (missing street or state).");
-            }
-        }
-
-        // Step 3: Fallback to Spatial Query if Address Query failed
-        if (!finalParcel) {
-            console.log("[DEBUG] Fallback: Querying ReportAll by Spatial Point...");
-            const pointWKT = `POINT(${lon} ${lat})`;
-
-            const response = await axios.get('https://reportallusa.com/api/parcels', {
-                params: {
-                    client: CLIENT_KEY,
-                    v: 9,
-                    spatial_nearest: pointWKT,
-                    si_srid: 4326,
-                    limit: 1
-                },
-                timeout: 60000
-            });
-
-            if (response.data.results && response.data.results.length > 0) {
-                console.log("[DEBUG] Found parcel via Spatial Query.");
-                const rawParcel = response.data.results[0];
-                finalParcel = {
-                    ...rawParcel,
-                    geometry: parseWKT(rawParcel.geom_as_wkt),
-                    _method: 'spatial_fallback'
-                };
-            }
+        if (response.data.results && response.data.results.length > 0) {
+            console.log("[DEBUG] Found parcel via Spatial Query.");
+            const rawParcel = response.data.results[0];
+            finalParcel = {
+                ...rawParcel,
+                geometry: parseWKT(rawParcel.geom_as_wkt)
+            };
         }
 
         // Send Result
@@ -223,11 +171,30 @@ app.get('/api/owner', async (req, res) => {
 
     } catch (error) {
         console.error("API Error:", error.message);
+        console.error("Error Code:", error.code);
+
         if (error.response) {
-            console.error("API Response Details:", error.response.data);
-            return res.status(error.response.status).json({ error: 'External API Error', details: error.response.data });
+            console.error("API Response Status:", error.response.status);
+            console.error("API Response Data:", error.response.data);
+            return res.status(error.response.status).json({
+                error: 'External API Error',
+                details: error.response.data
+            });
         }
-        res.status(500).json({ error: 'Failed to fetch owner data' });
+
+        // Network/timeout errors
+        if (error.code === 'ECONNABORTED' || error.message.includes('aborted')) {
+            console.error("Request was aborted or timed out");
+            return res.status(504).json({
+                error: 'Request timeout - API did not respond in time',
+                hint: 'ReportAllUSA only covers US parcels. Verify coordinates are in the United States.'
+            });
+        }
+
+        res.status(500).json({
+            error: 'Failed to fetch owner data',
+            message: error.message
+        });
     }
 });
 
