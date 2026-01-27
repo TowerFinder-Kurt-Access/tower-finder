@@ -1,0 +1,284 @@
+[
+  {
+    "type": "tower",
+    "subType": "communication",
+    "lat": 37.773427,
+    "lon": -122.4075389,
+    "details": {
+      "man_made": "tower",
+      "tower:type": "communication"
+    }
+  },
+  {
+    "type": "mast",
+    "subType": "communication",
+    "lat": 37.775426,
+    "lon": -122.4039947,
+    "details": {
+      "man_made": "mast",
+      "tower:type": "communication"
+    }
+  },
+  {
+    "type": "mast",
+    "subType": "lighting",
+    "lat": 37.7805844,
+    "lon": -122.4250119,
+    "details": {
+      "man_made": "mast",
+      "tower:type": "lighting"
+    }
+  },
+  {
+    "type": "mast",
+    "subType": "lighting",
+    "lat": 37.7806456,
+    "lon": -122.4245226,
+    "details": {
+      "man_made": "mast",
+      "tower:type": "lighting"
+    }
+  },
+  {
+    "type": "mast",
+    "subType": "lighting",
+    "lat": 37.7806924,
+    "lon": -122.4241576,
+    "details": {
+      "man_made": "mast",
+      "tower:type": "lighting"
+    }
+  },
+  {
+    "type": "mast",
+    "subType": "lighting",
+    "lat": 37.7808627,
+    "lon": -122.4239523,
+    "details": {
+      "man_made": "mast",
+      "tower:type": "lighting"
+    }
+  },
+  {
+    "type": "mast",
+    "subType": "lighting",
+    "lat": 37.7811577,
+    "lon": -122.4239968,
+    "details": {
+      "man_made": "mast",
+      "tower:type": "lighting"
+    }
+  },
+  {
+    "type": "mast",
+    "subType": "lighting",
+    "lat": 37.7813973,
+    "lon": -122.4244414,
+    "details": {
+      "man_made": "mast",
+      "tower:type": "lighting"
+    }
+  },
+  {
+    "type": "mast",
+    "subType": "lighting",
+    "lat": 37.7813373,
+    "lon": -122.4249283,
+    "details": {
+      "man_made": "mast",
+      "tower:type": "lighting"
+    }
+  },
+  {
+    "type": "mast",
+    "subType": "lighting",
+    "lat": 37.781288,
+    "lon": -122.4252955,
+    "details": {
+      "man_made": "mast",
+      "tower:type": "lighting"
+    }
+  },
+  {
+    "type": "mast",
+    "subType": "lighting",
+    "lat": 37.7811057,
+    "lon": -122.4254898,
+    "details": {
+      "man_made": "mast",
+      "tower:type": "lighting"
+    }
+  },
+  {
+    "type": "mast",
+    "subType": "lighting",
+    "lat": 37.7807726,
+    "lon": -122.4254221,
+    "details": {
+      "man_made": "mast",
+      "tower:type": "lighting"
+    }
+  },
+  {
+    "type": "mast",
+    "subType": "lighting",
+    "lat": 37.7704898,
+    "lon": -122.3936493,
+    "details": {
+      "man_made": "mast",
+      "tower:type": "lighting"
+    }
+  },
+  {
+    "type": "mast",
+    "subType": "lighting",
+    "lat": 37.7704718,
+    "lon": -122.3939733,
+    "details": {
+      "man_made": "mast",
+      "tower:type": "lighting"
+    }
+  },
+  {
+    "type": "mast",
+    "subType": "lighting",
+    "lat": 37.7704557,
+    "lon": -122.3942654,
+    "details": {
+      "man_made": "mast",
+      "tower:type": "lighting"
+    }
+  },
+  {
+    "type": "mast",
+    "subType": "lighting",
+    "lat": 37.7707601,
+    "lon": -122.3942942,
+    "details": {
+      "man_made": "mast",
+      "tower:type": "lighting"
+    }
+  },
+  {
+    "type": "mast",
+    "subType": "lighting",
+    "lat": 37.7707794,
+    "lon": -122.393999,
+    "details": {
+      "man_made": "mast",
+      "tower:type": "lighting"
+    }
+  },
+  {
+    "type": "mast",
+    "subType": "lighting",
+    "lat": 37.7707984,
+    "lon": -122.3936835,
+    "details": {
+      "man_made": "mast",
+      "tower:type": "lighting"
+    }
+  },
+  {
+    "type": "mast",
+    "subType": "lighting",
+    "lat": 37.7708181,
+    "lon": -122.3933895,
+    "details": {
+      "man_made": "mast",
+      "tower:type": "lighting"
+    }
+  },
+  {
+    "type": "mast",
+    "subType": "lighting",
+    "lat": 37.7708344,
+    "lon": -122.3931049,
+    "details": {
+      "man_made": "mast",
+      "tower:type": "lighting"
+    }
+  },
+  {
+    "type": "mast",
+    "subType": "lighting",
+    "lat": 37.7705244,
+    "lon": -122.3930737,
+    "details": {
+      "man_made": "mast",
+      "tower:type": "lighting"
+    }
+  },
+  {
+    "type": "mast",
+    "subType": "lighting",
+    "lat": 37.7705073,
+    "lon": -122.393361,
+    "details": {
+      "man_made": "mast",
+      "tower:type": "lighting"
+    }
+  },
+  {
+    "type": "mast",
+    "subType": "lighting",
+    "lat": 37.7709543,
+    "lon": -122.3989193,
+    "details": {
+      "man_made": "mast",
+      "tower:type": "lighting"
+    }
+  },
+  {
+    "type": "mast",
+    "subType": "lighting",
+    "lat": 37.7710471,
+    "lon": -122.3988041,
+    "details": {
+      "man_made": "mast",
+      "tower:type": "lighting"
+    }
+  },
+  {
+    "type": "mast",
+    "subType": "lighting",
+    "lat": 37.7711803,
+    "lon": -122.3989648,
+    "details": {
+      "man_made": "mast",
+      "tower:type": "lighting"
+    }
+  },
+  {
+    "type": "mast",
+    "subType": "lighting",
+    "lat": 37.7710854,
+    "lon": -122.3990818,
+    "details": {
+      "man_made": "mast",
+      "tower:type": "lighting"
+    }
+  },
+  {
+    "type": "mast",
+    "subType": "communication",
+    "lat": 37.7708459,
+    "lon": -122.3957228,
+    "details": {
+      "communication:mobile_phone": "yes",
+      "man_made": "mast",
+      "tower:type": "communication"
+    }
+  },
+  {
+    "type": "mast",
+    "subType": "communication",
+    "lat": 37.7713683,
+    "lon": -122.4006418,
+    "details": {
+      "man_made": "mast",
+      "tower:construction": "lattice",
+      "tower:type": "communication"
+    }
+  }
+]

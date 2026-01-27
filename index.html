@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tower Finder Map</title>
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+        }
+
+        #map {
+            height: 100vh;
+            width: 100%;
+        }
+
+        .controls {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 1000;
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+            font-family: sans-serif;
+            width: 300px;
+        }
+
+        .controls h3 {
+            margin-top: 0;
+            margin-bottom: 10px;
+        }
+
+        .search-group {
+            margin-bottom: 10px;
+            display: flex;
+            gap: 5px;
+        }
+
+        .search-group input {
+            flex-grow: 1;
+            padding: 5px;
+        }
+
+        .search-group button {
+            padding: 5px 10px;
+            cursor: pointer;
+        }
+
+        .action-btn {
+            width: 100%;
+            padding: 10px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .action-btn:hover {
+            background-color: #0056b3;
+        }
+
+        .action-btn:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+
+        #stats {
+            margin-top: 10px;
+            font-size: 0.9em;
+            color: #555;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="map"></div>
+
+    <div class="controls">
+        <h3>Tower Finder</h3>
+
+        <div class="search-group">
+            <input type="text" id="searchInput" placeholder="City, Lat,Lon..." />
+            <button onclick="searchLocation()">Go</button>
+        </div>
+
+        <button id="searchAreaBtn" class="action-btn" onclick="searchCurrentArea()">Search This Area</button>
+
+        <div id="stats">Ready to search.</div>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+    <!-- Mapbox's wellknown library to parse WKT -->
+    <script src="https://unpkg.com/wellknown@1.5.0/wellknown.js"></script>
+
+    <script>
+        // Initialize Map
+        const map = L.map('map').setView([37.7749, -122.4194], 13);
+        const markersLayer = L.featureGroup().addTo(map);
+        const parcelsLayer = L.featureGroup().addTo(map); // Layer for parcel polygons
+
+        L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '&copy; OpenStreetMap'
+        }).addTo(map);
+
+        async function searchLocation() {
+            const query = document.getElementById('searchInput').value;
+            if (!query) return;
+
+            // Check if input is Lat,Lon
+            const latLonMatch = query.match(/^(-?\d+(\.\d+)?),\s*(-?\d+(\.\d+)?)$/);
+            if (latLonMatch) {
+                const lat = parseFloat(latLonMatch[1]);
+                const lon = parseFloat(latLonMatch[3]);
+                map.setView([lat, lon], 14);
+                return;
+            }
+
+            // Otherwise, geocode using Nominatim
+            try {
+                const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`);
+                const data = await response.json();
+
+                if (data && data.length > 0) {
+                    const result = data[0];
+                    const lat = parseFloat(result.lat);
+                    const lon = parseFloat(result.lon);
+                    map.setView([lat, lon], 14);
+                } else {
+                    alert('Location not found!');
+                }
+            } catch (err) {
+                console.error("Geocoding error:", err);
+                alert('Error searching for location.');
+            }
+        }
+
+        async function searchCurrentArea() {
+            const btn = document.getElementById('searchAreaBtn');
+            const stats = document.getElementById('stats');
+
+            btn.disabled = true;
+            btn.innerText = "Searching...";
+            stats.innerText = "Querying Overpass API...";
+
+            markersLayer.clearLayers();
+            parcelsLayer.clearLayers(); // Clear old polygons
+
+            const bounds = map.getBounds();
+            const bbox = `${bounds.getSouth()},${bounds.getWest()},${bounds.getNorth()},${bounds.getEast()}`;
+
+            try {
+                const response = await fetch(`/api/towers?bbox=${bbox}`);
+                const data = await response.json();
+
+                if (data.error) throw new Error(data.error);
+
+                stats.innerText = `Found ${data.length} towers.`;
+
+                let markerId = 0;
+                data.forEach(tower => {
+                    markerId++;
+                    let color = 'blue';
+                    if (tower.type === 'mast') color = 'red';
+
+                    // Unique ID for the result div
+                    const resultDivId = `owner-result-${markerId}`;
+
+                    const popupContent = `
+                        <b>Type:</b> ${tower.type}<br>
+                        <b>Sub-Type:</b> ${tower.subType || 'N/A'}<br>
+                        <pre style="max-height:100px; overflow:auto;">${JSON.stringify(tower.details, null, 2)}</pre>
+                        <hr>
+                        <button class="action-btn" style="padding:5px; font-size:12px;" onclick="getOwner(${tower.lat}, ${tower.lon}, '${resultDivId}')">Get Nearby Parcels</button>
+                        <div id="${resultDivId}" style="margin-top:5px; font-weight:bold; color:#333;"></div>
+                    `;
+
+                    const marker = L.marker([tower.lat, tower.lon])
+                        .bindPopup(popupContent);
+                    markersLayer.addLayer(marker);
+                });
+
+            } catch (err) {
+                console.error("Search error:", err);
+                stats.innerText = "Error fetching towers.";
+            } finally {
+                btn.disabled = false;
+                btn.innerText = "Search This Area";
+            }
+        }
+
+        async function getOwner(lat, lon, divId) {
+            const div = document.getElementById(divId);
+            div.innerText = "Loading nearby parcels...";
+
+            try {
+                const response = await fetch(`/api/owner?lat=${lat}&lon=${lon}`);
+                const data = await response.json();
+
+                if (data.error) {
+                    div.innerHTML = `<span style="color:red">Error: ${data.error.message || data.error}</span>`;
+                } else if (data.results && data.results.length > 0) {
+                    div.innerHTML = `<span style="color:green">Found ${data.results.length} parcels. Check map!</span>`;
+                    div.innerHTML += `<div style="max-height:150px; overflow:auto; display:flex; flex-direction:column; gap:3px; margin-top:5px;">`;
+
+                    data.results.forEach((parcel, index) => {
+                        // Fallback logic for name
+                        const ownerName = parcel.owner || parcel.owner_name || parcel.sitename || parcel.mail_name || parcel.prop_address || parcel.muni_name || "Unknown";
+                        div.innerHTML += `<small>${index + 1}. ${ownerName}</small>`;
+
+                        // Draw Polygon using wellknown
+                        if (parcel.geom_as_wkt) {
+                            try {
+                                // wellknown is global from the script tag
+                                const geojson = wellknown.parse(parcel.geom_as_wkt);
+
+                                if (geojson) {
+                                    L.geoJSON(geojson, {
+                                        style: {
+                                            color: index === 0 ? 'red' : 'orange',
+                                            weight: 2,
+                                            fillOpacity: 0.2
+                                        }
+                                    }).bindPopup(`
+                                         <b>Owner/Address:</b> ${ownerName}<br>
+                                         <pre style="max-height:200px; overflow:auto;">${JSON.stringify(parcel, null, 2)}</pre>
+                                     `).addTo(parcelsLayer);
+                                } else {
+                                    console.error("wellknown returned null");
+                                }
+                            } catch (wktErr) {
+                                console.error("WKT Parsing Error:", wktErr);
+                            }
+                        }
+                    });
+                    div.innerHTML += `</div>`;
+                } else {
+                    div.innerText = "No parcels found nearby.";
+                }
+            } catch (err) {
+                console.error("Owner fetch error:", err);
+                div.innerText = "Failed to load owner.";
+            }
+        }
+
+        // Allow Enter key in search box
+        document.getElementById('searchInput').addEventListener("keypress", function (event) {
+            if (event.key === "Enter") {
+                searchLocation();
+            }
+        });
+    </script>
+</body>
+
+</html>
