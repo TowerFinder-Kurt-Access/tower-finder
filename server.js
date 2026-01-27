@@ -74,6 +74,46 @@ app.get('/api/towers', async (req, res) => {
     }
 });
 
+// Helper to parse WKT (Moved from frontend)
+function parseWKT(wkt) {
+    if (!wkt) return null;
+    wkt = wkt.trim().toUpperCase();
+
+    const typeMatch = wkt.match(/^([A-Z]+)\s*\((.*)\)$/);
+    if (!typeMatch) return null;
+    const type = typeMatch[1];
+    const content = typeMatch[2];
+
+    if (type === 'POLYGON') {
+        return {
+            type: 'Polygon',
+            coordinates: parsePoly(content)
+        };
+    } else if (type === 'MULTIPOLYGON') {
+        const parts = content.split(/\)\)\s*,\s*\(\(/);
+        const coordinates = parts.map(part => {
+            let clean = part.replace(/^\(+/, '').replace(/\)+$/, '');
+            return parsePoly('(' + clean + ')');
+        });
+        return {
+            type: 'MultiPolygon',
+            coordinates: coordinates
+        };
+    }
+    return null;
+}
+
+function parsePoly(str) {
+    const rings = str.match(/\(([^()]+)\)/g);
+    if (!rings) return [];
+    return rings.map(ring => {
+        return ring.replace(/[()]/g, '').split(',').map(pair => {
+            const [lon, lat] = pair.trim().split(/\s+/).map(Number);
+            return [lon, lat];
+        });
+    });
+}
+
 // API Endpoint to get Land Owner (ReportAllUSA)
 app.get('/api/owner', async (req, res) => {
     const { lat, lon } = req.query;
@@ -83,53 +123,85 @@ app.get('/api/owner', async (req, res) => {
     }
 
     // Credentials provided by user
-    // NOTE: 'QNEkJ8eGe8' appears to be a public demo key which often returns 'Isles of Scilly' data.
-    // If you have a paid account, replace this string.
+    // NOTE: 'QNEkJ8eGe8' is a DEMO key. It creates "Isles of Scilly" results for many US locations.
     const CLIENT_KEY = 'QNEkJ8eGe8';
 
     console.log(`[DEBUG] Fetching owner for Lat: ${lat}, Lon: ${lon}`);
 
     // ReportAll API requires WKT (Well Known Text) format for points
-    // POINT(longitude latitude)
     const pointWKT = `POINT(${lon} ${lat})`;
-    console.log(`[DEBUG] Generated WKT: ${pointWKT}`);
 
     try {
         const response = await axios.get('https://reportallusa.com/api/parcels', {
             params: {
                 client: CLIENT_KEY,
-                v: 9, // API version
-                // spatial_nearest finds the closest parcel. 
-                // We use this instead of spatial_intersect because cell towers are often 
-                // on easements/roads (outside parcel boundaries). 'nearest' ensures we find the adjacent owner.
+                v: 9,
                 spatial_nearest: pointWKT,
                 si_srid: 4326,
-                limit: 1 // Fetch only the single nearest result
+                limit: 1
             },
             timeout: 60000
         });
 
         const data = response.data;
+        let finalParcel = null;
 
-        let results = [];
         if (data.results && data.results.length > 0) {
-            // Force only 1 result even if API returns more
-            results = data.results.slice(0, 1);
-            console.log("First result sample:", JSON.stringify(results[0], null, 2));
+            // Take the first result
+            const rawParcel = data.results[0];
+
+            // Parse WKT to GeoJSON here on the server
+            const geojson = parseWKT(rawParcel.geom_as_wkt);
+
+            finalParcel = {
+                ...rawParcel,
+                geometry: geojson
+            };
+
+            console.log("Processed Parcel Owner:", finalParcel.owner || "Unknown");
+        } else {
+            console.log("No parcels found.");
         }
 
-        console.log(`Found ${results.length} parcel(s).`);
-
-        // Return full list for visualization
-        res.json({ results });
+        // Send back the processed single parcel (or null)
+        res.json({ result: finalParcel });
 
     } catch (error) {
         console.error("ReportAll API Error:", error.message);
         if (error.response) {
-            console.error("API Response:", error.response.data);
+            console.error("API Response Details:", error.response.data);
             return res.status(error.response.status).json({ error: 'External API Error', details: error.response.data });
         }
         res.status(500).json({ error: 'Failed to fetch owner data' });
+    }
+});
+
+// API Endpoint to Geocode Location (Nominatim)
+app.get('/api/geocode', async (req, res) => {
+    const { q } = req.query;
+
+    if (!q) {
+        return res.status(400).json({ error: 'Missing query parameter q' });
+    }
+
+    console.log(`Geocoding query: ${q}`);
+
+    try {
+        const response = await axios.get('https://nominatim.openstreetmap.org/search', {
+            params: {
+                format: 'json',
+                q: q
+            },
+            headers: {
+                'User-Agent': 'TowerFinderApp/1.0' // Good practice for OSM API
+            }
+        });
+
+        res.json(response.data);
+
+    } catch (error) {
+        console.error("Nominatim API Error:", error.message);
+        res.status(500).json({ error: 'Failed to geocode location' });
     }
 });
 
