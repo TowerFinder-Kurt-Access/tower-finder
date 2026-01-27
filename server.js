@@ -83,34 +83,42 @@ app.get('/api/owner', async (req, res) => {
     }
 
     // Credentials provided by user
+    // NOTE: 'QNEkJ8eGe8' appears to be a public demo key which often returns 'Isles of Scilly' data.
+    // If you have a paid account, replace this string.
     const CLIENT_KEY = 'QNEkJ8eGe8';
 
-    console.log(`Fetching owner for ${lat}, ${lon}...`);
+    console.log(`[DEBUG] Fetching owner for Lat: ${lat}, Lon: ${lon}`);
+
+    // ReportAll API requires WKT (Well Known Text) format for points
+    // POINT(longitude latitude)
+    const pointWKT = `POINT(${lon} ${lat})`;
+    console.log(`[DEBUG] Generated WKT: ${pointWKT}`);
 
     try {
-        // ReportAll API requires WKT (Well Known Text) format for points
-        // POINT(longitude latitude)
-        const pointWKT = `POINT(${lon} ${lat})`;
-
         const response = await axios.get('https://reportallusa.com/api/parcels', {
             params: {
                 client: CLIENT_KEY,
                 v: 9, // API version
+                // spatial_nearest finds the closest parcel. 
+                // We use this instead of spatial_intersect because cell towers are often 
+                // on easements/roads (outside parcel boundaries). 'nearest' ensures we find the adjacent owner.
                 spatial_nearest: pointWKT,
                 si_srid: 4326,
-                limit: 50 // Fetch many neighbors (approx 500m radius equivalent depending on density)
+                limit: 1 // Fetch only the single nearest result
             },
-            timeout: 10000
+            timeout: 60000
         });
 
         const data = response.data;
 
         let results = [];
         if (data.results && data.results.length > 0) {
-            results = data.results;
+            // Force only 1 result even if API returns more
+            results = data.results.slice(0, 1);
+            console.log("First result sample:", JSON.stringify(results[0], null, 2));
         }
 
-        console.log(`Found ${results.length} surrounding parcels.`);
+        console.log(`Found ${results.length} parcel(s).`);
 
         // Return full list for visualization
         res.json({ results });

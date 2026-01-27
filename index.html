@@ -79,6 +79,74 @@
             font-size: 0.9em;
             color: #555;
         }
+
+        /* Modal Styles */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 2000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            width: 90%;
+            max-width: 500px;
+            max-height: 80vh;
+            overflow-y: auto;
+            position: relative;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+            font-family: sans-serif;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 10px;
+            margin-bottom: 10px;
+        }
+
+        .modal-title {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 1.5em;
+            cursor: pointer;
+            color: #666;
+        }
+
+        .data-row {
+            display: flex;
+            border-bottom: 1px solid #f0f0f0;
+            padding: 8px 0;
+        }
+
+        .data-label {
+            width: 140px;
+            font-weight: bold;
+            color: #555;
+            flex-shrink: 0;
+        }
+
+        .data-value {
+            color: #333;
+            word-break: break-word;
+        }
     </style>
 </head>
 
@@ -99,12 +167,134 @@
         <div id="stats">Ready to search.</div>
     </div>
 
+    <!-- Owner Details Modal -->
+    <div id="ownerModal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-title">Property Details</div>
+                <button class="close-btn" onclick="closeModal()">&times;</button>
+            </div>
+            <div id="modalBody">
+                <!-- Content injected here -->
+            </div>
+        </div>
+    </div>
+
     <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
         integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 
-    <!-- Mapbox's wellknown library to parse WKT -->
-    <script src="https://unpkg.com/wellknown@1.5.0/wellknown.js"></script>
+    <script>
+        // Custom WKT Parser implementation
+        function parseWKT(wkt) {
+            if (!wkt) return null;
+            wkt = wkt.trim().toUpperCase();
+
+            const typeMatch = wkt.match(/^([A-Z]+)\s*\((.*)\)$/);
+            if (!typeMatch) return null;
+            const type = typeMatch[1];
+            const content = typeMatch[2];
+
+            if (type === 'POLYGON') {
+                return {
+                    type: 'Polygon',
+                    coordinates: parsePoly(content)
+                };
+            } else if (type === 'MULTIPOLYGON') {
+                // Split by ")), ((" allowing for whitespace
+                // This handles: (((...))), (((...)))
+                // Content might look like: "((-1 1, -2 2...)), ((-3 3...))"
+                const parts = content.split(/\)\)\s*,\s*\(\(/);
+
+                const coordinates = parts.map(part => {
+                    // Clean start/end parens to get to the ring level "..." or "...), (..."
+                    let clean = part.replace(/^\(+/, '').replace(/\)+$/, '');
+                    // Re-add parens to simulate a Polygon content structure "(...)" or "(...), (...)"
+                    return parsePoly('(' + clean + ')');
+                });
+
+                return {
+                    type: 'MultiPolygon',
+                    coordinates: coordinates
+                };
+            }
+            return null;
+        }
+
+        function parsePoly(str) {
+            // Matches (x y, x y, ...) groups
+            const rings = str.match(/\(([^()]+)\)/g);
+            if (!rings) return [];
+
+            return rings.map(ring => {
+                return ring.replace(/[()]/g, '').split(',').map(pair => {
+                    const [lon, lat] = pair.trim().split(/\s+/).map(Number);
+                    return [lon, lat];
+                });
+            });
+        }
+
+        // Modal Functions
+        function openModal(data) {
+            const modal = document.getElementById('ownerModal');
+            const body = document.getElementById('modalBody');
+
+            // Build content
+            const fields = [
+                { label: 'Owner', value: data.owner },
+                { label: 'Site Name', value: data.sitename },
+                { label: 'Address', value: data.prop_address },
+                { label: 'Mailing Address', value: data.mail_address },
+                { label: 'Mailing City/State', value: data.mail_city ? `${data.mail_city}, ${data.mail_state}` : '' },
+                { label: 'Parcel ID (APN)', value: data.parcel_id },
+                { label: 'County', value: data.county_name },
+                { label: 'Municipality', value: data.muni_name },
+                { label: 'Land Use', value: data.land_use || data.use_desc },
+                { label: 'Acreage', value: data.acreage_calc || data.acreage_deed }
+            ];
+
+            let html = '';
+            fields.forEach(f => {
+                if (f.value) {
+                    html += `
+                        <div class="data-row">
+                            <div class="data-label">${f.label}:</div>
+                            <div class="data-value">${f.value}</div>
+                        </div>
+                    `;
+                }
+            });
+
+            if (html === '') {
+                html = '<div style="padding:20px; text-align:center; color:#777;">No detailed property information available.</div>';
+            }
+
+            // Add raw data toggle
+            html += `
+                <div style="margin-top:20px; padding-top:10px; border-top:1px solid #ddd;">
+                    <details>
+                        <summary style="cursor:pointer; color:#007bff; font-size:0.9em;">View Raw Data Source</summary>
+                        <pre style="background:#f8f9fa; padding:10px; font-size:11px; overflow:auto; border-radius:4px;">${JSON.stringify(data, null, 2)}</pre>
+                    </details>
+                </div>
+            `;
+
+            body.innerHTML = html;
+            modal.style.display = 'flex';
+        }
+
+        function closeModal() {
+            document.getElementById('ownerModal').style.display = 'none';
+        }
+
+        // Close on click outside
+        window.onclick = function (event) {
+            const modal = document.getElementById('ownerModal');
+            if (event.target == modal) {
+                closeModal();
+            }
+        }
+    </script>
 
     <script>
         // Initialize Map
@@ -183,9 +373,9 @@
                     const popupContent = `
                         <b>Type:</b> ${tower.type}<br>
                         <b>Sub-Type:</b> ${tower.subType || 'N/A'}<br>
-                        <pre style="max-height:100px; overflow:auto;">${JSON.stringify(tower.details, null, 2)}</pre>
+                        <div style="font-size:0.8em; color:#666; margin-bottom:5px;">ID: ${tower.id}</div>
                         <hr>
-                        <button class="action-btn" style="padding:5px; font-size:12px;" onclick="getOwner(${tower.lat}, ${tower.lon}, '${resultDivId}')">Get Nearby Parcels</button>
+                        <button class="action-btn" style="padding:5px; font-size:12px;" onclick="getOwner(${tower.lat}, ${tower.lon}, '${resultDivId}')">Get Land Owner</button>
                         <div id="${resultDivId}" style="margin-top:5px; font-weight:bold; color:#333;"></div>
                     `;
 
@@ -205,51 +395,43 @@
 
         async function getOwner(lat, lon, divId) {
             const div = document.getElementById(divId);
-            div.innerText = "Loading nearby parcels...";
+            div.innerText = "Loading owner info...";
 
             try {
                 const response = await fetch(`/api/owner?lat=${lat}&lon=${lon}`);
                 const data = await response.json();
 
                 if (data.error) {
+                    console.error("API Error:", data.error);
                     div.innerHTML = `<span style="color:red">Error: ${data.error.message || data.error}</span>`;
                 } else if (data.results && data.results.length > 0) {
-                    div.innerHTML = `<span style="color:green">Found ${data.results.length} parcels. Check map!</span>`;
-                    div.innerHTML += `<div style="max-height:150px; overflow:auto; display:flex; flex-direction:column; gap:3px; margin-top:5px;">`;
+                    const parcel = data.results[0]; // limit=1 enforced
+                    console.log("Found parcel:", parcel);
 
-                    data.results.forEach((parcel, index) => {
-                        // Fallback logic for name
-                        const ownerName = parcel.owner || parcel.owner_name || parcel.sitename || parcel.mail_name || parcel.prop_address || parcel.muni_name || "Unknown";
-                        div.innerHTML += `<small>${index + 1}. ${ownerName}</small>`;
+                    // Show success message
+                    div.innerHTML = `<button class="action-btn" style="background:#28a745; margin-top:5px;" onclick='openModal(${JSON.stringify(parcel).replace(/'/g, "&#39;")})'>View Owner Details</button>`;
 
-                        // Draw Polygon using wellknown
-                        if (parcel.geom_as_wkt) {
-                            try {
-                                // wellknown is global from the script tag
-                                const geojson = wellknown.parse(parcel.geom_as_wkt);
-
-                                if (geojson) {
-                                    L.geoJSON(geojson, {
-                                        style: {
-                                            color: index === 0 ? 'red' : 'orange',
-                                            weight: 2,
-                                            fillOpacity: 0.2
-                                        }
-                                    }).bindPopup(`
-                                         <b>Owner/Address:</b> ${ownerName}<br>
-                                         <pre style="max-height:200px; overflow:auto;">${JSON.stringify(parcel, null, 2)}</pre>
-                                     `).addTo(parcelsLayer);
-                                } else {
-                                    console.error("wellknown returned null");
+                    // Draw Polygon
+                    if (parcel.geom_as_wkt) {
+                        const geojson = parseWKT(parcel.geom_as_wkt);
+                        if (geojson) {
+                            L.geoJSON(geojson, {
+                                style: {
+                                    color: 'red',
+                                    weight: 3,
+                                    fillOpacity: 0.1
                                 }
-                            } catch (wktErr) {
-                                console.error("WKT Parsing Error:", wktErr);
-                            }
+                            }).addTo(parcelsLayer);
+                        } else {
+                            console.warn("Failed to parse WKT:", parcel.geom_as_wkt);
                         }
-                    });
-                    div.innerHTML += `</div>`;
+                    }
+
+                    // Auto open modal on first load? Maybe better to let user click "View Details" to avoid popup blocking map.
+                    openModal(parcel); // User asked to "show the info", so auto-open seems appropriate.
+
                 } else {
-                    div.innerText = "No parcels found nearby.";
+                    div.innerText = "No owner info found.";
                 }
             } catch (err) {
                 console.error("Owner fetch error:", err);
