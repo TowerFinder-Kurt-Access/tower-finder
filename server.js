@@ -198,6 +198,137 @@ app.get('/api/owner', async (req, res) => {
     }
 });
 
+// API Endpoint to get Nearby Parcels
+app.get('/api/nearby-parcels', async (req, res) => {
+    const { lat, lon, radius } = req.query;
+
+    if (!lat || !lon) {
+        return res.status(400).json({ error: 'Missing lat or lon parameter' });
+    }
+
+    const CLIENT_KEY = process.env.REPORTALL_API_KEY;
+
+    if (!CLIENT_KEY) {
+        console.error('[ERROR] REPORTALL_API_KEY not set in .env file');
+        return res.status(500).json({ error: 'API key not configured' });
+    }
+
+    // Default radius: 100 meters (approximate degrees)
+    const radiusInDegrees = parseFloat(radius || 0.001); // ~100m at equator
+    const latNum = parseFloat(lat);
+    const lonNum = parseFloat(lon);
+
+    // Create bounding box
+    const minLat = latNum - radiusInDegrees;
+    const maxLat = latNum + radiusInDegrees;
+    const minLon = lonNum - radiusInDegrees;
+    const maxLon = lonNum + radiusInDegrees;
+
+    const bboxWKT = `POLYGON((${minLon} ${minLat},${maxLon} ${minLat},${maxLon} ${maxLat},${minLon} ${maxLat},${minLon} ${minLat}))`;
+
+    console.log(`[DEBUG] Fetching nearby parcels around Lat: ${lat}, Lon: ${lon}, Radius: ${radiusInDegrees}`);
+
+    try {
+        const response = await axios.get('https://reportallusa.com/api/parcels', {
+            params: {
+                client: CLIENT_KEY,
+                v: 9,
+                spatial_intersect: bboxWKT,
+                si_srid: 4326,
+                limit: 50 // Get up to 50 nearby parcels
+            },
+            timeout: 60000
+        });
+
+        const parcels = [];
+
+        if (response.data.results && response.data.results.length > 0) {
+            console.log(`[DEBUG] Found ${response.data.results.length} nearby parcels`);
+            response.data.results.forEach(rawParcel => {
+                parcels.push({
+                    ...rawParcel,
+                    geometry: parseWKT(rawParcel.geom_as_wkt)
+                });
+            });
+        }
+
+        res.json({ parcels: parcels, count: parcels.length });
+
+    } catch (error) {
+        console.error("API Error:", error.message);
+        if (error.response) {
+            console.error("API Response:", error.response.data);
+            return res.status(error.response.status).json({
+                error: 'External API Error',
+                details: error.response.data
+            });
+        }
+        res.status(500).json({ error: 'Failed to fetch nearby parcels' });
+    }
+});
+
+// API Endpoint to get Phone Number from Whitepages
+app.get('/api/phone-lookup', async (req, res) => {
+    const { name, address, city, state } = req.query;
+
+    if (!name) {
+        return res.status(400).json({ error: 'Missing name parameter' });
+    }
+
+    const WHITEPAGES_KEY = process.env.WHITEPAGES_API_KEY;
+
+    if (!WHITEPAGES_KEY) {
+        console.warn('[WARN] WHITEPAGES_API_KEY not set - skipping phone lookup');
+        return res.json({ phone: null, note: 'Whitepages API key not configured' });
+    }
+
+    console.log(`[DEBUG] Looking up phone for: ${name}, ${city}, ${state}`);
+
+    try {
+        // Whitepages Pro API - Person endpoint
+        const response = await axios.get('https://proapi.whitepages.com/3.1/person', {
+            params: {
+                api_key: WHITEPAGES_KEY,
+                name: name,
+                address_street: address || '',
+                address_city: city || '',
+                address_state_code: state || ''
+            },
+            timeout: 10000
+        });
+
+        if (response.data && response.data.results && response.data.results.length > 0) {
+            const person = response.data.results[0];
+            const phones = [];
+
+            // Extract phone numbers
+            if (person.phones && person.phones.length > 0) {
+                person.phones.forEach(phone => {
+                    if (phone.phone_number) {
+                        phones.push({
+                            number: phone.phone_number,
+                            type: phone.line_type || 'unknown'
+                        });
+                    }
+                });
+            }
+
+            console.log(`[DEBUG] Found ${phones.length} phone numbers`);
+            res.json({ phones: phones, person: person });
+        } else {
+            console.log('[DEBUG] No phone results from Whitepages');
+            res.json({ phones: [], person: null });
+        }
+
+    } catch (error) {
+        console.error("Whitepages API Error:", error.message);
+        if (error.response) {
+            console.error("Whitepages Response:", error.response.data);
+        }
+        res.json({ phones: [], error: 'Phone lookup failed' });
+    }
+});
+
 // API Endpoint to Geocode Location (Nominatim)
 app.get('/api/geocode', async (req, res) => {
     const { q } = req.query;

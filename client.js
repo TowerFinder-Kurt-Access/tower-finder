@@ -1,5 +1,5 @@
 // Modal Functions
-function openModal(data) {
+async function openModal(data) {
     const modal = document.getElementById('ownerModal');
     const body = document.getElementById('modalBody');
 
@@ -33,6 +33,18 @@ function openModal(data) {
         html = '<div style="padding:20px; text-align:center; color:#777;">No detailed property information available.</div>';
     }
 
+    // Add phone lookup section
+    if (data.owner) {
+        html += `
+            <div id="phone-section" style="margin-top:10px; padding-top:10px; border-top:1px solid #ddd;">
+                <button id="phone-lookup-btn" class="action-btn" style="padding:8px; width:100%;" onclick="lookupPhone('${data.owner}', '${data.mail_address || ''}', '${data.mail_city || ''}', '${data.mail_state || ''}')">
+                    Find Phone Number
+                </button>
+                <div id="phone-results" style="margin-top:10px;"></div>
+            </div>
+        `;
+    }
+
     // Add raw data toggle
     html += `
         <div style="margin-top:20px; padding-top:10px; border-top:1px solid #ddd;">
@@ -63,6 +75,7 @@ window.onclick = function (event) {
 const map = L.map('map').setView([37.7749, -122.4194], 13);
 const markersLayer = L.featureGroup().addTo(map);
 const parcelsLayer = L.featureGroup().addTo(map); // Layer for parcel polygons
+const nearbyParcelsLayer = L.featureGroup().addTo(map); // Layer for nearby parcels
 
 L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom: 19,
@@ -111,6 +124,7 @@ async function searchCurrentArea() {
 
     markersLayer.clearLayers();
     parcelsLayer.clearLayers(); // Clear old polygons
+    nearbyParcelsLayer.clearLayers(); // Clear nearby parcels
 
     const bounds = map.getBounds();
     const bbox = `${bounds.getSouth()},${bounds.getWest()},${bounds.getNorth()},${bounds.getEast()}`;
@@ -132,12 +146,14 @@ async function searchCurrentArea() {
             // Unique ID for the result div
             const resultDivId = `owner-result-${markerId}`;
 
+            const nearbyBtnId = `nearby-btn-${markerId}`;
             const popupContent = `
                 <b>Type:</b> ${tower.type}<br>
                 <b>Sub-Type:</b> ${tower.subType || 'N/A'}<br>
                 <div style="font-size:0.8em; color:#666; margin-bottom:5px;">ID: ${tower.id}</div>
                 <hr>
                 <button class="action-btn" style="padding:5px; font-size:12px;" onclick="getOwner(${tower.lat}, ${tower.lon}, '${resultDivId}')">Get Land Owner</button>
+                <button class="action-btn" id="${nearbyBtnId}" style="padding:5px; font-size:12px; margin-left:5px;" onclick="getNearbyParcels(${tower.lat}, ${tower.lon}, '${nearbyBtnId}')">Show Nearby Parcels</button>
                 <div id="${resultDivId}" style="margin-top:5px; font-weight:bold; color:#333;"></div>
             `;
 
@@ -199,6 +215,126 @@ async function getOwner(lat, lon, divId) {
     } catch (err) {
         console.error("Owner fetch error:", err);
         div.innerText = "Failed to load owner.";
+    }
+}
+
+async function lookupPhone(name, address, city, state) {
+    const btn = document.getElementById('phone-lookup-btn');
+    const resultsDiv = document.getElementById('phone-results');
+
+    btn.disabled = true;
+    btn.innerText = 'Looking up...';
+    resultsDiv.innerHTML = '<div style="color:#666; font-size:0.9em;">Searching for phone number...</div>';
+
+    try {
+        const params = new URLSearchParams({
+            name: name,
+            address: address,
+            city: city,
+            state: state
+        });
+
+        const response = await fetch(`/api/phone-lookup?${params}`);
+        const data = await response.json();
+
+        if (data.phones && data.phones.length > 0) {
+            let phoneHtml = '<div style="margin-top:10px;">';
+            data.phones.forEach(phone => {
+                phoneHtml += `
+                    <div class="data-row">
+                        <div class="data-label">Phone (${phone.type}):</div>
+                        <div class="data-value" style="font-weight:bold; color:#007bff;">
+                            <a href="tel:${phone.number}" style="color:#007bff; text-decoration:none;">
+                                ${phone.number}
+                            </a>
+                        </div>
+                    </div>
+                `;
+            });
+            phoneHtml += '</div>';
+            resultsDiv.innerHTML = phoneHtml;
+            btn.style.display = 'none';
+        } else if (data.note) {
+            resultsDiv.innerHTML = `<div style="color:#ff9800; font-size:0.9em;">${data.note}</div>`;
+            btn.disabled = false;
+            btn.innerText = 'Find Phone Number';
+        } else {
+            resultsDiv.innerHTML = '<div style="color:#999; font-size:0.9em;">No phone number found</div>';
+            btn.disabled = false;
+            btn.innerText = 'Try Again';
+        }
+    } catch (err) {
+        console.error('Phone lookup error:', err);
+        resultsDiv.innerHTML = '<div style="color:red; font-size:0.9em;">Failed to lookup phone</div>';
+        btn.disabled = false;
+        btn.innerText = 'Try Again';
+    }
+}
+
+async function getNearbyParcels(lat, lon, btnId) {
+    const btn = document.getElementById(btnId);
+    const originalText = btn.innerText;
+    btn.disabled = true;
+    btn.innerText = "Loading...";
+
+    try {
+        const response = await fetch(`/api/nearby-parcels?lat=${lat}&lon=${lon}&radius=0.002`);
+        const data = await response.json();
+
+        if (data.error) {
+            console.error("API Error:", data.error);
+            alert(`Error: ${data.error}`);
+            btn.innerText = originalText;
+            btn.disabled = false;
+            return;
+        }
+
+        if (data.parcels && data.parcels.length > 0) {
+            console.log(`Found ${data.count} nearby parcels`);
+
+            // Clear previous nearby parcels
+            nearbyParcelsLayer.clearLayers();
+
+            // Draw each nearby parcel
+            data.parcels.forEach((parcel, index) => {
+                if (parcel.geometry) {
+                    const parcelLayer = L.geoJSON(parcel.geometry, {
+                        style: {
+                            color: '#3388ff',      // Blue border
+                            weight: 2,
+                            fillColor: '#3388ff',  // Blue fill
+                            fillOpacity: 0.15
+                        }
+                    }).addTo(nearbyParcelsLayer);
+
+                    // Add click handler to show parcel details
+                    parcelLayer.on('click', function() {
+                        openModal(parcel);
+                    });
+
+                    // Add tooltip with owner info
+                    const tooltipContent = parcel.owner
+                        ? `Owner: ${parcel.owner}`
+                        : `Parcel ID: ${parcel.parcel_id || 'Unknown'}`;
+                    parcelLayer.bindTooltip(tooltipContent, {
+                        permanent: false,
+                        direction: 'center'
+                    });
+                }
+            });
+
+            btn.innerText = `${data.count} Parcels Shown`;
+            btn.style.background = '#17a2b8';
+        } else {
+            alert('No nearby parcels found');
+            btn.innerText = originalText;
+            btn.disabled = false;
+        }
+    } catch (err) {
+        console.error("Nearby parcels fetch error:", err);
+        alert('Failed to load nearby parcels');
+        btn.innerText = originalText;
+        btn.disabled = false;
     }
 }
 
