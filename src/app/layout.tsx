@@ -1,4 +1,5 @@
 import ThemeRegistry from './ThemeRegistry';
+import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
   title: "Tower Finder CRM",
