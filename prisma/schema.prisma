@@ -1,0 +1,66 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url = env("POSTGRES_URL")
+}
+
+model Tower {
+  id        Int      @id @default(autoincrement())
+  lat       Float
+  lon       Float
+  type      String?   // e.g., "Monopole", "Lattice"
+  status    String   @default("Unknown") // CRM Status: "New", "Researched", "Contacted", "Closed"
+  
+  // A tower sits on a specific parcel of land
+  parcel    Parcel?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Coordinate uniqueness to ensure we don't duplicate towers
+  @@unique([lat, lon])
+}
+
+model Parcel {
+  id          Int      @id @default(autoincrement())
+  parcelId    String?  // The official county/city parcel ID
+  address     String?
+  city        String?
+  state       String?
+  zip         String?
+  
+  // Relation to Tower (One Parcel can have a tower)
+  towerId     Int      @unique
+  tower       Tower    @relation(fields: [towerId], references: [id])
+
+  // Relation to Owner
+  ownerId     Int?
+  owner       Owner?   @relation(fields: [ownerId], references: [id])
+}
+
+model Owner {
+  id        Int      @id @default(autoincrement())
+  name      String
+  type      String?  // "Individual", "LLC", "Trust", "Corp"
+  address   String?  // Mailing address of the owner (often different from parcel address)
+  
+  parcels   Parcel[]
+  contacts  Contact[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Contact {
+  id        Int      @id @default(autoincrement())
+  type      String   // "Phone", "Email"
+  value     String
+  label     String?  // "Mobile", "Office", "Home", "Attorney"
+  isValid   Boolean  @default(true) // For marking bad numbers/emails
+  
+  ownerId   Int
+  owner     Owner    @relation(fields: [ownerId], references: [id])
+}
