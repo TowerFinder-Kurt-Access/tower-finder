@@ -6,8 +6,12 @@ const path = require('path');
 const app = express();
 const port = 3000;
 
-// Serve static files (index.html, etc.)
-app.use(express.static(path.join(__dirname)));
+// Serve static files (index.html, etc.) from public directory
+app.use(express.static(path.join(__dirname, 'public')));
+
+// Export app for Vercel
+module.exports = app;
+
 
 // API Endpoint to search for towers
 app.get('/api/towers', async (req, res) => {
@@ -358,6 +362,8 @@ app.get('/api/geocode', async (req, res) => {
     }
 });
 
-app.listen(port, () => {
-    console.log(`Tower Finder App listening at http://localhost:${port}`);
-});
+if (require.main === module) {
+    app.listen(port, () => {
+        console.log(`Tower Finder App listening at http://localhost:${port}`);
+    });
+}

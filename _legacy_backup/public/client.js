@@ -3,42 +3,68 @@ async function openModal(data) {
     const modal = document.getElementById('ownerModal');
     const body = document.getElementById('modalBody');
 
-    // Build content
-    const fields = [
-        { label: 'Owner', value: data.owner },
-        { label: 'Site Name', value: data.sitename },
-        { label: 'Address', value: data.prop_address },
-        { label: 'Mailing Address', value: data.mail_address },
-        { label: 'Mailing City/State', value: data.mail_city ? `${data.mail_city}, ${data.mail_state}` : '' },
-        { label: 'Parcel ID (APN)', value: data.parcel_id },
-        { label: 'County', value: data.county_name },
-        { label: 'Municipality', value: data.muni_name },
-        { label: 'Land Use', value: data.land_use || data.use_desc },
-        { label: 'Acreage', value: data.acreage_calc || data.acreage_deed }
-    ];
+    // Helper function to convert field names to readable labels
+    function formatLabel(key) {
+        // Skip these fields as they're technical/internal
+        const skipFields = ['geometry', 'geom_as_wkt', 'geom_as_geojson', 'geom_as_kml'];
+        if (skipFields.includes(key)) return null;
 
-    let html = '';
-    fields.forEach(f => {
-        if (f.value) {
-            html += `
-                <div class="data-row">
-                    <div class="data-label">${f.label}:</div>
-                    <div class="data-value">${f.value}</div>
-                </div>
-            `;
-        }
-    });
+        // Convert snake_case to Title Case
+        return key
+            .split('_')
+            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+            .join(' ');
+    }
 
-    if (html === '') {
+    // Build content dynamically from all data fields
+    let html = '<div style="margin-bottom:10px; font-weight:600; color:#333; border-bottom:2px solid #007bff; padding-bottom:5px;">Property Information</div>';
+
+    let hasData = false;
+
+    // Iterate through all properties in data
+    for (const [key, value] of Object.entries(data)) {
+        const label = formatLabel(key);
+
+        // Skip null, undefined, empty strings, and technical fields
+        if (!label || value === null || value === undefined || value === '') continue;
+
+        // Skip geometry objects
+        if (typeof value === 'object') continue;
+
+        hasData = true;
+        html += `
+            <div class="data-row">
+                <div class="data-label">${label}:</div>
+                <div class="data-value">${value}</div>
+            </div>
+        `;
+    }
+
+    if (!hasData) {
         html = '<div style="padding:20px; text-align:center; color:#777;">No detailed property information available.</div>';
     }
 
     // Add phone lookup section
     if (data.owner) {
+        // Format search query for manual Whitepages lookup
+        const searchParts = [];
+        if (data.owner) searchParts.push(data.owner);
+        if (data.mail_address) searchParts.push(data.mail_address);
+        if (data.mail_city) searchParts.push(data.mail_city);
+        if (data.mail_state) searchParts.push(data.mail_state);
+        const searchQuery = searchParts.join(', ');
+
         html += `
             <div id="phone-section" style="margin-top:10px; padding-top:10px; border-top:1px solid #ddd;">
+                <div style="background:#f8f9fa; padding:10px; border-radius:4px; margin-bottom:10px;">
+                    <div style="font-size:0.85em; color:#666; margin-bottom:5px;">Search Query for Whitepages:</div>
+                    <div style="font-family:monospace; font-size:0.9em; color:#333; padding:8px; background:white; border:1px solid #dee2e6; border-radius:3px; word-break:break-all;">
+                        ${searchQuery}
+                    </div>
+                    <button style="margin-top:8px; padding:4px 8px; font-size:0.85em; background:#6c757d; color:white; border:none; border-radius:3px; cursor:pointer;" onclick="navigator.clipboard.writeText('${searchQuery.replace(/'/g, "\\'")}'); this.innerText='Copied!'; setTimeout(() => this.innerText='Copy to Clipboard', 2000);">Copy to Clipboard</button>
+                </div>
                 <button id="phone-lookup-btn" class="action-btn" style="padding:8px; width:100%;" onclick="lookupPhone('${data.owner}', '${data.mail_address || ''}', '${data.mail_city || ''}', '${data.mail_state || ''}')">
-                    Find Phone Number
+                    Find Phone Number (API)
                 </button>
                 <div id="phone-results" style="margin-top:10px;"></div>
             </div>
@@ -271,6 +297,9 @@ async function lookupPhone(name, address, city, state) {
     }
 }
 
+// Store nearby parcels globally for phone lookup
+let currentNearbyParcels = [];
+
 async function getNearbyParcels(lat, lon, btnId) {
     const btn = document.getElementById(btnId);
     const originalText = btn.innerText;
@@ -291,6 +320,9 @@ async function getNearbyParcels(lat, lon, btnId) {
 
         if (data.parcels && data.parcels.length > 0) {
             console.log(`Found ${data.count} nearby parcels`);
+
+            // Store parcels for phone lookup
+            currentNearbyParcels = data.parcels;
 
             // Clear previous nearby parcels
             nearbyParcelsLayer.clearLayers();
@@ -325,6 +357,19 @@ async function getNearbyParcels(lat, lon, btnId) {
 
             btn.innerText = `${data.count} Parcels Shown`;
             btn.style.background = '#17a2b8';
+
+            // Add "Find All Phones" button if it doesn't exist
+            const resultDiv = btn.parentElement;
+            let phoneBtnId = `phone-bulk-btn-${btnId}`;
+            if (!document.getElementById(phoneBtnId)) {
+                const phoneLookupBtn = document.createElement('button');
+                phoneLookupBtn.id = phoneBtnId;
+                phoneLookupBtn.className = 'action-btn';
+                phoneLookupBtn.style.cssText = 'padding:5px; font-size:12px; margin-left:5px; background:#28a745;';
+                phoneLookupBtn.innerText = 'Find All Phones';
+                phoneLookupBtn.onclick = () => bulkPhoneLookup(phoneBtnId);
+                resultDiv.appendChild(phoneLookupBtn);
+            }
         } else {
             alert('No nearby parcels found');
             btn.innerText = originalText;
@@ -336,6 +381,120 @@ async function getNearbyParcels(lat, lon, btnId) {
         btn.innerText = originalText;
         btn.disabled = false;
     }
+}
+
+async function bulkPhoneLookup(btnId) {
+    const btn = document.getElementById(btnId);
+    btn.disabled = true;
+    btn.innerText = 'Looking up...';
+
+    // Filter parcels that have owner names
+    const parcelsWithOwners = currentNearbyParcels.filter(p => p.owner);
+
+    if (parcelsWithOwners.length === 0) {
+        alert('No parcels with owner information found');
+        btn.disabled = false;
+        btn.innerText = 'Find All Phones';
+        return;
+    }
+
+    // Limit to 20 parcels to avoid excessive API calls
+    const maxParcels = 20;
+    const parcelsToLookup = parcelsWithOwners.slice(0, maxParcels);
+
+    console.log(`Looking up phones for ${parcelsToLookup.length} parcels`);
+
+    // Create results modal
+    const resultsModal = document.createElement('div');
+    resultsModal.id = 'bulk-phone-modal';
+    resultsModal.style.cssText = `
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        max-width: 800px;
+        max-height: 80vh;
+        overflow-y: auto;
+        z-index: 10000;
+    `;
+
+    resultsModal.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+            <h3 style="margin:0;">Phone Number Lookup Results</h3>
+            <button onclick="document.getElementById('bulk-phone-modal').remove()" style="background:#dc3545; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer;">Close</button>
+        </div>
+        <div id="bulk-phone-progress" style="margin-bottom:15px; font-size:0.9em; color:#666;"></div>
+        <div id="bulk-phone-results"></div>
+    `;
+
+    document.body.appendChild(resultsModal);
+
+    const progressDiv = document.getElementById('bulk-phone-progress');
+    const resultsDiv = document.getElementById('bulk-phone-results');
+
+    let resultsHTML = '<table style="width:100%; border-collapse:collapse; font-size:0.9em;">';
+    resultsHTML += '<thead><tr style="background:#f8f9fa; border-bottom:2px solid #dee2e6;"><th style="padding:8px; text-align:left;">Owner</th><th style="padding:8px; text-align:left;">Address</th><th style="padding:8px; text-align:left;">Phone</th></tr></thead><tbody>';
+
+    let foundCount = 0;
+
+    for (let i = 0; i < parcelsToLookup.length; i++) {
+        const parcel = parcelsToLookup[i];
+        progressDiv.innerText = `Looking up ${i + 1} of ${parcelsToLookup.length}...`;
+
+        try {
+            const params = new URLSearchParams({
+                name: parcel.owner || '',
+                address: parcel.mail_address || parcel.prop_address || '',
+                city: parcel.mail_city || '',
+                state: parcel.mail_state || ''
+            });
+
+            const response = await fetch(`/api/phone-lookup?${params}`);
+            const data = await response.json();
+
+            const address = parcel.mail_address
+                ? `${parcel.mail_address}, ${parcel.mail_city || ''}, ${parcel.mail_state || ''}`.trim()
+                : parcel.prop_address || 'N/A';
+
+            if (data.phones && data.phones.length > 0) {
+                foundCount++;
+                const phoneNumbers = data.phones.map(p => `${p.number} (${p.type})`).join('<br>');
+                resultsHTML += `
+                    <tr style="border-bottom:1px solid #dee2e6;">
+                        <td style="padding:8px; vertical-align:top;">${parcel.owner}</td>
+                        <td style="padding:8px; vertical-align:top; font-size:0.85em;">${address}</td>
+                        <td style="padding:8px; vertical-align:top; font-weight:bold; color:#28a745;">${phoneNumbers}</td>
+                    </tr>
+                `;
+            } else {
+                resultsHTML += `
+                    <tr style="border-bottom:1px solid #dee2e6; opacity:0.6;">
+                        <td style="padding:8px; vertical-align:top;">${parcel.owner}</td>
+                        <td style="padding:8px; vertical-align:top; font-size:0.85em;">${address}</td>
+                        <td style="padding:8px; vertical-align:top; color:#999;">Not found</td>
+                    </tr>
+                `;
+            }
+        } catch (err) {
+            console.error('Phone lookup error for parcel:', parcel, err);
+        }
+
+        // Small delay to avoid overwhelming the API
+        await new Promise(resolve => setTimeout(resolve, 500));
+    }
+
+    resultsHTML += '</tbody></table>';
+
+    progressDiv.innerHTML = `<strong>Complete:</strong> Found ${foundCount} phone numbers out of ${parcelsToLookup.length} parcels`;
+    resultsDiv.innerHTML = resultsHTML;
+
+    btn.disabled = false;
+    btn.innerText = `Found ${foundCount} Phones`;
+    btn.style.background = '#6c757d';
 }
 
 // Allow Enter key in search box
