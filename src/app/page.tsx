@@ -228,7 +228,30 @@ export default function Home() {
         <Box sx={{ flex: 1, position: 'relative', display: 'flex', flexDirection: 'column' }}>
 
           {/* View Toggle */}
-          <Box sx={{ position: 'absolute', top: 10, right: 10, zIndex: 1000 }}>
+          <Box sx={{ position: 'absolute', top: 10, right: 10, zIndex: 1000, display: 'flex', gap: 2, alignItems: 'center' }}>
+            {view === 'map' && (
+              <Paper elevation={3}>
+                <button
+                  onClick={searchTowersInArea}
+                  disabled={isSearchLoading}
+                  style={{
+                    padding: '8px 16px',
+                    cursor: isSearchLoading ? 'wait' : 'pointer',
+                    backgroundColor: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    fontWeight: 600,
+                    color: '#1976d2',
+                    height: '40px',
+                    display: 'flex',
+                    alignItems: 'center'
+                  }}
+                >
+                  {isSearchLoading ? 'Searching...' : 'Search This Area'}
+                </button>
+              </Paper>
+            )}
+
             <Paper elevation={3}>
               <ToggleButtonGroup
                 value={view}
@@ -253,8 +276,10 @@ export default function Home() {
                 center={mapCenter}
                 zoom={zoom}
                 towers={towers}
+                ghostTowers={ghostTowers}
                 onTowerSelect={handleTowerSelect}
                 selectedTower={selectedTower}
+                onBoundsChange={handleBoundsChange}
               />
             ) : (
               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
