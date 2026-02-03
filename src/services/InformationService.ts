@@ -79,11 +79,18 @@ export class InformationService {
         const ownerName = externalData.owner || 'UNKNOWN';
         const ownerAddress = externalData.mail_address || '';
 
-        // Extract geometry (could be in various formats from API)
-        const geometry = externalData.geometry || externalData.geom || externalData.shape || null;
-        console.log(`[InformationService] Geometry data present:`, geometry ? 'YES' : 'NO');
-        if (geometry) {
-            console.log(`[InformationService] Geometry type:`, geometry.type || 'Unknown');
+
+        // Extract geometry - ReportAll API returns it as WKT in 'geom_as_wkt' field
+        let geometry = null;
+        if (externalData.geom_as_wkt) {
+            console.log(`[InformationService] Found WKT geometry, converting to GeoJSON...`);
+            geometry = this.wktToGeoJSON(externalData.geom_as_wkt);
+            console.log(`[InformationService] Geometry converted:`, geometry ? 'YES' : 'NO');
+            if (geometry) {
+                console.log(`[InformationService] Geometry type:`, geometry.type);
+            }
+        } else {
+            console.log(`[InformationService] No geometry data in response (geom_as_wkt field not found)`);
         }
 
         // Transaction to ensure consistency
@@ -201,6 +208,60 @@ export class InformationService {
             }
             console.error('==========================================\n');
             throw error;
+        }
+    }
+
+    /**
+     * Convert WKT (Well-Known Text) geometry to GeoJSON format
+     * Handles POLYGON and MULTIPOLYGON types
+     */
+    private static wktToGeoJSON(wkt: string): any {
+        try {
+            // Remove whitespace and get geometry type
+            const trimmed = wkt.trim();
+
+            if (trimmed.startsWith('MULTIPOLYGON')) {
+                // Extract coordinates from MULTIPOLYGON(((...)))
+                const coordsStr = trimmed.replace(/^MULTIPOLYGON\s*\(\(\(/i, '').replace(/\)\)\)$/, '');
+                const polygons = coordsStr.split(')),((');
+
+                const coordinates = polygons.map(polygon => {
+                    const rings = polygon.split('),(');
+                    return rings.map(ring => {
+                        return ring.split(',').map(point => {
+                            const [lon, lat] = point.trim().split(/\s+/).map(Number);
+                            return [lon, lat];
+                        });
+                    });
+                });
+
+                return {
+                    type: 'MultiPolygon',
+                    coordinates
+                };
+            } else if (trimmed.startsWith('POLYGON')) {
+                // Extract coordinates from POLYGON((...)
+                const coordsStr = trimmed.replace(/^POLYGON\s*\(\(/i, '').replace(/\)\)$/, '');
+                const rings = coordsStr.split('),(');
+
+                const coordinates = rings.map(ring => {
+                    return ring.split(',').map(point => {
+                        const [lon, lat] = point.trim().split(/\s+/).map(Number);
+                        return [lon, lat];
+                    });
+                });
+
+                return {
+                    type: 'Polygon',
+                    coordinates
+                };
+            }
+
+            console.warn('[InformationService] Unsupported WKT geometry type:', trimmed.substring(0, 50));
+            return null;
+        } catch (error) {
+            console.error('[InformationService] Error parsing WKT:', error);
+            return null;
         }
     }
 }
