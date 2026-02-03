@@ -110,10 +110,7 @@ export default function Home() {
     }
   };
 
-  const handleTowerSelect = (tower: Tower) => {
-    setSelectedTower(tower);
-    setOwnerData(null); // Reset owner data when new tower is selected
-  };
+
 
   const handleLookupOwner = async (tower: Tower) => {
     setIsOwnerLoading(true);
