@@ -136,6 +136,71 @@ export default function Home() {
     }
   };
 
+  const handleBoundsChange = (bounds: any) => {
+    setMapBounds(bounds);
+  };
+
+  // Search for new towers in current map bounds
+  const searchTowersInArea = async () => {
+    if (!mapBounds) return;
+
+    setIsSearchLoading(true);
+    try {
+      const { north, south, east, west } = mapBounds;
+      const res = await axios.get(`/api/search-towers?north=${north}&south=${south}&east=${east}&west=${west}`);
+
+      // Filter out towers that are already in our DB (roughly by distance)
+      const newGhostTowers = res.data.filter((ghost: any) => {
+        return !towers.some(existing =>
+          Math.abs(existing.lat - ghost.lat) < 0.0001 &&
+          Math.abs(existing.lon - ghost.lon) < 0.0001
+        );
+      });
+
+      setGhostTowers(newGhostTowers);
+      if (newGhostTowers.length === 0) {
+        alert("No new towers found in this area (or they are already in database).");
+      }
+    } catch (error) {
+      console.error("Area search failed:", error);
+      alert("Failed to search for towers in this area.");
+    } finally {
+      setIsSearchLoading(false);
+    }
+  };
+
+  const handleTowerSelect = (tower: any) => {
+    if (tower.isGhost) {
+      if (tower.action === 'add') {
+        const tempTower: Tower = {
+          id: 0, // 0 indicates new/unsaved
+          type: tower.type || 'Unknown',
+          lat: tower.lat,
+          lon: tower.lon,
+          status: 'New',
+          source: 'Tower Finder'
+        };
+        setSelectedTower(tempTower);
+        setOwnerData(null);
+        alert("Selected! Click 'Get Land Owner' in the sidebar to save this tower and fetch details.");
+      } else {
+        const tempTower: Tower = {
+          id: 0, // 0 indicates new/unsaved
+          type: tower.type || 'Unknown',
+          lat: tower.lat,
+          lon: tower.lon,
+          status: 'New',
+          source: 'Tower Finder'
+        };
+        setSelectedTower(tempTower);
+        setOwnerData(null);
+      }
+    } else {
+      setSelectedTower(tower);
+      setOwnerData(null);
+    }
+  };
+
   const handleViewChange = (
     event: React.MouseEvent<HTMLElement>,
     newView: 'map' | 'table',
