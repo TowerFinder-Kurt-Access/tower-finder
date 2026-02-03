@@ -176,13 +176,19 @@ export default function Home() {
           </Box>
 
           {view === 'map' ? (
-            <Map
-              center={mapCenter}
-              zoom={zoom}
-              towers={towers}
-              onTowerSelect={handleTowerSelect}
-              selectedTower={selectedTower}
-            />
+            mounted ? (
+              <Map
+                center={mapCenter}
+                zoom={zoom}
+                towers={towers}
+                onTowerSelect={handleTowerSelect}
+                selectedTower={selectedTower}
+              />
+            ) : (
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+                Loading Map...
+              </Box>
+            )
           ) : (
             <Box sx={{ flex: 1, overflow: 'auto', p: 2 }}>
               <TowerTableSimple towers={towers} onRowSelect={handleTowerSelect} />
