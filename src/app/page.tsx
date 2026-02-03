@@ -4,6 +4,10 @@ import Box from '@mui/material/Box';
 import dynamic from 'next/dynamic';
 import Sidebar from '@/components/Sidebar';
 import axios from 'axios';
+import { ToggleButton, ToggleButtonGroup, Paper } from '@mui/material';
+import ViewListIcon from '@mui/icons-material/ViewList';
+import MapIcon from '@mui/icons-material/Map';
+import TowerTable from '@/components/TowerTable';
 
 // Dynamically import Map to avoid SSR issues with Leaflet
 const Map = dynamic(() => import('@/components/Map'), {
@@ -18,6 +22,9 @@ interface Tower {
   lat: number;
   lon: number;
   details?: any;
+  parcel?: any;
+  licensee?: string;
+  status?: string;
 }
 
 interface OwnerResult {
@@ -32,12 +39,26 @@ interface OwnerResult {
 
 export default function Home() {
   const [towers, setTowers] = useState<Tower[]>([]);
-  const [mapCenter, setMapCenter] = useState<[number, number]>([39.8283, -98.5795]); // US Center
-  const [zoom, setZoom] = useState<number>(4);
+  const [mapCenter, setMapCenter] = useState<[number, number]>([46.5, -64.0]); // Default to East Coast approximately
+  const [zoom, setZoom] = useState<number>(7);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [selectedTower, setSelectedTower] = useState<Tower | null>(null);
   const [ownerData, setOwnerData] = useState<OwnerResult | null>(null);
   const [isOwnerLoading, setIsOwnerLoading] = useState<boolean>(false);
+  const [view, setView] = useState<'map' | 'table'>('map');
+
+  // Fetch all towers on mount
+  useEffect(() => {
+    const fetchTowers = async () => {
+      try {
+        const res = await axios.get('/api/towers');
+        setTowers(res.data);
+      } catch (error) {
+        console.error("Failed to fetch initial towers:", error);
+      }
+    };
+    fetchTowers();
+  }, []);
 
   const handleSearch = async (query: string) => {
     setIsLoading(true);
@@ -59,6 +80,16 @@ export default function Home() {
         const bbox = `${lat - offset},${lon - offset},${lat + offset},${lon + offset}`;
 
         const towerRes = await axios.get(`/api/towers?bbox=${bbox}`);
+        // If we want to filter the list, we can. 
+        // But since we want to show imported data primarily, maybe we just ADD to the list or filter?
+        // For now, let's keep the user's intent: "showing on the map the locations on this import"
+        // So maybe search should just move the map, not replace the list, if we are in "Import Mode"?
+        // Let's implement mixed mode: Fetch, but if we have imported data, we might want to keep it.
+        // Simple approach: Replace list with search results for now, 
+        // but since we fetched all initially, maybe we just filter locally?
+        // Actually, let's just move the map and rely on the initial fetch for now unless the user specifically searches for new towers.
+
+        // If the API returns a filtered list, we update state.
         setTowers(towerRes.data);
       }
     } catch (error) {
@@ -87,25 +118,63 @@ export default function Home() {
     }
   };
 
-  return (
-    <Box sx={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
-      <Sidebar
-        onSearch={handleSearch}
-        isLoading={isLoading}
-        results={towers}
-        selectedTower={selectedTower}
-        onLookupOwner={handleLookupOwner}
-        isOwnerLoading={isOwnerLoading}
-        ownerData={ownerData}
-      />
+  const handleViewChange = (
+    event: React.MouseEvent<HTMLElement>,
+    newView: 'map' | 'table',
+  ) => {
+    if (newView !== null) {
+      setView(newView);
+    }
+  };
 
-      <Box sx={{ flex: 1, position: 'relative' }}>
-        <Map
-          center={mapCenter}
-          zoom={zoom}
-          towers={towers}
-          onTowerSelect={handleTowerSelect}
+  return (
+    <Box sx={{ display: 'flex', height: '100vh', overflow: 'hidden', flexDirection: 'column' }}>
+      <Box sx={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+        <Sidebar
+          onSearch={handleSearch}
+          isLoading={isLoading}
+          results={towers} // Shows list in sidebar too
+          selectedTower={selectedTower}
+          onLookupOwner={handleLookupOwner}
+          isOwnerLoading={isOwnerLoading}
+          ownerData={ownerData}
         />
+
+        <Box sx={{ flex: 1, position: 'relative', display: 'flex', flexDirection: 'column' }}>
+
+          {/* View Toggle */}
+          <Box sx={{ position: 'absolute', top: 10, right: 10, zIndex: 1000 }}>
+            <Paper elevation={3}>
+              <ToggleButtonGroup
+                value={view}
+                exclusive
+                onChange={handleViewChange}
+                aria-label="view toggle"
+                size="small"
+              >
+                <ToggleButton value="map" aria-label="map view">
+                  <MapIcon />
+                </ToggleButton>
+                <ToggleButton value="table" aria-label="table view">
+                  <ViewListIcon />
+                </ToggleButton>
+              </ToggleButtonGroup>
+            </Paper>
+          </Box>
+
+          {view === 'map' ? (
+            <Map
+              center={mapCenter}
+              zoom={zoom}
+              towers={towers}
+              onTowerSelect={handleTowerSelect}
+            />
+          ) : (
+            <Box sx={{ flex: 1, overflow: 'auto', p: 2 }}>
+              <TowerTable towers={towers} />
+            </Box>
+          )}
+        </Box>
       </Box>
     </Box>
   );

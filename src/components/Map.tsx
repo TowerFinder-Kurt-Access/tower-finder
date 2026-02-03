@@ -22,6 +22,13 @@ interface Tower {
     subType?: string;
     lat: number;
     lon: number;
+    licensee?: string;
+    status?: string;
+    googleMapsUrl?: string;
+    parcel?: {
+        address?: string;
+        [key: string]: any;
+    };
     details?: any;
 }
 
@@ -60,8 +67,13 @@ export default function Map({ center, zoom, towers, onTowerSelect }: MapProps) {
                     }}
                 >
                     <Popup>
-                        <strong>{tower.type}</strong><br />
-                        {tower.subType}
+                        <div style={{ minWidth: '200px' }}>
+                            <strong>{tower.type || 'Tower'}</strong><br />
+                            {tower.licensee && <><strong>Licensee:</strong> {tower.licensee}<br /></>}
+                            {tower.parcel?.address && <><strong>Address:</strong> {tower.parcel.address}<br /></>}
+                            <strong>Coordinates:</strong> {tower.lat.toFixed(6)}, {tower.lon.toFixed(6)}<br />
+                            <strong>Status:</strong> {tower.status || 'Unknown'}
+                        </div>
                     </Popup>
                 </CircleMarker>
             ))}

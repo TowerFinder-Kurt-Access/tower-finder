@@ -13,6 +13,8 @@ model Tower {
   lon       Float
   type      String?   // e.g., "Monopole", "Lattice"
   status    String   @default("Unknown") // CRM Status: "New", "Researched", "Contacted", "Closed"
+  licensee  String?
+  googleMapsUrl String?
   
   // A tower sits on a specific parcel of land
   parcel    Parcel?

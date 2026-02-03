@@ -17,6 +17,13 @@ interface Tower {
     subType?: string;
     lat: number;
     lon: number;
+    licensee?: string;
+    status?: string;
+    googleMapsUrl?: string;
+    parcel?: {
+        address?: string;
+        [key: string]: any;
+    };
     details?: any;
 }
 
@@ -93,8 +100,23 @@ export default function Sidebar({
                                     ID: {selectedTower.id}
                                 </Typography>
                                 <Typography variant="body1">
-                                    {/* @ts-ignore */}
-                                    Type: {selectedTower.type} {selectedTower.subType ? `(${selectedTower.subType})` : ''}
+                                    <strong>Type:</strong> {selectedTower.type || 'Unknown'}
+                                </Typography>
+                                {selectedTower.licensee && (
+                                    <Typography variant="body1">
+                                        <strong>Licensee:</strong> {selectedTower.licensee}
+                                    </Typography>
+                                )}
+                                {selectedTower.parcel?.address && (
+                                    <Typography variant="body1">
+                                        <strong>Address:</strong> {selectedTower.parcel.address}
+                                    </Typography>
+                                )}
+                                <Typography variant="body2" color="text.secondary">
+                                    <strong>Coordinates:</strong> {selectedTower.lat.toFixed(6)}, {selectedTower.lon.toFixed(6)}
+                                </Typography>
+                                <Typography variant="body2">
+                                    <strong>Status:</strong> {selectedTower.status || 'Unknown'}
                                 </Typography>
 
                                 <Box sx={{ mt: 2 }}>
