@@ -46,6 +46,12 @@ export default function Home() {
   const [ownerData, setOwnerData] = useState<OwnerResult | null>(null);
   const [isOwnerLoading, setIsOwnerLoading] = useState<boolean>(false);
   const [view, setView] = useState<'map' | 'table'>('map');
+  const [mounted, setMounted] = useState(false);
+
+  // Ensure component is mounted (client-side only)
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Fetch all towers on mount
   useEffect(() => {

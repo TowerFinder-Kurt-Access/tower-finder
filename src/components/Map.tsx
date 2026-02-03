@@ -62,6 +62,21 @@ function geometryToLeafletCoords(geometry: any): LatLngExpression[] | LatLngExpr
 
 export default function Map({ center, zoom, towers, onTowerSelect, selectedTower }: MapProps) {
 
+    // Debug logging for selected tower geometry
+    useEffect(() => {
+        if (selectedTower) {
+            console.log('[Map] Selected tower:', selectedTower.id);
+            console.log('[Map] Has parcel:', !!selectedTower.parcel);
+            if (selectedTower.parcel) {
+                console.log('[Map] Has geometry:', !!selectedTower.parcel.geometry);
+                if (selectedTower.parcel.geometry) {
+                    console.log('[Map] Geometry type:', selectedTower.parcel.geometry.type);
+                    console.log('[Map] Geometry data:', selectedTower.parcel.geometry);
+                }
+            }
+        }
+    }, [selectedTower]);
+
     return (
         // @ts-ignore - MapContainer types can be finicky in strict mode sometimes
         <MapContainer
