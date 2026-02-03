@@ -46,7 +46,7 @@ export class InformationService {
             console.log(`[InformationService] ✅ CACHE HIT - Returning cached parcel data`);
             console.log(`[InformationService] Parcel ID:`, existingTower.parcel.parcelId);
             console.log(`[InformationService] Owner:`, existingTower.parcel.owner?.name);
-            console.log(`[InformationService] Data Source:`, existingTower.parcel.dataSource);
+            console.log(`[InformationService] Data Source:`, (existingTower.parcel as any).dataSource);
             return existingTower.parcel;
         }
 
