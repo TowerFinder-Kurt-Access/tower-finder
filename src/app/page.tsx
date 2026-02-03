@@ -25,6 +25,7 @@ interface Tower {
   parcel?: any;
   licensee?: string;
   status?: string;
+  source?: string;
 }
 
 interface OwnerResult {
@@ -39,9 +40,12 @@ interface OwnerResult {
 
 export default function Home() {
   const [towers, setTowers] = useState<Tower[]>([]);
+  const [ghostTowers, setGhostTowers] = useState<any[]>([]); // Search results
   const [mapCenter, setMapCenter] = useState<[number, number]>([46.5, -64.0]); // Default to East Coast approximately
   const [zoom, setZoom] = useState<number>(7);
+  const [mapBounds, setMapBounds] = useState<any>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isSearchLoading, setIsSearchLoading] = useState<boolean>(false);
   const [selectedTower, setSelectedTower] = useState<Tower | null>(null);
   const [ownerData, setOwnerData] = useState<OwnerResult | null>(null);
   const [isOwnerLoading, setIsOwnerLoading] = useState<boolean>(false);
