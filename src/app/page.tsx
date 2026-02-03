@@ -110,6 +110,14 @@ export default function Home() {
     try {
       const res = await axios.get(`/api/owner?lat=${tower.lat}&lon=${tower.lon}`);
       setOwnerData(res.data);
+
+      // Update the selected tower with the parcel data (including geometry)
+      if (res.data.result?._parcel) {
+        setSelectedTower({
+          ...tower,
+          parcel: res.data.result._parcel
+        });
+      }
     } catch (error) {
       console.error("Owner lookup failed:", error);
       alert("Could not fetch owner data.");

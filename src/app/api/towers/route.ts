@@ -13,6 +13,7 @@ export async function GET() {
                 }
             }
         });
+        console.log(`[API /api/towers] Returning ${towers.length} towers`);
         return NextResponse.json(towers);
     } catch (error) {
         console.error('Error fetching towers:', error);
