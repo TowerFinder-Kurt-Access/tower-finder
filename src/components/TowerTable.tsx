@@ -111,12 +111,15 @@ export default function TowerTable({ towers, onRowSelect }: TowerTableProps) {
                 <DataGrid
                     rows={towers}
                     columns={columns}
+                    getRowId={(row) => row.id}
+                    pageSizeOptions={[25, 50, 100]}
                     initialState={{
                         pagination: {
-                            paginationModel: { page: 0, pageSize: 100 },
+                            paginationModel: {
+                                pageSize: 25,
+                            },
                         },
                     }}
-                    pageSizeOptions={[10, 50, 100]}
                     rowSelectionModel={selectionModel}
                     onRowSelectionModelChange={handleRowSelection}
                     sx={{
