@@ -173,6 +173,7 @@ export default function Home() {
               zoom={zoom}
               towers={towers}
               onTowerSelect={handleTowerSelect}
+              selectedTower={selectedTower}
             />
           ) : (
             <Box sx={{ flex: 1, overflow: 'auto', p: 2 }}>

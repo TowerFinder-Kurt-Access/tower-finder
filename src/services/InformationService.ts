@@ -75,9 +75,16 @@ export class InformationService {
         const address = externalData.address || '';
         const city = externalData.city || '';
         const state = externalData.state || '';
-        const zip = externalData.zip
+        const zip = externalData.zip;
         const ownerName = externalData.owner || 'UNKNOWN';
         const ownerAddress = externalData.mail_address || '';
+
+        // Extract geometry (could be in various formats from API)
+        const geometry = externalData.geometry || externalData.geom || externalData.shape || null;
+        console.log(`[InformationService] Geometry data present:`, geometry ? 'YES' : 'NO');
+        if (geometry) {
+            console.log(`[InformationService] Geometry type:`, geometry.type || 'Unknown');
+        }
 
         // Transaction to ensure consistency
         const result = await prisma.$transaction(async (tx) => {
@@ -112,6 +119,7 @@ export class InformationService {
                     zip: zip,
                     rawData: externalData, // Store complete API response for debugging
                     dataSource: 'ReportAll', // Track which API provided this data
+                    geometry: geometry, // Store parcel boundary
                     towerId: tower.id,
                     ownerId: owner.id
                 },
@@ -123,6 +131,7 @@ export class InformationService {
                     zip: zip,
                     rawData: externalData,
                     dataSource: 'ReportAll',
+                    geometry: geometry, // Update parcel boundary
                     ownerId: owner.id
                 },
                 include: {

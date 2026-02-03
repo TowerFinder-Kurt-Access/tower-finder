@@ -35,6 +35,7 @@ model Parcel {
   zip         String?
   rawData     Json?    // Store raw API response for debugging
   dataSource  String?  // Track which API provided this data (e.g., "ReportAll", "Regrid", etc.)
+  geometry    Json?    // Store parcel boundary geometry (GeoJSON)
   
   // Relation to Tower (One Parcel can have a tower)
   towerId     Int      @unique
