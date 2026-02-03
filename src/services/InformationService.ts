@@ -90,6 +90,13 @@ export class InformationService {
                     zip: zip,
                     towerId: tower.id,
                     ownerId: owner.id
+                },
+                include: {
+                    owner: {
+                        include: {
+                            contacts: true
+                        }
+                    }
                 }
             });
 

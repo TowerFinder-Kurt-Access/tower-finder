@@ -21,9 +21,22 @@ export async function GET(request) {
             return NextResponse.json({ result: null, message: 'No parcel data found' });
         }
 
-        // Return format to match previous API response structure roughly
-        // The service returns the internal DB Parcel model, we can return that directly
-        return NextResponse.json({ result: parcelData });
+        // Return format to match previous API response structure
+        // The service returns the internal DB Parcel model with owner included
+        return NextResponse.json({
+            result: {
+                parcel_id: parcelData.parcelId,
+                address: parcelData.address,
+                city: parcelData.city,
+                state: parcelData.state,
+                zip: parcelData.zip,
+                owner: parcelData.owner?.name || 'Unknown',
+                mail_address: parcelData.owner?.address || '',
+                // Include full objects for reference
+                _parcel: parcelData,
+                _owner: parcelData.owner
+            }
+        });
 
     } catch (error) {
         console.error("[API] Error fetching owner:", error);
