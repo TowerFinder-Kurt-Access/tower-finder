@@ -16,41 +16,48 @@ export class InformationService {
     static async getParcelAndOwner(lat: number, lon: number) {
         console.log(`\n[InformationService] Looking up parcel/owner for coordinates: ${lat}, ${lon}`);
 
-        // 1. Check DB for existing Tower at these coordinates
-        // We use a small epsilon for float comparison if needed, but strict for now as per plan
-        const existingTower = await prisma.tower.findUnique({
-            where: {
-                lat_lon: { lat, lon }
-            },
-            include: {
-                parcel: {
-                    include: {
-                        owner: {
-                            include: {
-                                contacts: true
+        // Check if caching is enabled (default: disabled)
+        const cacheEnabled = process.env.ENABLE_PARCEL_CACHE === 'true';
+        console.log(`[InformationService] Cache enabled:`, cacheEnabled);
+
+        // 1. Check DB for existing Tower at these coordinates (only if cache is enabled)
+        if (cacheEnabled) {
+            const existingTower = await prisma.tower.findUnique({
+                where: {
+                    lat_lon: { lat, lon }
+                },
+                include: {
+                    parcel: {
+                        include: {
+                            owner: {
+                                include: {
+                                    contacts: true
+                                }
                             }
                         }
                     }
                 }
+            });
+
+            console.log(`[InformationService] Tower found in DB:`, existingTower ? 'YES' : 'NO');
+            if (existingTower) {
+                console.log(`[InformationService] Tower ID:`, existingTower.id);
+                console.log(`[InformationService] Has Parcel data:`, existingTower.parcel ? 'YES' : 'NO');
             }
-        });
 
-        console.log(`[InformationService] Tower found in DB:`, existingTower ? 'YES' : 'NO');
-        if (existingTower) {
-            console.log(`[InformationService] Tower ID:`, existingTower.id);
-            console.log(`[InformationService] Has Parcel data:`, existingTower.parcel ? 'YES' : 'NO');
+            // If we have a tower and it has parcel data, return it
+            if (existingTower && existingTower.parcel) {
+                console.log(`[InformationService] ✅ CACHE HIT - Returning cached parcel data`);
+                console.log(`[InformationService] Parcel ID:`, existingTower.parcel.parcelId);
+                console.log(`[InformationService] Owner:`, existingTower.parcel.owner?.name);
+                console.log(`[InformationService] Data Source:`, (existingTower.parcel as any).dataSource);
+                return existingTower.parcel;
+            }
+        } else {
+            console.log(`[InformationService] Cache disabled - skipping cache check`);
         }
 
-        // If we have a tower and it has parcel data, return it
-        if (existingTower && existingTower.parcel) {
-            console.log(`[InformationService] ✅ CACHE HIT - Returning cached parcel data`);
-            console.log(`[InformationService] Parcel ID:`, existingTower.parcel.parcelId);
-            console.log(`[InformationService] Owner:`, existingTower.parcel.owner?.name);
-            console.log(`[InformationService] Data Source:`, (existingTower.parcel as any).dataSource);
-            return existingTower.parcel;
-        }
-
-        // 2. Data missing, fetch from External API (ReportAll)
+        // 2. Data missing or cache disabled, fetch from External API (ReportAll)
         console.log(`[InformationService] ❌ CACHE MISS - Fetching from external API`);
         const externalData = await this.fetchExternalParcelData(lat, lon);
 
