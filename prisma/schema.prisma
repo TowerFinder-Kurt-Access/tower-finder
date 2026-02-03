@@ -15,6 +15,7 @@ model Tower {
   status    String   @default("Unknown") // CRM Status: "New", "Researched", "Contacted", "Closed"
   licensee  String?
   googleMapsUrl String?
+  source    String   @default("Excel Import") // "Excel Import" or "Tower Finder"
   
   // A tower sits on a specific parcel of land
   parcel    Parcel?
