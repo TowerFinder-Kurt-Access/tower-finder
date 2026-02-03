@@ -98,7 +98,7 @@ export default function TowerTable({ towers, onRowSelect }: TowerTableProps) {
         <Box sx={{ height: '100%', width: '100%' }}>
             <Paper sx={{ height: '100%', width: '100%' }}>
                 <DataGrid
-                    rows={towers}
+                    rows={towers || []}
                     columns={columns}
                     initialState={{
                         pagination: {
