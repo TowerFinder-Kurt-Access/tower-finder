@@ -124,6 +124,11 @@ export default function Home() {
   ) => {
     if (newView !== null) {
       setView(newView);
+      // When switching to map view and there's a selected tower, center on it
+      if (newView === 'map' && selectedTower) {
+        setMapCenter([selectedTower.lat, selectedTower.lon]);
+        setZoom(15); // Closer zoom to see the tower
+      }
     }
   };
 
@@ -171,7 +176,7 @@ export default function Home() {
             />
           ) : (
             <Box sx={{ flex: 1, overflow: 'auto', p: 2 }}>
-              <TowerTable towers={towers} />
+              <TowerTable towers={towers} onRowSelect={handleTowerSelect} />
             </Box>
           )}
         </Box>
