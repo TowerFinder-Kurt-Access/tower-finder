@@ -14,6 +14,8 @@ export class InformationService {
      * If not found, it calls the external API, creates the Tower+Parcel+Owner in DB, and returns it.
      */
     static async getParcelAndOwner(lat: number, lon: number) {
+        console.log(`\n[InformationService] Looking up parcel/owner for coordinates: ${lat}, ${lon}`);
+
         // 1. Check DB for existing Tower at these coordinates
         // We use a small epsilon for float comparison if needed, but strict for now as per plan
         const existingTower = await prisma.tower.findUnique({
@@ -33,17 +35,27 @@ export class InformationService {
             }
         });
 
+        console.log(`[InformationService] Tower found in DB:`, existingTower ? 'YES' : 'NO');
+        if (existingTower) {
+            console.log(`[InformationService] Tower ID:`, existingTower.id);
+            console.log(`[InformationService] Has Parcel data:`, existingTower.parcel ? 'YES' : 'NO');
+        }
+
         // If we have a tower and it has parcel data, return it
         if (existingTower && existingTower.parcel) {
-            console.log(`[InformationService] Cache Hit for ${lat}, ${lon}`);
+            console.log(`[InformationService] ✅ CACHE HIT - Returning cached parcel data`);
+            console.log(`[InformationService] Parcel ID:`, existingTower.parcel.parcelId);
+            console.log(`[InformationService] Owner:`, existingTower.parcel.owner?.name);
+            console.log(`[InformationService] Data Source:`, existingTower.parcel.dataSource);
             return existingTower.parcel;
         }
 
         // 2. Data missing, fetch from External API (ReportAll)
-        console.log(`[InformationService] Cache Miss for ${lat}, ${lon} - Fetching external API`);
+        console.log(`[InformationService] ❌ CACHE MISS - Fetching from external API`);
         const externalData = await this.fetchExternalParcelData(lat, lon);
 
         if (!externalData) {
+            console.log(`[InformationService] No data returned from external API`);
             return null;
         }
 
