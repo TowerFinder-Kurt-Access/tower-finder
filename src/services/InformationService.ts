@@ -99,9 +99,12 @@ export class InformationService {
                 }
             });
 
-            // Create Parcel linked to Tower and Owner
-            const parcel = await tx.parcel.create({
-                data: {
+            // Upsert Parcel linked to Tower and Owner (in case it exists from Excel import)
+            const parcel = await tx.parcel.upsert({
+                where: {
+                    towerId: tower.id
+                },
+                create: {
                     parcelId: parcelId,
                     address: address,
                     city: city,
@@ -110,6 +113,16 @@ export class InformationService {
                     rawData: externalData, // Store complete API response for debugging
                     dataSource: 'ReportAll', // Track which API provided this data
                     towerId: tower.id,
+                    ownerId: owner.id
+                },
+                update: {
+                    parcelId: parcelId,
+                    address: address,
+                    city: city,
+                    state: state,
+                    zip: zip,
+                    rawData: externalData,
+                    dataSource: 'ReportAll',
                     ownerId: owner.id
                 },
                 include: {
