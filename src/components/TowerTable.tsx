@@ -94,11 +94,22 @@ export default function TowerTable({ towers, onRowSelect }: TowerTableProps) {
         }
     };
 
+    // Don't render DataGrid until we have data
+    if (!towers || !Array.isArray(towers)) {
+        return (
+            <Box sx={{ height: '100%', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Paper sx={{ p: 3 }}>
+                    Loading towers...
+                </Paper>
+            </Box>
+        );
+    }
+
     return (
         <Box sx={{ height: '100%', width: '100%' }}>
             <Paper sx={{ height: '100%', width: '100%' }}>
                 <DataGrid
-                    rows={towers || []}
+                    rows={towers}
                     columns={columns}
                     initialState={{
                         pagination: {
