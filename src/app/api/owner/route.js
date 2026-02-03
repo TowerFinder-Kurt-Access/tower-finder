@@ -32,9 +32,11 @@ export async function GET(request) {
                 zip: parcelData.zip,
                 owner: parcelData.owner?.name || 'Unknown',
                 mail_address: parcelData.owner?.address || '',
+                data_source: parcelData.dataSource, // Which API provided this data
                 // Include full objects for reference
                 _parcel: parcelData,
-                _owner: parcelData.owner
+                _owner: parcelData.owner,
+                _rawData: parcelData.rawData // Raw API response for debugging
             }
         });
 

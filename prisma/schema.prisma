@@ -33,6 +33,8 @@ model Parcel {
   city        String?
   state       String?
   zip         String?
+  rawData     Json?    // Store raw API response for debugging
+  dataSource  String?  // Track which API provided this data (e.g., "ReportAll", "Regrid", etc.)
   
   // Relation to Tower (One Parcel can have a tower)
   towerId     Int      @unique

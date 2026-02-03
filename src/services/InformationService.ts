@@ -88,6 +88,8 @@ export class InformationService {
                     city: city,
                     state: state,
                     zip: zip,
+                    rawData: externalData, // Store complete API response for debugging
+                    dataSource: 'ReportAll', // Track which API provided this data
                     towerId: tower.id,
                     ownerId: owner.id
                 },
