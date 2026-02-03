@@ -116,16 +116,33 @@ export class InformationService {
 
         try {
             const pointWKT = `POINT(${lon} ${lat})`;
+            const queryParams = {
+                client: CLIENT_KEY,
+                v: 9,
+                spatial_nearest: pointWKT,
+                sn_srid: 4326,
+                limit: 1
+            };
+
+            console.log('\n========== REPORTALL API REQUEST ==========');
+            console.log('Timestamp:', new Date().toISOString());
+            console.log('Coordinates:', { lat, lon });
+            console.log('Query Params:', {
+                ...queryParams,
+                client: `${CLIENT_KEY.substring(0, 8)}...` // Mask API key
+            });
+            console.log('Full URL:', `https://reportallusa.com/api/parcels?${new URLSearchParams(queryParams as any).toString().replace(CLIENT_KEY, `${CLIENT_KEY.substring(0, 8)}...`)}`);
+
             const response = await axios.get('https://reportallusa.com/api/parcels', {
-                params: {
-                    client: CLIENT_KEY,
-                    v: 9,
-                    spatial_nearest: pointWKT,
-                    sn_srid: 4326,
-                    limit: 1
-                },
+                params: queryParams,
                 timeout: 60000 // 60s timeout
             });
+
+            console.log('\n========== REPORTALL API RESPONSE ==========');
+            console.log('Status:', response.status);
+            console.log('Results Count:', response.data.results?.length || 0);
+            console.log('Response Data:', JSON.stringify(response.data, null, 2));
+            console.log('==========================================\n');
 
             if (response.data.results && response.data.results.length > 0) {
                 return response.data.results[0];
@@ -133,7 +150,15 @@ export class InformationService {
             return null;
 
         } catch (error) {
-            console.error('[InformationService] External API Error:', error);
+            console.error('\n========== REPORTALL API ERROR ==========');
+            console.error('Timestamp:', new Date().toISOString());
+            console.error('Coordinates:', { lat, lon });
+            console.error('Error:', error);
+            if (axios.isAxiosError(error)) {
+                console.error('Response Status:', error.response?.status);
+                console.error('Response Data:', error.response?.data);
+            }
+            console.error('==========================================\n');
             throw error;
         }
     }
