@@ -7,7 +7,7 @@ import axios from 'axios';
 import { ToggleButton, ToggleButtonGroup, Paper } from '@mui/material';
 import ViewListIcon from '@mui/icons-material/ViewList';
 import MapIcon from '@mui/icons-material/Map';
-import TowerTable from '@/components/TowerTable';
+import TowerTableSimple from '@/components/TowerTableSimple';
 
 // Dynamically import Map to avoid SSR issues with Leaflet
 const Map = dynamic(() => import('@/components/Map'), {
@@ -176,7 +176,7 @@ export default function Home() {
             />
           ) : (
             <Box sx={{ flex: 1, overflow: 'auto', p: 2 }}>
-              <TowerTable towers={towers} onRowSelect={handleTowerSelect} />
+              <TowerTableSimple towers={towers} onRowSelect={handleTowerSelect} />
             </Box>
           )}
         </Box>
