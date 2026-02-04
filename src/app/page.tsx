@@ -1,14 +1,12 @@
 'use client';
-import { useState, useRef, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useState, useRef, useEffect, Suspense } from 'react';
 import Box from '@mui/material/Box';
 import dynamic from 'next/dynamic';
 import Sidebar from '@/components/Sidebar';
 import axios from 'axios';
-import { ToggleButton, ToggleButtonGroup, Paper } from '@mui/material';
-import ViewListIcon from '@mui/icons-material/ViewList';
+import { Paper } from '@mui/material';
 import MapIcon from '@mui/icons-material/Map';
-import TowerTableSimple from '@/components/TowerTableSimple';
-
 // Dynamically import Map to avoid SSR issues with Leaflet
 const Map = dynamic(() => import('@/components/Map'), {
   ssr: false,
@@ -38,7 +36,8 @@ interface OwnerResult {
   } | null;
 }
 
-export default function Home() {
+function HomeContent() {
+  const router = useRouter();
   const [towers, setTowers] = useState<Tower[]>([]);
   const [ghostTowers, setGhostTowers] = useState<any[]>([]); // Search results
   const [mapCenter, setMapCenter] = useState<[number, number]>([46.5, -64.0]); // Default to East Coast approximately
@@ -49,7 +48,6 @@ export default function Home() {
   const [selectedTower, setSelectedTower] = useState<Tower | null>(null);
   const [ownerData, setOwnerData] = useState<OwnerResult | null>(null);
   const [isOwnerLoading, setIsOwnerLoading] = useState<boolean>(false);
-  const [view, setView] = useState<'map' | 'table'>('map');
   const [mounted, setMounted] = useState(false);
 
   // Ensure component is mounted (client-side only)
@@ -57,18 +55,95 @@ export default function Home() {
     setMounted(true);
   }, []);
 
-  // Fetch all towers on mount
+  const searchParams = useSearchParams();
+
+  // Effect to handle URL params for selecting a tower (e.g., coming from Owners page)
   useEffect(() => {
-    const fetchTowers = async () => {
-      try {
-        const res = await axios.get('/api/towers');
-        setTowers(res.data);
-      } catch (error) {
-        console.error("Failed to fetch initial towers:", error);
+    const towerId = searchParams.get('selectTower');
+    if (towerId) {
+      const fetchAndSelectTower = async () => {
+        setIsLoading(true);
+        try {
+          // We need to fetch this specific tower. 
+          // Currently our API fetches lists. Let's filter by ID if possible or just fetch all for that state if we knew it.
+          // Since we don't know the state, we might need a specific get-by-id endpoint or filter.
+
+          // Workaround: Fetch all (expensive?) or implement get-by-id.
+          // Let's implement a simple get-by-id logic here if we can't search easily.
+          // Actually, let's assume the user wants to see it on the map.
+          // We can fetch just that tower to show it.
+
+          // Better: The map expects a list of towers to render markers.
+          // So we should setTowers([thatOneTower]).
+
+          // We need an endpoint for retrieving a single tower or support ?id=...
+          // Let's try to query our towers API.
+
+          // Assuming we don't have a direct ID endpoint yet, fail gracefully or improve API.
+          // For now, let's try to find it in the current list if loaded, else warn.
+          // Actually, let's upgrade the API to support ?id= param.
+
+          const res = await axios.get(`/api/towers?id=${towerId}`); // We will need to support this in API
+          if (res.data && res.data.length > 0) {
+            const tower = res.data[0];
+            setTowers([tower]); // Show only this tower? Or append? Let's show only this for clarity.
+            setSelectedTower(tower);
+            setMapCenter([tower.lat, tower.lon]);
+            setZoom(14);
+          }
+        } catch (error) {
+          console.error("Failed to load selected tower:", error);
+        } finally {
+          setIsLoading(false);
+        }
+      };
+
+      fetchAndSelectTower();
+    }
+  }, [searchParams]);
+
+  // Fetch towers on mount? NO, user wants to filter first to avoid thousands.
+  // We will load a small batch or nothing. 
+  // Let's load nothing or maybe just a "Please select a state" message.
+
+  // Helper to calculate center
+  const calculateCenter = (points: Tower[]): [number, number] => {
+    if (points.length === 0) return [46.5, -64.0];
+    const totalLat = points.reduce((sum, p) => sum + p.lat, 0);
+    const totalLon = points.reduce((sum, p) => sum + p.lon, 0);
+    return [totalLat / points.length, totalLon / points.length];
+  };
+
+  // ...
+
+  const handleStateSelect = async (state: string) => {
+    setIsLoading(true);
+    try {
+      if (!state) {
+        setTowers([]);
+        setIsLoading(false);
+        return;
       }
-    };
-    fetchTowers();
-  }, []);
+
+      const res = await axios.get(`/api/towers?state=${encodeURIComponent(state)}`);
+      setTowers(res.data);
+
+      if (res.data.length > 0) {
+        // Calculate center of mass for better view
+        const newCenter = calculateCenter(res.data);
+        setMapCenter(newCenter);
+        // Maybe zoom out slightly if many towers?
+        setZoom(state.length === 2 ? 6 : 7); // Heuristic: State abbr might be larger area? No, always large.
+      } else {
+        alert(`No towers found for state: ${state}`);
+      }
+    } catch (error) {
+      // ...
+      console.error("Failed to fetch towers by state:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleSearch = async (query: string) => {
     setIsLoading(true);
@@ -120,10 +195,15 @@ export default function Home() {
 
       // Update the selected tower with the parcel data (including geometry)
       if (res.data.result?._parcel) {
-        setSelectedTower({
+        const updatedTower = {
           ...tower,
           parcel: res.data.result._parcel
-        });
+        };
+
+        setSelectedTower(updatedTower);
+
+        // Update the main towers list with the new data
+        setTowers(prevTowers => prevTowers.map(t => t.id === tower.id ? updatedTower : t));
       }
     } catch (error) {
       console.error("Owner lookup failed:", error);
@@ -198,38 +278,31 @@ export default function Home() {
     }
   };
 
-  const handleViewChange = (
-    event: React.MouseEvent<HTMLElement>,
-    newView: 'map' | 'table',
-  ) => {
-    if (newView !== null) {
-      setView(newView);
-      // When switching to map view and there's a selected tower, center on it
-      if (newView === 'map' && selectedTower) {
-        setMapCenter([selectedTower.lat, selectedTower.lon]);
-        setZoom(15); // Closer zoom to see the tower
-      }
-    }
-  };
+
 
   return (
-    <Box sx={{ display: 'flex', height: '100vh', overflow: 'hidden', flexDirection: 'column' }}>
+    <Box sx={{ display: 'flex', height: '100%', overflow: 'hidden', flexDirection: 'column' }}>
       <Box sx={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
         <Sidebar
           onSearch={handleSearch}
+          onStateSelect={handleStateSelect}
           isLoading={isLoading}
           results={towers} // Shows list in sidebar too
           selectedTower={selectedTower}
           onLookupOwner={handleLookupOwner}
           isOwnerLoading={isOwnerLoading}
           ownerData={ownerData}
+          onSelectTower={handleTowerSelect}
+          currentView="map"
+          onViewChange={(view) => {
+            if (view === 'table') router.push('/towers');
+          }}
         />
 
         <Box sx={{ flex: 1, position: 'relative', display: 'flex', flexDirection: 'column' }}>
-
-          {/* View Toggle */}
-          <Box sx={{ position: 'absolute', top: 10, right: 10, zIndex: 1000, display: 'flex', gap: 2, alignItems: 'center' }}>
-            {view === 'map' && (
+          {/* Search Area Button - Keep on Map */}
+          {mounted && (
+            <Box sx={{ position: 'absolute', top: 10, right: 10, zIndex: 1000, display: 'flex', gap: 2, alignItems: 'center' }}>
               <Paper elevation={3}>
                 <button
                   onClick={searchTowersInArea}
@@ -250,28 +323,12 @@ export default function Home() {
                   {isSearchLoading ? 'Searching...' : 'Search This Area'}
                 </button>
               </Paper>
-            )}
+            </Box>
+          )}
 
-            <Paper elevation={3}>
-              <ToggleButtonGroup
-                value={view}
-                exclusive
-                onChange={handleViewChange}
-                aria-label="view toggle"
-                size="small"
-              >
-                <ToggleButton value="map" aria-label="map view">
-                  <MapIcon />
-                </ToggleButton>
-                <ToggleButton value="table" aria-label="table view">
-                  <ViewListIcon />
-                </ToggleButton>
-              </ToggleButtonGroup>
-            </Paper>
-          </Box>
-
-          {view === 'map' ? (
-            mounted ? (
+          {/* Map Section */}
+          <Box sx={{ flex: 1, position: 'relative' }}>
+            {mounted ? (
               <Map
                 center={mapCenter}
                 zoom={zoom}
@@ -285,14 +342,18 @@ export default function Home() {
               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
                 Loading Map...
               </Box>
-            )
-          ) : (
-            <Box sx={{ flex: 1, overflow: 'auto', p: 2 }}>
-              <TowerTableSimple towers={towers} onRowSelect={handleTowerSelect} />
-            </Box>
-          )}
+            )}
+          </Box>
         </Box>
       </Box>
     </Box>
+  );
+}
+
+export default function Home() {
+  return (
+    <Suspense fallback={<Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh' }}>Loading...</Box>}>
+      <HomeContent />
+    </Suspense>
   );
 }

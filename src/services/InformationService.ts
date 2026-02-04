@@ -151,6 +151,9 @@ export class InformationService {
             });
 
             return parcel;
+        }, {
+            maxWait: 10000, // Wait up to 10s for a connection
+            timeout: 20000  // Allow up to 20s for the transaction
         });
 
         return result;
