@@ -9,31 +9,18 @@ export default auth((req: any) => {
 
   const isLoggedIn = !!req.auth?.user;
 
-  if (isLoggedIn && pathname === '/login') {
-    return Response.redirect(new URL('/', req.url));
-  }
-
-  const publicRoutes = ['/login'];
-  const publicApiRoutes = ['/api/auth'];
-
-  if (publicRoutes.some((route) => pathname === route || pathname.startsWith(route))) {
-    return;
-  }
-
-  if (publicApiRoutes.some((route) => pathname.startsWith(route))) {
-    return;
-  }
-
   if (!isLoggedIn) {
-    if (pathname.startsWith('/api/')) {
-      return Response.json({ error: 'Unauthorized - Please login' }, { status: 401 });
-    }
-
     const loginUrl = new URL('/login', req.url);
     loginUrl.searchParams.set('callbackUrl', pathname);
     return Response.redirect(loginUrl);
+  } else {
+    if (isLoggedIn && pathname === '/login') {
+      return Response.redirect(new URL('/', req.url));
+    }
+    if (pathname.startsWith('/login') || pathname.startsWith('/api/auth')) {
+      return;
+    }
   }
-  return;
 });
 
 export const config = {
