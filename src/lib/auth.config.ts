@@ -33,5 +33,6 @@ export const authConfig = {
         signIn: '/login',
         error: '/login',
     },
-    secret: process.env.NEXTAUTH_SECRET,
+    // Check both standard variable names for robustness
+    secret: process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET,
 } satisfies NextAuthConfig;
