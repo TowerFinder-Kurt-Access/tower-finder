@@ -6,6 +6,12 @@ const { auth } = NextAuth(authConfig);
 
 export default auth((req: any) => {
   const { pathname } = req.nextUrl;
+  const isLoggedIn = !!req.auth;
+
+  // Redirect authenticated users away from login page
+  if (isLoggedIn && pathname === '/login') {
+    return Response.redirect(new URL('/', req.url));
+  }
 
   // Public routes that don't require authentication
   const publicRoutes = ['/login'];
@@ -20,9 +26,6 @@ export default auth((req: any) => {
   if (publicApiRoutes.some((route) => pathname.startsWith(route))) {
     return;
   }
-
-  // Check if user is authenticated
-  const isLoggedIn = !!req.auth;
 
   // Redirect to login if not authenticated
   if (!isLoggedIn) {
