@@ -33,6 +33,8 @@ export const authConfig = {
         signIn: '/login',
         error: '/login',
     },
+    // Trust Vercel's host header to prevent "UnknownAction" errors
+    trustHost: true,
     // Check both standard variable names for robustness
     secret: process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET,
 } satisfies NextAuthConfig;
