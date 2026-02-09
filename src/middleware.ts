@@ -6,7 +6,11 @@ const { auth } = NextAuth(authConfig);
 
 export default auth((req: any) => {
   const { pathname } = req.nextUrl;
-  const isLoggedIn = !!req.auth;
+
+  // Check if user is authenticated - strictly check for user object
+  const isLoggedIn = !!req.auth?.user;
+
+  console.log(`Middleware check: ${pathname} | user: ${req.auth?.user?.email} | isLoggedIn: ${isLoggedIn}`);
 
   // Redirect authenticated users away from login page
   if (isLoggedIn && pathname === '/login') {
@@ -29,6 +33,8 @@ export default auth((req: any) => {
 
   // Redirect to login if not authenticated
   if (!isLoggedIn) {
+    console.log(`Redirecting unauthenticated user from ${pathname} to /login`);
+
     // For API routes, return 401
     if (pathname.startsWith('/api/')) {
       return Response.json({ error: 'Unauthorized - Please login' }, { status: 401 });
