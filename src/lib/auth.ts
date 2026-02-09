@@ -1,12 +1,12 @@
-import NextAuth, { NextAuthConfig } from "next-auth"
+
+import NextAuth from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
 import bcrypt from "bcryptjs"
-import { PrismaClient, Role } from "@prisma/client"
+import { prisma } from "@/lib/prisma"
+import { authConfig } from "./auth.config"
 
-// Initialize Prisma client
-const prisma = new PrismaClient()
-
-export const authConfig: NextAuthConfig = {
+export const { handlers, auth, signIn, signOut } = NextAuth({
+  ...authConfig,
   providers: [
     CredentialsProvider({
       name: "Credentials",
@@ -66,43 +66,5 @@ export const authConfig: NextAuthConfig = {
         }
       }
     })
-  ],
-
-  // Use JWT strategy for stateless authentication (recommended for Next.js)
-  session: {
-    strategy: "jwt",
-    maxAge: 30 * 24 * 60 * 60, // 30 days
-  },
-
-  callbacks: {
-    async jwt({ token, user }) {
-      // Initial sign in
-      if (user) {
-        token.id = user.id
-        token.role = user.role
-        token.email = user.email
-        token.name = user.name
-      }
-      return token
-    },
-
-    async session({ session, token }) {
-      if (session.user) {
-        session.user.id = token.id as string
-        session.user.role = token.role as Role
-        session.user.email = token.email as string
-        session.user.name = token.name as string
-      }
-      return session
-    }
-  },
-
-  pages: {
-    signIn: "/login",
-    error: "/login"
-  },
-
-  secret: process.env.NEXTAUTH_SECRET
-}
-
-export const { handlers, auth, signIn, signOut } = NextAuth(authConfig)
+  ]
+})
