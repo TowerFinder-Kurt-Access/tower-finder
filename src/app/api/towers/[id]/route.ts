@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { getAuthUser } from '@/lib/auth-helpers';
+import { canAccessTower } from '@/lib/tower-access';
 
 interface RouteParams {
     params: Promise<{ id: string }>;
@@ -8,7 +10,16 @@ interface RouteParams {
 // GET /api/towers/[id] - Get specific tower details
 export async function GET(request: Request, { params }: RouteParams) {
     try {
+        const user = await getAuthUser();
         const { id } = await params;
+        const towerId = parseInt(id);
+
+        // Check access
+        const hasAccess = await canAccessTower(user.id, user.role, towerId);
+        if (!hasAccess) {
+            return NextResponse.json({ error: 'Forbidden - You do not have access to this tower' }, { status: 403 });
+        }
+
         const tower = await prisma.tower.findUnique({
             where: { id: parseInt(id) },
             include: {
@@ -20,6 +31,9 @@ export async function GET(request: Request, { params }: RouteParams) {
                             }
                         }
                     }
+                },
+                notes: {
+                    orderBy: { createdAt: 'desc' }
                 }
             }
         });
@@ -38,14 +52,24 @@ export async function GET(request: Request, { params }: RouteParams) {
 // PATCH /api/towers/[id] - Update tower status or link parcel/owner
 export async function PATCH(request: Request, { params }: RouteParams) {
     try {
+        const user = await getAuthUser();
         const { id } = await params;
+        const towerId = parseInt(id);
+
+        // Check access
+        const hasAccess = await canAccessTower(user.id, user.role, towerId);
+        if (!hasAccess) {
+            return NextResponse.json({ error: 'Forbidden - You do not have access to this tower' }, { status: 403 });
+        }
+
         const body = await request.json();
-        const { status, type, parcelId, ownerName, ownerAddress, ownerType } = body;
+        const { status, type, parcelId, ownerName, ownerAddress, ownerType, streetViewUrl } = body;
 
         // Update Tower Basic Info
         let updateData: any = {};
         if (status) updateData.status = status;
         if (type) updateData.type = type;
+        if (streetViewUrl !== undefined) updateData.streetViewUrl = streetViewUrl;
 
         // Handle Parcel/Owner updates if provided
         // This is a simplified "Upsert" logic where we assume we are setting the parcel info for this tower

@@ -1,6 +1,6 @@
 'use client';
 import { useRouter } from 'next/navigation';
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, Suspense, useCallback } from 'react';
 import Box from '@mui/material/Box';
 import axios from 'axios';
 import { Paper, Typography } from '@mui/material';
@@ -20,6 +20,7 @@ interface Tower {
     // Flattened fields for DataGrid
     address?: string;
     city?: string;
+    county?: string;
     state?: string;
     zip?: string;
     parcelId?: string;
@@ -50,11 +51,13 @@ function TowersPageContent() {
     const [filterOptions, setFilterOptions] = useState<{
         cities: string[];
         states: string[];
+        counties: string[];
         zips: string[];
-    }>({ cities: [], states: [], zips: [] });
+    }>({ cities: [], states: [], counties: [], zips: [] });
     const [filters, setFilters] = useState<{
         city?: string;
         state?: string;
+        county?: string;
         zip?: string;
     }>({});
 
@@ -66,6 +69,7 @@ function TowersPageContent() {
                 setFilterOptions({
                     cities: res.data.cities || [],
                     states: res.data.states || [],
+                    counties: res.data.counties || [],
                     zips: res.data.zips || []
                 });
             } catch (error) {
@@ -75,45 +79,49 @@ function TowersPageContent() {
         loadFilterOptions();
     }, []);
 
+    // Load towers function
+    const loadTowers = useCallback(async () => {
+        setIsLoading(true);
+        try {
+            // Build query string with filters
+            const params = new URLSearchParams({
+                page: page.toString(),
+                limit: rowsPerPage.toString()
+            });
+
+            if (filters.city) params.append('city', filters.city);
+            if (filters.county) params.append('county', filters.county);
+            if (filters.state) params.append('state', filters.state);
+            if (filters.zip) params.append('zip', filters.zip);
+
+            const res = await axios.get(`/api/towers?${params.toString()}`);
+
+            // Flatten the data structure for better DataGrid filtering
+            const flattenedTowers = (res.data.data || []).map((tower: any) => ({
+                ...tower,
+                address: tower.parcel?.address || '',
+                city: tower.parcel?.city || '',
+                county: tower.parcel?.county || '',
+                state: tower.parcel?.state || '',
+                zip: tower.parcel?.zip || '',
+                parcelId: tower.parcel?.parcelId || '',
+                ownerName: tower.parcel?.owner?.name || '',
+                dataSource: tower.parcel?.dataSource || ''
+            }));
+
+            setTowers(flattenedTowers);
+            setTotalCount(res.data.total || 0);
+        } catch (error) {
+            console.error("Failed to fetch towers:", error);
+        } finally {
+            setIsLoading(false);
+        }
+    }, [page, rowsPerPage, filters]);
+
     // Load towers with pagination and filters
     useEffect(() => {
-        const loadTowers = async () => {
-            setIsLoading(true);
-            try {
-                // Build query string with filters
-                const params = new URLSearchParams({
-                    page: page.toString(),
-                    limit: rowsPerPage.toString()
-                });
-
-                if (filters.city) params.append('city', filters.city);
-                if (filters.state) params.append('state', filters.state);
-                if (filters.zip) params.append('zip', filters.zip);
-
-                const res = await axios.get(`/api/towers?${params.toString()}`);
-
-                // Flatten the data structure for better DataGrid filtering
-                const flattenedTowers = (res.data.data || []).map((tower: any) => ({
-                    ...tower,
-                    address: tower.parcel?.address || '',
-                    city: tower.parcel?.city || '',
-                    state: tower.parcel?.state || '',
-                    zip: tower.parcel?.zip || '',
-                    parcelId: tower.parcel?.parcelId || '',
-                    ownerName: tower.parcel?.owner?.name || '',
-                    dataSource: tower.parcel?.dataSource || ''
-                }));
-
-                setTowers(flattenedTowers);
-                setTotalCount(res.data.total || 0);
-            } catch (error) {
-                console.error("Failed to fetch towers:", error);
-            } finally {
-                setIsLoading(false);
-            }
-        };
         loadTowers();
-    }, [page, rowsPerPage, filters]);
+    }, [loadTowers]);
 
     const handleLookupOwner = async (tower: Tower) => {
         setIsOwnerLoading(true);
@@ -144,6 +152,7 @@ function TowersPageContent() {
                     // Update flattened fields for DataGrid
                     address: parcelData.address || tower.address || '',
                     city: parcelData.city || tower.city || '',
+                    county: parcelData.county || tower.county || '',
                     state: parcelData.state || tower.state || '',
                     zip: parcelData.zip || tower.zip || '',
                     parcelId: parcelData.parcelId || tower.parcelId || '',
@@ -174,6 +183,12 @@ function TowersPageContent() {
         router.push(`/?selectTower=${tower.id}`);
     };
 
+    const handleViewDetails = (tower: Tower) => {
+        // Navigate to tower detail page
+        router.push(`/towers/${tower.id}`);
+    };
+
+
     return (
         <Box sx={{ display: 'flex', height: '100%', overflow: 'hidden', flexDirection: 'column' }}>
             <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', p: 2, backgroundColor: '#f5f5f5', overflow: 'hidden' }}>
@@ -191,6 +206,7 @@ function TowersPageContent() {
                         onRowsPerPageChange={setRowsPerPage}
                         onViewOnMap={handleViewOnMap}
                         onGetOwner={handleLookupOwner}
+                        onViewDetails={handleViewDetails}
                         isOwnerLoading={isOwnerLoading}
                         filterOptions={filterOptions}
                         onFilterChange={(newFilters) => {

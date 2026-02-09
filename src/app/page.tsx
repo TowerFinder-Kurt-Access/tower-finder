@@ -1,6 +1,6 @@
 'use client';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useState, useRef, useEffect, Suspense } from 'react';
+import { useState, useRef, useEffect, Suspense, useCallback } from 'react';
 import Box from '@mui/material/Box';
 import dynamic from 'next/dynamic';
 import Sidebar from '@/components/Sidebar';
@@ -213,9 +213,9 @@ function HomeContent() {
     }
   };
 
-  const handleBoundsChange = (bounds: any) => {
+  const handleBoundsChange = useCallback((bounds: any) => {
     setMapBounds(bounds);
-  };
+  }, []);
 
   // Search for new towers in current map bounds
   const searchTowersInArea = async () => {

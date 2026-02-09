@@ -15,6 +15,10 @@ interface OwnerRow {
     ownerName: string;
     parcelId: string;
     address: string;
+    city: string;
+    county: string;
+    state: string;
+    zip: string;
     towerCount: number; // How many towers on this land
     towerIds: string; // Comma separated IDs
 }
@@ -27,17 +31,61 @@ export default function OwnersPage() {
         page: 0,
         pageSize: 25,
     });
+    const [filterOptions, setFilterOptions] = useState<{
+        cities: string[];
+        states: string[];
+        counties: string[];
+        zips: string[];
+    }>({ cities: [], states: [], counties: [], zips: [] });
+    const [filters, setFilters] = useState<{
+        city?: string;
+        state?: string;
+        county?: string;
+        zip?: string;
+    }>({});
     const router = useRouter();
+
+    // Load distinct filter values on mount
+    useEffect(() => {
+        const loadFilterOptions = async () => {
+            try {
+                const res = await axios.get('/api/owners?distinct=filters');
+                setFilterOptions({
+                    cities: res.data.cities || [],
+                    states: res.data.states || [],
+                    counties: res.data.counties || [],
+                    zips: res.data.zips || []
+                });
+            } catch (error) {
+                console.error("Failed to fetch filter options:", error);
+            }
+        };
+        loadFilterOptions();
+    }, []);
 
     useEffect(() => {
         const fetchOwners = async () => {
             setLoading(true);
             try {
-                const res = await axios.get(`/api/owners?page=${paginationModel.page}&limit=${paginationModel.pageSize}`);
+                const params = new URLSearchParams({
+                    page: paginationModel.page.toString(),
+                    limit: paginationModel.pageSize.toString()
+                });
+
+                if (filters.city) params.append('city', filters.city);
+                if (filters.county) params.append('county', filters.county);
+                if (filters.state) params.append('state', filters.state);
+                if (filters.zip) params.append('zip', filters.zip);
+
+                const res = await axios.get(`/api/owners?${params.toString()}`);
 
                 // Convert towerIds array to comma-separated string for display
                 const formattedRows = res.data.data.map((row: any) => ({
                     ...row,
+                    city: row.city || '',
+                    county: row.county || '',
+                    state: row.state || '',
+                    zip: row.zip || '',
                     towerIds: Array.isArray(row.towerIds) ? row.towerIds.join(', ') : row.towerIds
                 }));
 
@@ -51,7 +99,7 @@ export default function OwnersPage() {
         };
 
         fetchOwners();
-    }, [paginationModel.page, paginationModel.pageSize]);
+    }, [paginationModel.page, paginationModel.pageSize, filters]);
 
     const handleSeeInMap = (row: OwnerRow) => {
         // Build query params to center map
@@ -66,10 +114,59 @@ export default function OwnersPage() {
         router.push(`/?selectTower=${firstTowerId}`);
     };
 
+    const handleFilterModelChange = (filterModel: any) => {
+        const newFilters: { city?: string; state?: string; county?: string; zip?: string } = {};
+
+        if (filterModel.items && filterModel.items.length > 0) {
+            filterModel.items.forEach((item: any) => {
+                if (item.field === 'city' && item.value) {
+                    newFilters.city = item.value;
+                } else if (item.field === 'state' && item.value) {
+                    newFilters.state = item.value;
+                } else if (item.field === 'county' && item.value) {
+                    newFilters.county = item.value;
+                } else if (item.field === 'zip' && item.value) {
+                    newFilters.zip = item.value;
+                }
+            });
+        }
+
+        setFilters(newFilters);
+        setPaginationModel(prev => ({ ...prev, page: 0 })); // Reset to first page
+    };
+
     const columns: GridColDef[] = [
         { field: 'ownerName', headerName: 'Owner Name', flex: 1, minWidth: 200 },
         { field: 'parcelId', headerName: 'Parcel ID', width: 150 },
         { field: 'address', headerName: 'Property Address', flex: 1, minWidth: 200 },
+        {
+            field: 'city',
+            headerName: 'City',
+            width: 120,
+            type: 'singleSelect',
+            valueOptions: filterOptions.cities
+        },
+        {
+            field: 'county',
+            headerName: 'County',
+            width: 120,
+            type: 'singleSelect',
+            valueOptions: filterOptions.counties
+        },
+        {
+            field: 'state',
+            headerName: 'State',
+            width: 80,
+            type: 'singleSelect',
+            valueOptions: filterOptions.states
+        },
+        {
+            field: 'zip',
+            headerName: 'ZIP',
+            width: 90,
+            type: 'singleSelect',
+            valueOptions: filterOptions.zips
+        },
         { field: 'towerCount', headerName: 'Towers', width: 100, type: 'number' },
         {
             field: 'actions',
@@ -107,8 +204,10 @@ export default function OwnersPage() {
                         rowCount={totalRows}
                         loading={loading}
                         paginationMode="server"
+                        filterMode="server"
                         paginationModel={paginationModel}
                         onPaginationModelChange={setPaginationModel}
+                        onFilterModelChange={handleFilterModelChange}
                         pageSizeOptions={[25, 50, 100]}
                         slots={{ toolbar: GridToolbar }}
                         slotProps={{

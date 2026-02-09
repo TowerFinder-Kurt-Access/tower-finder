@@ -1,23 +1,38 @@
 'use client';
 import { usePathname } from 'next/navigation';
-import Link from 'next/link';
-
+import { useSession } from 'next-auth/react';
 import * as React from 'react';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import MapIcon from '@mui/icons-material/Map';
 import GroupIcon from '@mui/icons-material/Group';
 import TableRowsIcon from '@mui/icons-material/TableRows';
-// ... (imports)
+import PersonIcon from '@mui/icons-material/Person';
+import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
+import { Role } from '@prisma/client';
 
 export default function NavRail() {
     const pathname = usePathname();
+    const { data: session } = useSession();
 
-    const navItems = [
+    const baseNavItems = [
         { label: 'Map', icon: <MapIcon />, path: '/' },
         { label: 'Towers', icon: <TableRowsIcon />, path: '/towers' },
         { label: 'Owners', icon: <GroupIcon />, path: '/owners' },
     ];
+
+    const adminNavItems = [
+        { label: 'Users', icon: <AdminPanelSettingsIcon />, path: '/admin/users' },
+    ];
+
+    const profileItem = { label: 'Profile', icon: <PersonIcon />, path: '/profile' };
+
+    // Build nav items based on role
+    let navItems = [...baseNavItems];
+    if (session?.user?.role === Role.ADMIN) {
+        navItems = [...navItems, ...adminNavItems];
+    }
+    navItems.push(profileItem);
 
     return (
         <Box sx={{

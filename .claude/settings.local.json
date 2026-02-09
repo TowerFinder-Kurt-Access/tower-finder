@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python:*)",
+      "Bash(npm run build:*)",
+      "Bash(git add:*)",
+      "Bash(git push:*)",
+      "Bash(node scripts/batch_fetch_owners.js:*)",
+      "Bash(curl:*)",
+      "Bash(npm run dev:*)",
+      "Bash(node scripts/export_towers_for_support.js:*)",
+      "Bash(node:*)",
+      "Bash(if not exist experiments mkdir experiments)",
+      "Bash(ls:*)",
+      "Bash(tee:*)",
+      "Bash(npx prisma db push:*)",
+      "Bash(npx prisma generate:*)",
+      "Bash(npx prisma migrate dev:*)",
+      "Bash(npx prisma db execute:*)",
+      "Bash(openssl rand:*)"
+    ]
+  }
+}

@@ -18,7 +18,7 @@ function MapUpdater({ center, zoom }: { center: LatLngExpression, zoom: number }
 
 interface Tower {
     id: number;
-    type: string;
+    type?: string;
     subType?: string;
     lat: number;
     lon: number;

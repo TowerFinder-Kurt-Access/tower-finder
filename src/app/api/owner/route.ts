@@ -1,7 +1,8 @@
+
 import { NextResponse } from 'next/server';
 import { InformationService } from '@/services/InformationService';
 
-export async function GET(request) {
+export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const lat = searchParams.get('lat');
     const lon = searchParams.get('lon');
@@ -40,7 +41,7 @@ export async function GET(request) {
             }
         });
 
-    } catch (error) {
+    } catch (error: any) {
         console.error("[API] Error fetching owner:", error);
         return NextResponse.json({
             error: 'Failed to fetch owner data',

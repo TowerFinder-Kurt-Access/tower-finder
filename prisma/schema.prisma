@@ -12,13 +12,20 @@ model Tower {
   lat       Float
   lon       Float
   type      String?   // e.g., "Monopole", "Lattice"
-  status    String   @default("Unknown") // CRM Status: "New", "Researched", "Contacted", "Closed"
+  status    String   @default("Unknown") // Workflow status
   licensee  String?
   googleMapsUrl String?
+  streetViewUrl String? // Custom street view URL once properly located
   source    String   @default("Excel Import") // "Excel Import" or "Tower Finder"
-  
+
   // A tower sits on a specific parcel of land
   parcel    Parcel?
+
+  // Notes for tracking progress and communications
+  notes     Note[]
+
+  // User assignments (many-to-many)
+  assignments TowerAssignment[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -30,14 +37,17 @@ model Tower {
 model Parcel {
   id          Int      @id @default(autoincrement())
   parcelId    String?  // The official county/city parcel ID
-  address     String?
+  address     String?  // Street address
   city        String?
-  state       String?
-  zip         String?
+  county      String?  // County/Region
+  state       String?  // State (US) or Province (Canada)
+  province    String?  // For Canadian addresses
+  zip         String?  // ZIP code (US) or Postal code (Canada)
+  country     String?  // Country code (US, CA, etc.)
   rawData     Json?    // Store raw API response for debugging
   dataSource  String?  // Track which API provided this data (e.g., "ReportAll", "Regrid", etc.)
   geometry    Json?    // Store parcel boundary geometry (GeoJSON)
-  
+
   // Relation to Tower (One Parcel can have a tower)
   towerId     Int      @unique
   tower       Tower    @relation(fields: [towerId], references: [id])
@@ -66,7 +76,68 @@ model Contact {
   value     String
   label     String?  // "Mobile", "Office", "Home", "Attorney"
   isValid   Boolean  @default(true) // For marking bad numbers/emails
-  
+
   ownerId   Int
   owner     Owner    @relation(fields: [ownerId], references: [id])
+}
+
+enum Role {
+  ADMIN
+  CALLER
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  name      String
+  password  String   // Hashed with bcrypt
+  role      Role     @default(CALLER)
+  isActive  Boolean  @default(true)
+
+  // Tower assignments (many-to-many)
+  towerAssignments TowerAssignment[]
+
+  // Notes authored by this user
+  notes     Note[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  lastLogin DateTime?
+
+  @@index([email])
+  @@index([role])
+}
+
+model TowerAssignment {
+  id        Int      @id @default(autoincrement())
+
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  towerId   Int
+  tower     Tower    @relation(fields: [towerId], references: [id], onDelete: Cascade)
+
+  assignedAt DateTime @default(now())
+  assignedBy Int?     // Admin who made the assignment
+
+  @@unique([userId, towerId])
+  @@index([userId])
+  @@index([towerId])
+}
+
+model Note {
+  id        Int      @id @default(autoincrement())
+  content   String
+
+  // Migrated from string to User relation
+  authorId  Int?     // Nullable for backward compatibility with old notes
+  author    User?    @relation(fields: [authorId], references: [id], onDelete: SetNull)
+
+  towerId   Int
+  tower     Tower    @relation(fields: [towerId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([authorId])
 }

@@ -1,26 +1,35 @@
 import ThemeRegistry from './ThemeRegistry';
 import type { Metadata } from 'next';
+import { auth } from '@/lib/auth';
+import Box from '@mui/material/Box';
+import NavRail from '@/components/NavRail';
+import ContentArea from '@/components/ContentArea';
+import { SessionProvider } from 'next-auth/react';
 
 export const metadata: Metadata = {
   title: "Tower Finder CRM",
   description: "Advanced Tower Detection and CRM Dashboard",
 };
 
-import Box from '@mui/material/Box';
-import NavRail from '@/components/NavRail';
-import ContentArea from '@/components/ContentArea';
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const session = await auth();
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
       <body>
         <ThemeRegistry>
-          <Box sx={{ display: 'flex', height: '100vh', width: '100vw', overflow: 'hidden' }}>
-            <NavRail />
-            <ContentArea>
-              {children}
-            </ContentArea>
-          </Box>
+          <SessionProvider session={session}>
+            {session ? (
+              <Box sx={{ display: 'flex', height: '100vh', width: '100vw', overflow: 'hidden' }}>
+                <NavRail />
+                <ContentArea>
+                  {children}
+                </ContentArea>
+              </Box>
+            ) : (
+              children
+            )}
+          </SessionProvider>
         </ThemeRegistry>
       </body>
     </html>

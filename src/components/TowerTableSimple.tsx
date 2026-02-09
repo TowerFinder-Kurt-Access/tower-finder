@@ -1,10 +1,17 @@
 'use client';
 
 import * as React from 'react';
-import { Box, Button } from '@mui/material';
+import { Box, Button, Menu, MenuItem, ListItemIcon, ListItemText, Chip, Badge } from '@mui/material';
 import { DataGrid, GridColDef, GridToolbar, GridRenderCellParams } from '@mui/x-data-grid';
 import MapIcon from '@mui/icons-material/Map';
 import BusinessIcon from '@mui/icons-material/Business';
+import OpenInNewIcon from '@mui/icons-material/OpenInNew';
+import StreetviewIcon from '@mui/icons-material/Streetview';
+import MoreVertIcon from '@mui/icons-material/MoreVert';
+import TravelExploreIcon from '@mui/icons-material/TravelExplore';
+import InfoIcon from '@mui/icons-material/Info';
+import NotesIcon from '@mui/icons-material/Notes';
+import { getStatusLabel } from '@/lib/constants';
 
 interface TowerTableSimpleProps {
     towers: any[];
@@ -15,13 +22,15 @@ interface TowerTableSimpleProps {
     onRowsPerPageChange: (rowsPerPage: number) => void;
     onViewOnMap: (tower: any) => void;
     onGetOwner: (tower: any) => void;
+    onViewDetails: (tower: any) => void;
     isOwnerLoading: boolean;
     filterOptions: {
         cities: string[];
         states: string[];
+        counties: string[];
         zips: string[];
     };
-    onFilterChange: (filters: { city?: string; state?: string; zip?: string }) => void;
+    onFilterChange: (filters: { city?: string; state?: string; county?: string; zip?: string }) => void;
 }
 
 export default function TowerTableSimple({
@@ -33,19 +42,82 @@ export default function TowerTableSimple({
     onRowsPerPageChange,
     onViewOnMap,
     onGetOwner,
+    onViewDetails,
     isOwnerLoading,
     filterOptions,
     onFilterChange
 }: TowerTableSimpleProps) {
+    const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
+    const [selectedTower, setSelectedTower] = React.useState<any>(null);
+
+    const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, tower: any) => {
+        event.stopPropagation();
+        setAnchorEl(event.currentTarget);
+        setSelectedTower(tower);
+    };
+
+    const handleMenuClose = () => {
+        setAnchorEl(null);
+        setSelectedTower(null);
+    };
+
+    const handleViewOnMap = () => {
+        if (selectedTower) {
+            onViewOnMap(selectedTower);
+            handleMenuClose();
+        }
+    };
+
+    const handleOpenGoogleMaps = () => {
+        if (selectedTower) {
+            const googleMapsUrl = `https://www.google.com/maps?q=${selectedTower.lat},${selectedTower.lon}`;
+            window.open(googleMapsUrl, '_blank', 'noopener,noreferrer');
+            handleMenuClose();
+        }
+    };
+
+    const handleOpenSatelliteView = () => {
+        if (selectedTower) {
+            // Open Google Maps in satellite view at high zoom centered on exact coordinates
+            const satelliteUrl = `https://www.google.com/maps/@${selectedTower.lat},${selectedTower.lon},20z/data=!3m1!1e3`;
+            window.open(satelliteUrl, '_blank', 'noopener,noreferrer');
+            handleMenuClose();
+        }
+    };
+
+    const handleGetOwner = () => {
+        if (selectedTower) {
+            onGetOwner(selectedTower);
+            handleMenuClose();
+        }
+    };
+
+    const handleOpenBingMaps = () => {
+        if (selectedTower) {
+            // Open Bing Maps at the tower location with nearby places search
+            const bingMapsUrl = `https://www.bing.com/maps?cp=${selectedTower.lat}~${selectedTower.lon}&lvl=17&style=r`;
+            window.open(bingMapsUrl, '_blank', 'noopener,noreferrer');
+            handleMenuClose();
+        }
+    };
+
+    const handleViewDetails = () => {
+        if (selectedTower) {
+            onViewDetails(selectedTower);
+            handleMenuClose();
+        }
+    };
 
     const handleFilterModelChange = (filterModel: any) => {
-        // Extract city, state, zip filters from the filter model
-        const filters: { city?: string; state?: string; zip?: string } = {};
+        // Extract city, county, state, zip filters from the filter model
+        const filters: { city?: string; state?: string; county?: string; zip?: string } = {};
 
         if (filterModel.items && filterModel.items.length > 0) {
             filterModel.items.forEach((item: any) => {
                 if (item.field === 'city' && item.value) {
                     filters.city = item.value;
+                } else if (item.field === 'county' && item.value) {
+                    filters.county = item.value;
                 } else if (item.field === 'state' && item.value) {
                     filters.state = item.value;
                 } else if (item.field === 'zip' && item.value) {
@@ -61,7 +133,34 @@ export default function TowerTableSimple({
         { field: 'id', headerName: 'ID', width: 80 },
         { field: 'licensee', headerName: 'Licensee', width: 150 },
         { field: 'type', headerName: 'Type', width: 120 },
-        { field: 'status', headerName: 'Status', width: 100 },
+        {
+            field: 'status',
+            headerName: 'Status',
+            width: 180,
+            renderCell: (params: GridRenderCellParams) => (
+                <Chip
+                    label={getStatusLabel(params.value || 'Unknown')}
+                    size="small"
+                    color="primary"
+                    variant="outlined"
+                />
+            )
+        },
+        {
+            field: 'notesCount',
+            headerName: 'Notes',
+            width: 80,
+            renderCell: (params: GridRenderCellParams) => {
+                const count = params.row._count?.notes || 0;
+                return count > 0 ? (
+                    <Badge badgeContent={count} color="primary">
+                        <NotesIcon color="action" />
+                    </Badge>
+                ) : (
+                    <NotesIcon color="disabled" />
+                );
+            }
+        },
         { field: 'address', headerName: 'Address', width: 200, flex: 1, minWidth: 200 },
         {
             field: 'city',
@@ -69,6 +168,13 @@ export default function TowerTableSimple({
             width: 120,
             type: 'singleSelect',
             valueOptions: filterOptions.cities
+        },
+        {
+            field: 'county',
+            headerName: 'County',
+            width: 120,
+            type: 'singleSelect',
+            valueOptions: filterOptions.counties
         },
         {
             field: 'state',
@@ -99,40 +205,20 @@ export default function TowerTableSimple({
         {
             field: 'actions',
             headerName: 'Actions',
-            width: 250,
+            width: 120,
             sortable: false,
             filterable: false,
             renderCell: (params: GridRenderCellParams) => (
-                <Box sx={{ display: 'flex', gap: 1 }}>
-                    <Button
-                        variant="outlined"
-                        size="small"
-                        startIcon={<MapIcon />}
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            onViewOnMap(params.row);
-                        }}
-                    >
-                        Map
-                    </Button>
-                    <Button
-                        variant="contained"
-                        size="small"
-                        startIcon={<BusinessIcon />}
-                        disabled={isOwnerLoading}
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            onGetOwner(params.row);
-                        }}
-                    >
-                        {isOwnerLoading ? 'Loading' : 'Owner'}
-                    </Button>
-                </Box>
+                <Button
+                    variant="outlined"
+                    size="small"
+                    startIcon={<MoreVertIcon />}
+                    onClick={(e) => handleMenuOpen(e, params.row)}
+                >
+                    Actions
+                </Button>
             )
         },
-        { field: 'parcelId', headerName: 'Parcel ID', width: 150 },
-        { field: 'ownerName', headerName: 'Owner', width: 150 },
-        { field: 'dataSource', headerName: 'Data Source', width: 120 },
     ];
 
     return (
@@ -163,6 +249,49 @@ export default function TowerTableSimple({
                 }}
                 disableRowSelectionOnClick
             />
+            <Menu
+                anchorEl={anchorEl}
+                open={Boolean(anchorEl)}
+                onClose={handleMenuClose}
+                onClick={(e) => e.stopPropagation()}
+            >
+                <MenuItem onClick={handleViewDetails}>
+                    <ListItemIcon>
+                        <InfoIcon fontSize="small" />
+                    </ListItemIcon>
+                    <ListItemText>View Details</ListItemText>
+                </MenuItem>
+                <MenuItem onClick={handleViewOnMap}>
+                    <ListItemIcon>
+                        <MapIcon fontSize="small" />
+                    </ListItemIcon>
+                    <ListItemText>View on Map</ListItemText>
+                </MenuItem>
+                <MenuItem onClick={handleOpenGoogleMaps}>
+                    <ListItemIcon>
+                        <OpenInNewIcon fontSize="small" />
+                    </ListItemIcon>
+                    <ListItemText>Open in Google Maps</ListItemText>
+                </MenuItem>
+                <MenuItem onClick={handleOpenSatelliteView}>
+                    <ListItemIcon>
+                        <StreetviewIcon fontSize="small" />
+                    </ListItemIcon>
+                    <ListItemText>Open Satellite View</ListItemText>
+                </MenuItem>
+                <MenuItem onClick={handleGetOwner} disabled={isOwnerLoading}>
+                    <ListItemIcon>
+                        <BusinessIcon fontSize="small" />
+                    </ListItemIcon>
+                    <ListItemText>{isOwnerLoading ? 'Loading Owner...' : 'Lookup Owner'}</ListItemText>
+                </MenuItem>
+                <MenuItem onClick={handleOpenBingMaps}>
+                    <ListItemIcon>
+                        <TravelExploreIcon fontSize="small" />
+                    </ListItemIcon>
+                    <ListItemText>Search Nearby (Bing)</ListItemText>
+                </MenuItem>
+            </Menu>
         </Box>
     );
 }

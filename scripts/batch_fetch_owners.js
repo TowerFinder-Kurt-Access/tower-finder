@@ -12,8 +12,8 @@ const prisma = new PrismaClient();
 // Configuration
 const MAX_API_CALLS = 566; // Your remaining API calls
 const API_BASE_URL = process.env.API_BASE_URL || 'http://localhost:3000';
-const BATCH_SIZE = 10; // Process 10 towers at a time
-const DELAY_BETWEEN_BATCHES = 2000; // 2 seconds between batches
+const BATCH_SIZE = 3; // Process 3 towers at a time (reduced to avoid rate limits)
+const DELAY_BETWEEN_BATCHES = 5000; // 5 seconds between batches (increased to avoid rate limits)
 
 async function main() {
     console.log('========================================');
