@@ -23,15 +23,21 @@ import MenuItem from '@mui/material/MenuItem';
 
 interface Tower {
     id: number;
-    type: string;
+    type?: { name: string } | string;
     subType?: string;
     lat: number;
     lon: number;
-    licensee?: string;
+    licensee?: { name: string } | string;
+    carrier?: { name: string };
     status?: string;
     googleMapsUrl?: string;
     parcel?: {
         address?: string;
+        cityRaw?: string;
+        stateRaw?: string;
+        provinceRaw?: string;
+        city?: { name: string } | string;
+        province?: { name: string } | string;
         owner?: {
             name?: string;
             [key: string]: any;
@@ -41,9 +47,18 @@ interface Tower {
     details?: any;
 }
 
+export interface FilterState {
+    query: string;
+    province: string;
+    type: string;
+    carrier: string;
+    licensee: string;
+}
+
 interface SidebarProps {
     onSearch: (query: string) => void;
-    onStateSelect?: (state: string) => void; // Optional prop for backward compatibility
+    onStateSelect?: (state: string) => void;
+    onFilterChange: (filters: FilterState) => void;
     isLoading: boolean;
     results: Tower[];
     selectedTower: Tower | null;
@@ -75,6 +90,7 @@ const PROVINCE_INITIATED_STATES = [
 export default function Sidebar({
     onSearch,
     onStateSelect,
+    onFilterChange,
     isLoading,
     results,
     selectedTower,
@@ -89,10 +105,40 @@ export default function Sidebar({
     const [query, setQuery] = useState('');
     const [collapsed, setCollapsed] = useState(false);
     const [selectedProvince, setSelectedProvince] = useState('');
+    const [selectedType, setSelectedType] = useState('');
+    const [selectedCarrier, setSelectedCarrier] = useState('');
+    const [selectedLicensee, setSelectedLicensee] = useState('');
+
+    const [types, setTypes] = useState<{ id: number, name: string }[]>([]);
+    const [carriers, setCarriers] = useState<{ id: number, name: string }[]>([]);
+    const [licensees, setLicensees] = useState<{ id: number, name: string }[]>([]);
+
+    useState(() => {
+        // Fetch lookups
+        fetch('/api/towers?distinct=lookups')
+            .then(res => res.json())
+            .then(data => {
+                setTypes(data.types || []);
+                setCarriers(data.carriers || []);
+                setLicensees(data.licensees || []);
+            })
+            .catch(err => console.error('Failed to fetch lookups', err));
+    });
+
+    const triggerFilter = (newFilters: Partial<FilterState>) => {
+        onFilterChange({
+            query: newFilters.query !== undefined ? newFilters.query : query,
+            province: newFilters.province !== undefined ? newFilters.province : selectedProvince,
+            type: newFilters.type !== undefined ? newFilters.type : selectedType,
+            carrier: newFilters.carrier !== undefined ? newFilters.carrier : selectedCarrier,
+            licensee: newFilters.licensee !== undefined ? newFilters.licensee : selectedLicensee
+        });
+    };
 
     const handleSearch = (e: React.FormEvent) => {
         e.preventDefault();
         onSearch(query);
+        triggerFilter({ query });
     };
 
     const toggleSidebar = () => {
@@ -105,6 +151,16 @@ export default function Sidebar({
         if (onStateSelect) {
             onStateSelect(val);
         }
+        triggerFilter({ province: val });
+    };
+
+    const handleFilterSelect = (field: 'type' | 'carrier' | 'licensee') => (event: SelectChangeEvent) => {
+        const val = event.target.value as string;
+        if (field === 'type') setSelectedType(val);
+        if (field === 'carrier') setSelectedCarrier(val);
+        if (field === 'licensee') setSelectedLicensee(val);
+
+        triggerFilter({ [field]: val });
     };
 
     if (collapsed) {
@@ -167,27 +223,46 @@ export default function Sidebar({
 
                 {/* Province Filter - Only show on map view */}
                 {currentView === 'map' && (
-                    <FormControl fullWidth size="small" sx={{ mb: 2 }}>
-                        <InputLabel id="province-select-label">Select Province / Region</InputLabel>
-                        <Select
-                            labelId="province-select-label"
-                            id="province-select"
-                            value={selectedProvince}
-                            label="Select Province / Region"
-                            onChange={handleProvinceChange}
-                        >
-                            <MenuItem value="">
-                                <em>None</em>
-                            </MenuItem>
-                            {CANADIAN_PROVINCES.map((p) => (
-                                <MenuItem key={p} value={p}>{p}</MenuItem>
-                            ))}
-                            <MenuItem disabled>---</MenuItem>
-                            {PROVINCE_INITIATED_STATES.map((p) => (
-                                <MenuItem key={p} value={p}>{p}</MenuItem>
-                            ))}
-                        </Select>
-                    </FormControl>
+                    <>
+                        <FormControl fullWidth size="small" sx={{ mb: 2 }}>
+                            <InputLabel id="province-select-label">Province</InputLabel>
+                            <Select
+                                labelId="province-select-label"
+                                value={selectedProvince}
+                                label="Province"
+                                onChange={handleProvinceChange}
+                            >
+                                <MenuItem value=""><em>None</em></MenuItem>
+                                {CANADIAN_PROVINCES.map((p) => (
+                                    <MenuItem key={p} value={p}>{p}</MenuItem>
+                                ))}
+                            </Select>
+                        </FormControl>
+
+                        <FormControl fullWidth size="small" sx={{ mb: 1 }}>
+                            <InputLabel>Type</InputLabel>
+                            <Select value={selectedType} label="Type" onChange={handleFilterSelect('type')}>
+                                <MenuItem value=""><em>All</em></MenuItem>
+                                {types.map(t => <MenuItem key={t.id} value={t.name}>{t.name}</MenuItem>)}
+                            </Select>
+                        </FormControl>
+
+                        <FormControl fullWidth size="small" sx={{ mb: 1 }}>
+                            <InputLabel>Carrier</InputLabel>
+                            <Select value={selectedCarrier} label="Carrier" onChange={handleFilterSelect('carrier')}>
+                                <MenuItem value=""><em>All</em></MenuItem>
+                                {carriers.map(c => <MenuItem key={c.id} value={c.name}>{c.name}</MenuItem>)}
+                            </Select>
+                        </FormControl>
+
+                        <FormControl fullWidth size="small" sx={{ mb: 2 }}>
+                            <InputLabel>Licensee</InputLabel>
+                            <Select value={selectedLicensee} label="Licensee" onChange={handleFilterSelect('licensee')}>
+                                <MenuItem value=""><em>All</em></MenuItem>
+                                {licensees.map(l => <MenuItem key={l.id} value={l.name}>{l.name}</MenuItem>)}
+                            </Select>
+                        </FormControl>
+                    </>
                 )}
 
                 <form onSubmit={handleSearch} style={{ display: 'flex', gap: 8 }}>
@@ -223,7 +298,7 @@ export default function Sidebar({
                                 Selected Tower
                             </Typography>
                             <Typography variant="body2"><strong>ID:</strong> {selectedTower.id}</Typography>
-                            <Typography variant="body2"><strong>Type:</strong> {selectedTower.type}</Typography>
+                            <Typography variant="body2"><strong>Type:</strong> {typeof selectedTower.type === 'object' ? selectedTower.type?.name : selectedTower.type}</Typography>
                             <Typography variant="body2"><strong>Lat/Lon:</strong> {selectedTower.lat.toFixed(5)}, {selectedTower.lon.toFixed(5)}</Typography>
                             {selectedTower.parcel?.address && (
                                 <Typography variant="body2" sx={{ mt: 1 }}><strong>Address:</strong> {selectedTower.parcel.address}</Typography>

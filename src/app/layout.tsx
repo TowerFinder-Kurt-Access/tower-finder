@@ -7,7 +7,7 @@ import ContentArea from '@/components/ContentArea';
 import { SessionProvider } from 'next-auth/react';
 
 export const metadata: Metadata = {
-  title: "Tower Finder CRM",
+  title: "Tower Finder 4900",
   description: "Advanced Tower Detection and CRM Dashboard",
 };
 

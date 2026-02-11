@@ -24,13 +24,18 @@ interface TowerTableSimpleProps {
     onGetOwner: (tower: any) => void;
     onViewDetails: (tower: any) => void;
     isOwnerLoading: boolean;
+    isLoading: boolean;
     filterOptions: {
         cities: string[];
         states: string[];
         counties: string[];
         zips: string[];
+        types: string[];
+        carriers: string[];
+        licensees: string[];
+        statuses: string[];
     };
-    onFilterChange: (filters: { city?: string; state?: string; county?: string; zip?: string }) => void;
+    onFilterChange: (filters: { city?: string; state?: string; county?: string; zip?: string; type?: string; licensee?: string; status?: string }) => void;
 }
 
 export default function TowerTableSimple({
@@ -44,6 +49,7 @@ export default function TowerTableSimple({
     onGetOwner,
     onViewDetails,
     isOwnerLoading,
+    isLoading,
     filterOptions,
     onFilterChange
 }: TowerTableSimpleProps) {
@@ -109,19 +115,21 @@ export default function TowerTableSimple({
     };
 
     const handleFilterModelChange = (filterModel: any) => {
-        // Extract city, county, state, zip filters from the filter model
-        const filters: { city?: string; state?: string; county?: string; zip?: string } = {};
+        // Extract all filter values from the DataGrid filter model
+        const filters: { city?: string; state?: string; county?: string; zip?: string; type?: string; licensee?: string; status?: string } = {};
 
         if (filterModel.items && filterModel.items.length > 0) {
             filterModel.items.forEach((item: any) => {
-                if (item.field === 'city' && item.value) {
-                    filters.city = item.value;
-                } else if (item.field === 'county' && item.value) {
-                    filters.county = item.value;
-                } else if (item.field === 'state' && item.value) {
-                    filters.state = item.value;
-                } else if (item.field === 'zip' && item.value) {
-                    filters.zip = item.value;
+                if (item.value) {
+                    switch (item.field) {
+                        case 'city': filters.city = item.value; break;
+                        case 'county': filters.county = item.value; break;
+                        case 'state': filters.state = item.value; break;
+                        case 'zip': filters.zip = item.value; break;
+                        case 'type': filters.type = item.value; break;
+                        case 'licensee': filters.licensee = item.value; break;
+                        case 'status': filters.status = item.value; break;
+                    }
                 }
             });
         }
@@ -130,13 +138,24 @@ export default function TowerTableSimple({
     };
 
     const columns: GridColDef[] = [
-        { field: 'id', headerName: 'ID', width: 80 },
-        { field: 'licensee', headerName: 'Licensee', width: 150 },
-        { field: 'type', headerName: 'Type', width: 120 },
+        {
+            field: 'licensee', headerName: 'Licensee', width: 150,
+            type: 'singleSelect',
+            valueOptions: filterOptions.licensees,
+            valueGetter: (value: any) => typeof value === 'object' ? value?.name : (value || '')
+        },
+        {
+            field: 'type', headerName: 'Type', width: 120,
+            type: 'singleSelect',
+            valueOptions: filterOptions.types,
+            valueGetter: (value: any) => typeof value === 'object' ? value?.name : (value || '')
+        },
         {
             field: 'status',
             headerName: 'Status',
             width: 180,
+            type: 'singleSelect',
+            valueOptions: filterOptions.statuses,
             renderCell: (params: GridRenderCellParams) => (
                 <Chip
                     label={getStatusLabel(params.value || 'Unknown')}
@@ -178,15 +197,15 @@ export default function TowerTableSimple({
         },
         {
             field: 'state',
-            headerName: 'State',
-            width: 80,
+            headerName: 'Province',
+            width: 100,
             type: 'singleSelect',
             valueOptions: filterOptions.states
         },
         {
             field: 'zip',
-            headerName: 'ZIP',
-            width: 90,
+            headerName: 'Postal Code',
+            width: 100,
             type: 'singleSelect',
             valueOptions: filterOptions.zips
         },
@@ -248,6 +267,7 @@ export default function TowerTableSimple({
                     },
                 }}
                 disableRowSelectionOnClick
+                loading={isLoading}
             />
             <Menu
                 anchorEl={anchorEl}

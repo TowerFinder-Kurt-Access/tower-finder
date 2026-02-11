@@ -1,5 +1,5 @@
 {
-  "name": "temp_staging",
+  "name": "tower-finder-4900",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -23,9 +23,11 @@
     "leaflet": "^1.9.4",
     "next": "16.1.6",
     "next-auth": "^5.0.0-beta.30",
+    "papaparse": "^5.5.3",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-leaflet": "^5.0.0",
+    "react-leaflet-cluster": "^4.0.0",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {

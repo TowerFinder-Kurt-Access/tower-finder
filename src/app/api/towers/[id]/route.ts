@@ -29,9 +29,14 @@ export async function GET(request: Request, { params }: RouteParams) {
                             include: {
                                 contacts: true
                             }
-                        }
+                        },
+                        city: true,
+                        province: true
                     }
                 },
+                type: true,
+                carrier: true,
+                licensee: true,
                 notes: {
                     orderBy: { createdAt: 'desc' }
                 }
@@ -63,21 +68,44 @@ export async function PATCH(request: Request, { params }: RouteParams) {
         }
 
         const body = await request.json();
-        const { status, type, parcelId, ownerName, ownerAddress, ownerType, streetViewUrl } = body;
+        const { status, parcelId, ownerName, ownerAddress, ownerType, streetViewUrl,
+            typeId, carrierId, licenseeId, parcelUpdate } = body;
 
         // Update Tower Basic Info
         let updateData: any = {};
         if (status) updateData.status = status;
-        if (type) updateData.type = type;
         if (streetViewUrl !== undefined) updateData.streetViewUrl = streetViewUrl;
+        if (typeId !== undefined) updateData.typeId = typeId;
+        if (carrierId !== undefined) updateData.carrierId = carrierId;
+        if (licenseeId !== undefined) updateData.licenseeId = licenseeId;
 
-        // Handle Parcel/Owner updates if provided
-        // This is a simplified "Upsert" logic where we assume we are setting the parcel info for this tower
+        // Handle parcel address field updates
+        if (parcelUpdate) {
+            const parcelFields: any = {};
+            const allowedFields = ['address', 'streetNumber', 'streetName', 'streetType', 'streetDir',
+                'unit', 'postalCode', 'cityRaw', 'provinceRaw', 'stateRaw', 'county'];
+            for (const field of allowedFields) {
+                if (parcelUpdate[field] !== undefined) {
+                    parcelFields[field] = parcelUpdate[field] || null;
+                }
+            }
+
+            if (Object.keys(parcelFields).length > 0) {
+                updateData.parcel = {
+                    upsert: {
+                        create: parcelFields,
+                        update: parcelFields
+                    }
+                };
+            }
+        }
+
+        // Handle Owner upsert if provided
         if (ownerName) {
             updateData.parcel = {
                 upsert: {
                     create: {
-                        parcelId: parcelId, // Optional
+                        parcelId: parcelId,
                         owner: {
                             create: {
                                 name: ownerName,
@@ -113,9 +141,14 @@ export async function PATCH(request: Request, { params }: RouteParams) {
             include: {
                 parcel: {
                     include: {
-                        owner: true
+                        owner: true,
+                        city: true,
+                        province: true
                     }
-                }
+                },
+                type: true,
+                carrier: true,
+                licensee: true
             }
         });
 

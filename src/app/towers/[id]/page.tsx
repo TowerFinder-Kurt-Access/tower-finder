@@ -25,9 +25,12 @@ import {
     DialogActions,
     Chip,
     Toolbar,
-    AppBar
+    AppBar,
+    Tooltip
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import NavigateBeforeIcon from '@mui/icons-material/NavigateBefore';
+import NavigateNextIcon from '@mui/icons-material/NavigateNext';
 import MapIcon from '@mui/icons-material/Map';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import StreetviewIcon from '@mui/icons-material/Streetview';
@@ -35,6 +38,10 @@ import BusinessIcon from '@mui/icons-material/Business';
 import TravelExploreIcon from '@mui/icons-material/TravelExplore';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
 import PersonIcon from '@mui/icons-material/Person';
+import AddIcon from '@mui/icons-material/Add';
+import EditIcon from '@mui/icons-material/Edit';
+import SaveIcon from '@mui/icons-material/Save';
+import CancelIcon from '@mui/icons-material/Cancel';
 import NotesPanel from '@/components/NotesPanel';
 import { TOWER_STATUS_OPTIONS, getStatusLabel } from '@/lib/constants';
 
@@ -52,21 +59,40 @@ interface Note {
     updatedAt: string;
 }
 
+interface LookupItem {
+    id: number;
+    name: string;
+}
+
 interface Tower {
     id: number;
     lat: number;
     lon: number;
-    type?: string;
+    type?: { id: number; name: string } | string;
+    typeId?: number;
     status?: string;
-    licensee?: string;
+    licensee?: { id: number; name: string } | string;
+    licenseeId?: number;
+    carrier?: { id: number; name: string } | string;
+    carrierId?: number;
     source?: string;
     streetViewUrl?: string;
     parcel?: {
         address?: string;
-        city?: string;
-        county?: string;
+        streetNumber?: string;
+        streetName?: string;
+        streetType?: string;
+        streetDir?: string;
+        unit?: string;
+        postalCode?: string;
+        cityRaw?: string;
+        stateRaw?: string;
+        provinceRaw?: string;
+        city?: { name: string } | string;
+        province?: { name: string; code?: string } | string;
         state?: string;
         zip?: string;
+        county?: string;
         parcelId?: string;
         dataSource?: string;
         owner?: {
@@ -82,7 +108,21 @@ interface PageProps {
     params: Promise<{ id: string }>;
 }
 
+// Helper to safely extract name from a relation field
+function getName(val: any): string {
+    if (!val) return '';
+    if (typeof val === 'object') return val.name || '';
+    return String(val);
+}
+
+function getId(val: any): number | undefined {
+    if (!val) return undefined;
+    if (typeof val === 'object') return val.id;
+    return undefined;
+}
+
 const AUTHOR_STORAGE_KEY = 'tower-finder-note-author';
+const ADD_NEW_VALUE = '__ADD_NEW__';
 
 export default function TowerDetailPage({ params }: PageProps) {
     const resolvedParams = use(params);
@@ -100,6 +140,42 @@ export default function TowerDetailPage({ params }: PageProps) {
     const [isEditingStreetView, setIsEditingStreetView] = useState(false);
     const [isSavingStreetView, setIsSavingStreetView] = useState(false);
 
+    // Lookups
+    const [types, setTypes] = useState<LookupItem[]>([]);
+    const [carriers, setCarriers] = useState<LookupItem[]>([]);
+    const [licensees, setLicensees] = useState<LookupItem[]>([]);
+
+    // Selected lookup values (by ID)
+    const [selectedTypeId, setSelectedTypeId] = useState<number | ''>('');
+    const [selectedCarrierId, setSelectedCarrierId] = useState<number | ''>('');
+    const [selectedLicenseeId, setSelectedLicenseeId] = useState<number | ''>('');
+
+    // Add new lookup dialog
+    const [addDialogOpen, setAddDialogOpen] = useState(false);
+    const [addDialogType, setAddDialogType] = useState<'type' | 'carrier' | 'licensee'>('type');
+    const [addDialogValue, setAddDialogValue] = useState('');
+    const [addDialogSaving, setAddDialogSaving] = useState(false);
+
+    // Editable address fields
+    const [editingAddress, setEditingAddress] = useState(false);
+    const [addressFields, setAddressFields] = useState({
+        address: '',
+        streetNumber: '',
+        streetName: '',
+        streetType: '',
+        streetDir: '',
+        unit: '',
+        postalCode: '',
+        cityRaw: '',
+        provinceRaw: '',
+        county: '',
+    });
+    const [savingAddress, setSavingAddress] = useState(false);
+
+    // Navigation
+    const [prevTowerId, setPrevTowerId] = useState<number | null>(null);
+    const [nextTowerId, setNextTowerId] = useState<number | null>(null);
+
     // Status change note dialog
     const [statusNoteDialogOpen, setStatusNoteDialogOpen] = useState(false);
     const [pendingStatus, setPendingStatus] = useState('');
@@ -108,7 +184,12 @@ export default function TowerDetailPage({ params }: PageProps) {
 
     useEffect(() => {
         setMounted(true);
+    }, []);
+
+    useEffect(() => {
         loadTower();
+        loadNavigation();
+        loadLookups();
     }, [towerId]);
 
     // Load saved author
@@ -123,14 +204,56 @@ export default function TowerDetailPage({ params }: PageProps) {
         try {
             setLoading(true);
             const res = await axios.get(`/api/towers/${towerId}`);
-            setTower(res.data);
-            setStatus(res.data.status || '');
-            setNotes(res.data.notes || []);
-            setStreetViewUrl(res.data.streetViewUrl || '');
+            const t = res.data;
+            setTower(t);
+            setStatus(t.status || '');
+            setNotes(t.notes || []);
+            setStreetViewUrl(t.streetViewUrl || '');
+            setSelectedTypeId(getId(t.type) || t.typeId || '');
+            setSelectedCarrierId(getId(t.carrier) || t.carrierId || '');
+            setSelectedLicenseeId(getId(t.licensee) || t.licenseeId || '');
+            // Populate address fields
+            if (t.parcel) {
+                setAddressFields({
+                    address: t.parcel.address || '',
+                    streetNumber: t.parcel.streetNumber || '',
+                    streetName: t.parcel.streetName || '',
+                    streetType: t.parcel.streetType || '',
+                    streetDir: t.parcel.streetDir || '',
+                    unit: t.parcel.unit || '',
+                    postalCode: t.parcel.postalCode || t.parcel.zip || '',
+                    cityRaw: (typeof t.parcel.city === 'object' ? t.parcel.city?.name : null) || t.parcel.cityRaw || '',
+                    provinceRaw: (typeof t.parcel.province === 'object' ? t.parcel.province?.name : null) || t.parcel.provinceRaw || t.parcel.stateRaw || '',
+                    county: t.parcel.county || '',
+                });
+            }
         } catch (error) {
             console.error('Failed to load tower:', error);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const loadNavigation = async () => {
+        try {
+            const res = await axios.get(`/api/towers/${towerId}/nav`);
+            setPrevTowerId(res.data.prevId);
+            setNextTowerId(res.data.nextId);
+        } catch {
+            // Navigation API may not exist yet — we'll create it
+            setPrevTowerId(towerId > 1 ? towerId - 1 : null);
+            setNextTowerId(towerId + 1);
+        }
+    };
+
+    const loadLookups = async () => {
+        try {
+            const res = await axios.get('/api/towers?distinct=lookups');
+            setTypes(res.data.types || []);
+            setCarriers(res.data.carriers || []);
+            setLicensees(res.data.licensees || []);
+        } catch (error) {
+            console.error('Failed to load lookups:', error);
         }
     };
 
@@ -148,7 +271,6 @@ export default function TowerDetailPage({ params }: PageProps) {
 
     const handleOpenSatelliteView = () => {
         if (tower) {
-            // Open Google Maps in satellite view at high zoom centered on exact coordinates
             window.open(`https://www.google.com/maps/@${tower.lat},${tower.lon},20z/data=!3m1!1e3`, '_blank');
         }
     };
@@ -168,7 +290,6 @@ export default function TowerDetailPage({ params }: PageProps) {
             if (res.data.result?._parcel) {
                 const parcelData = res.data.result._parcel;
 
-                // Extract owner name
                 let ownerName = '';
                 if (parcelData.owner?.name) {
                     ownerName = parcelData.owner.name;
@@ -176,19 +297,11 @@ export default function TowerDetailPage({ params }: PageProps) {
                     ownerName = res.data.result.owner;
                 }
 
-                // Don't use parcel ID as owner name
                 if (ownerName && ownerName === parcelData.parcelId) {
-                    console.warn('Owner name matches parcel ID, clearing owner name');
                     ownerName = '';
                 }
 
-                // Update tower data
-                const updatedTower = {
-                    ...tower,
-                    parcel: parcelData
-                };
-
-                setTower(updatedTower);
+                setTower({ ...tower, parcel: parcelData });
 
                 if (ownerName) {
                     alert(`Owner found: ${ownerName}`);
@@ -218,12 +331,10 @@ export default function TowerDetailPage({ params }: PageProps) {
 
         setSaving(true);
         try {
-            // Update status
             await axios.patch(`/api/towers/${tower.id}`, {
                 status: pendingStatus
             });
 
-            // Optionally add a note about the status change
             if (addNote && statusNote.trim() && statusNoteAuthor.trim()) {
                 localStorage.setItem(AUTHOR_STORAGE_KEY, statusNoteAuthor.trim());
                 const noteContent = `[Status changed to "${getStatusLabel(pendingStatus)}"]\n${statusNote.trim()}`;
@@ -240,6 +351,75 @@ export default function TowerDetailPage({ params }: PageProps) {
             console.error('Error updating status:', error);
         } finally {
             setSaving(false);
+        }
+    };
+
+    const handleLookupChange = async (field: 'typeId' | 'carrierId' | 'licenseeId', value: number | string) => {
+        if (value === ADD_NEW_VALUE) {
+            // Open add dialog
+            const dialogType = field === 'typeId' ? 'type' : field === 'carrierId' ? 'carrier' : 'licensee';
+            setAddDialogType(dialogType);
+            setAddDialogValue('');
+            setAddDialogOpen(true);
+            return;
+        }
+
+        if (!tower || !value) return;
+
+        setSaving(true);
+        try {
+            await axios.patch(`/api/towers/${tower.id}`, {
+                [field]: Number(value)
+            });
+            loadTower();
+        } catch (error) {
+            console.error(`Error updating ${field}:`, error);
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleAddNewLookup = async () => {
+        if (!addDialogValue.trim()) return;
+
+        setAddDialogSaving(true);
+        try {
+            const res = await axios.post('/api/lookups', {
+                type: addDialogType,
+                name: addDialogValue.trim()
+            });
+
+            const newItem = res.data;
+
+            // Update local lookups
+            if (addDialogType === 'type') {
+                setTypes(prev => [...prev, newItem].sort((a, b) => a.name.localeCompare(b.name)));
+                // Auto-assign to current tower
+                if (tower) {
+                    await axios.patch(`/api/towers/${tower.id}`, { typeId: newItem.id });
+                    setSelectedTypeId(newItem.id);
+                }
+            } else if (addDialogType === 'carrier') {
+                setCarriers(prev => [...prev, newItem].sort((a, b) => a.name.localeCompare(b.name)));
+                if (tower) {
+                    await axios.patch(`/api/towers/${tower.id}`, { carrierId: newItem.id });
+                    setSelectedCarrierId(newItem.id);
+                }
+            } else {
+                setLicensees(prev => [...prev, newItem].sort((a, b) => a.name.localeCompare(b.name)));
+                if (tower) {
+                    await axios.patch(`/api/towers/${tower.id}`, { licenseeId: newItem.id });
+                    setSelectedLicenseeId(newItem.id);
+                }
+            }
+
+            setAddDialogOpen(false);
+            loadTower();
+        } catch (error: any) {
+            console.error('Error adding lookup:', error);
+            alert(error.response?.data?.error || 'Failed to add new item');
+        } finally {
+            setAddDialogSaving(false);
         }
     };
 
@@ -264,9 +444,36 @@ export default function TowerDetailPage({ params }: PageProps) {
         }
     };
 
+    const handleSaveAddress = async () => {
+        if (!tower) return;
+        setSavingAddress(true);
+        try {
+            await axios.patch(`/api/towers/${tower.id}`, {
+                parcelUpdate: addressFields
+            });
+            setEditingAddress(false);
+            loadTower();
+        } catch (error) {
+            console.error('Error saving address:', error);
+            alert('Failed to save address');
+        } finally {
+            setSavingAddress(false);
+        }
+    };
+
+    const handleAddressFieldChange = (field: string, value: string) => {
+        setAddressFields(prev => ({ ...prev, [field]: value }));
+    };
+
     const handleOpenSavedStreetView = () => {
         if (streetViewUrl) {
             window.open(streetViewUrl, '_blank');
+        }
+    };
+
+    const navigateTo = (id: number | null) => {
+        if (id !== null) {
+            router.push(`/towers/${id}`);
         }
     };
 
@@ -289,6 +496,14 @@ export default function TowerDetailPage({ params }: PageProps) {
         );
     }
 
+    // Extract display values
+    const typeName = getName(tower.type);
+    const licenseeName = getName(tower.licensee);
+    const carrierName = getName(tower.carrier);
+    const cityName = getName(tower.parcel?.city) || tower.parcel?.cityRaw || '';
+    const provinceName = getName(tower.parcel?.province) || tower.parcel?.provinceRaw || tower.parcel?.stateRaw || tower.parcel?.state || '';
+    const postalCode = tower.parcel?.postalCode || tower.parcel?.zip || '';
+
     return (
         <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
             {/* Action Bar */}
@@ -297,28 +512,45 @@ export default function TowerDetailPage({ params }: PageProps) {
                     <IconButton edge="start" onClick={() => router.push('/towers')}>
                         <ArrowBackIcon />
                     </IconButton>
-                    <Typography variant="h6" sx={{ flexGrow: 1 }}>
+
+                    {/* Previous / Next Navigation */}
+                    <Tooltip title="Previous Tower">
+                        <span>
+                            <IconButton
+                                onClick={() => navigateTo(prevTowerId)}
+                                disabled={!prevTowerId}
+                                size="small"
+                            >
+                                <NavigateBeforeIcon />
+                            </IconButton>
+                        </span>
+                    </Tooltip>
+
+                    <Typography variant="h6" sx={{ minWidth: 'auto' }}>
                         Tower #{tower.id}
                     </Typography>
-                    <Button
-                        startIcon={<MapIcon />}
-                        onClick={handleViewOnMap}
-                        size="small"
-                    >
+
+                    <Tooltip title="Next Tower">
+                        <span>
+                            <IconButton
+                                onClick={() => navigateTo(nextTowerId)}
+                                disabled={!nextTowerId}
+                                size="small"
+                            >
+                                <NavigateNextIcon />
+                            </IconButton>
+                        </span>
+                    </Tooltip>
+
+                    <Box sx={{ flexGrow: 1 }} />
+
+                    <Button startIcon={<MapIcon />} onClick={handleViewOnMap} size="small">
                         View on Map
                     </Button>
-                    <Button
-                        startIcon={<OpenInNewIcon />}
-                        onClick={handleOpenGoogleMaps}
-                        size="small"
-                    >
+                    <Button startIcon={<OpenInNewIcon />} onClick={handleOpenGoogleMaps} size="small">
                         Google Maps
                     </Button>
-                    <Button
-                        startIcon={<StreetviewIcon />}
-                        onClick={handleOpenSatelliteView}
-                        size="small"
-                    >
+                    <Button startIcon={<StreetviewIcon />} onClick={handleOpenSatelliteView} size="small">
                         Satellite View
                     </Button>
                     {streetViewUrl && (
@@ -340,11 +572,7 @@ export default function TowerDetailPage({ params }: PageProps) {
                     >
                         {isOwnerLoading ? 'Loading...' : 'Lookup Owner'}
                     </Button>
-                    <Button
-                        startIcon={<TravelExploreIcon />}
-                        onClick={handleOpenBingMaps}
-                        size="small"
-                    >
+                    <Button startIcon={<TravelExploreIcon />} onClick={handleOpenBingMaps} size="small">
                         Search Nearby
                     </Button>
                 </Toolbar>
@@ -353,7 +581,7 @@ export default function TowerDetailPage({ params }: PageProps) {
             {/* Content */}
             <Box sx={{ flex: 1, overflow: 'auto', p: 3, backgroundColor: '#f5f5f5' }}>
                 <Box sx={{ maxWidth: 1200, mx: 'auto' }}>
-                    {/* Quick Info Card - Most Important for Callers */}
+                    {/* Quick Info Card */}
                     <Paper sx={{ p: 3, mb: 3, bgcolor: '#f8f9fa', border: '2px solid #e0e0e0' }}>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                             <Typography variant="h5" sx={{ fontWeight: 600 }}>
@@ -372,7 +600,7 @@ export default function TowerDetailPage({ params }: PageProps) {
                         </Box>
                         <Divider sx={{ mb: 2 }} />
 
-                        {/* Address - Most Important */}
+                        {/* Address */}
                         <Box sx={{ mb: 3 }}>
                             <Typography variant="overline" color="text.secondary" sx={{ fontWeight: 600 }}>
                                 Address
@@ -381,27 +609,97 @@ export default function TowerDetailPage({ params }: PageProps) {
                                 {tower.parcel?.address || 'Address not available'}
                             </Typography>
                             <Typography variant="body1" color="text.secondary">
-                                {[tower.parcel?.city, tower.parcel?.state, tower.parcel?.zip].filter(Boolean).join(', ') || 'Location details not available'}
+                                {[cityName, provinceName, postalCode].filter(Boolean).join(', ') || 'Location details not available'}
                             </Typography>
                         </Box>
 
-                        {/* Key Details Grid */}
-                        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
-                            <Box>
-                                <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 600 }}>Type</Typography>
-                                <Typography variant="body1" sx={{ fontSize: '1.1rem' }}>{tower.type || 'Unknown'}</Typography>
-                            </Box>
-                            <Box>
-                                <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 600 }}>Licensee</Typography>
-                                <Typography variant="body1" sx={{ fontSize: '1.1rem' }}>{tower.licensee || 'N/A'}</Typography>
-                            </Box>
+                        {/* Key Details Grid - Dropdowns for Type/Licensee/Carrier */}
+                        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2, mb: 2 }}>
+                            {/* Type Dropdown */}
+                            <FormControl fullWidth size="small">
+                                <InputLabel>Type</InputLabel>
+                                <Select
+                                    value={selectedTypeId}
+                                    label="Type"
+                                    onChange={(e) => {
+                                        const val = e.target.value;
+                                        if (val === ADD_NEW_VALUE) {
+                                            handleLookupChange('typeId', ADD_NEW_VALUE);
+                                        } else {
+                                            setSelectedTypeId(Number(val));
+                                            handleLookupChange('typeId', Number(val));
+                                        }
+                                    }}
+                                    disabled={saving}
+                                >
+                                    {types.map(t => (
+                                        <MenuItem key={t.id} value={t.id}>{t.name}</MenuItem>
+                                    ))}
+                                    <Divider />
+                                    <MenuItem value={ADD_NEW_VALUE}>
+                                        <AddIcon fontSize="small" sx={{ mr: 1 }} /> Add New Type
+                                    </MenuItem>
+                                </Select>
+                            </FormControl>
+
+                            {/* Licensee Dropdown */}
+                            <FormControl fullWidth size="small">
+                                <InputLabel>Licensee</InputLabel>
+                                <Select
+                                    value={selectedLicenseeId}
+                                    label="Licensee"
+                                    onChange={(e) => {
+                                        const val = e.target.value;
+                                        if (val === ADD_NEW_VALUE) {
+                                            handleLookupChange('licenseeId', ADD_NEW_VALUE);
+                                        } else {
+                                            setSelectedLicenseeId(Number(val));
+                                            handleLookupChange('licenseeId', Number(val));
+                                        }
+                                    }}
+                                    disabled={saving}
+                                >
+                                    {licensees.map(l => (
+                                        <MenuItem key={l.id} value={l.id}>{l.name}</MenuItem>
+                                    ))}
+                                    <Divider />
+                                    <MenuItem value={ADD_NEW_VALUE}>
+                                        <AddIcon fontSize="small" sx={{ mr: 1 }} /> Add New Licensee
+                                    </MenuItem>
+                                </Select>
+                            </FormControl>
+
+                            {/* Carrier Dropdown */}
+                            <FormControl fullWidth size="small">
+                                <InputLabel>Carrier</InputLabel>
+                                <Select
+                                    value={selectedCarrierId}
+                                    label="Carrier"
+                                    onChange={(e) => {
+                                        const val = e.target.value;
+                                        if (val === ADD_NEW_VALUE) {
+                                            handleLookupChange('carrierId', ADD_NEW_VALUE);
+                                        } else {
+                                            setSelectedCarrierId(Number(val));
+                                            handleLookupChange('carrierId', Number(val));
+                                        }
+                                    }}
+                                    disabled={saving}
+                                >
+                                    {carriers.map(c => (
+                                        <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>
+                                    ))}
+                                    <Divider />
+                                    <MenuItem value={ADD_NEW_VALUE}>
+                                        <AddIcon fontSize="small" sx={{ mr: 1 }} /> Add New Carrier
+                                    </MenuItem>
+                                </Select>
+                            </FormControl>
+
+                            {/* Coordinates */}
                             <Box>
                                 <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 600 }}>Coordinates</Typography>
                                 <Typography variant="body1" sx={{ fontSize: '1.1rem' }}>{tower.lat.toFixed(6)}, {tower.lon.toFixed(6)}</Typography>
-                            </Box>
-                            <Box>
-                                <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 600 }}>County</Typography>
-                                <Typography variant="body1" sx={{ fontSize: '1.1rem' }}>{tower.parcel?.county || 'N/A'}</Typography>
                             </Box>
                         </Box>
 
@@ -423,7 +721,6 @@ export default function TowerDetailPage({ params }: PageProps) {
                                         {option.label}
                                     </MenuItem>
                                 ))}
-                                {/* Show current status if it's a legacy value not in options */}
                                 {status && !TOWER_STATUS_OPTIONS.find(o => o.value === status) && (
                                     <MenuItem value={status}>
                                         {getStatusLabel(status)} (Legacy)
@@ -535,57 +832,176 @@ export default function TowerDetailPage({ params }: PageProps) {
 
                     {/* Parcel & Owner Section */}
                     <Paper sx={{ p: 3, mb: 3 }}>
-                        <Typography variant="h6" gutterBottom>
-                            <PersonIcon fontSize="small" sx={{ verticalAlign: 'text-bottom', mr: 0.5 }} />
-                            Parcel & Owner Information
-                        </Typography>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                            <Typography variant="h6">
+                                <PersonIcon fontSize="small" sx={{ verticalAlign: 'text-bottom', mr: 0.5 }} />
+                                Parcel & Owner Information
+                            </Typography>
+                            {tower.parcel && !editingAddress && (
+                                <Button
+                                    startIcon={<EditIcon />}
+                                    size="small"
+                                    onClick={() => setEditingAddress(true)}
+                                >
+                                    Edit Address
+                                </Button>
+                            )}
+                            {editingAddress && (
+                                <Box sx={{ display: 'flex', gap: 1 }}>
+                                    <Button
+                                        startIcon={<SaveIcon />}
+                                        size="small"
+                                        variant="contained"
+                                        onClick={handleSaveAddress}
+                                        disabled={savingAddress}
+                                    >
+                                        {savingAddress ? 'Saving...' : 'Save'}
+                                    </Button>
+                                    <Button
+                                        startIcon={<CancelIcon />}
+                                        size="small"
+                                        onClick={() => {
+                                            setEditingAddress(false);
+                                            // Reset fields from tower data
+                                            if (tower.parcel) {
+                                                setAddressFields({
+                                                    address: tower.parcel.address || '',
+                                                    streetNumber: tower.parcel.streetNumber || '',
+                                                    streetName: tower.parcel.streetName || '',
+                                                    streetType: tower.parcel.streetType || '',
+                                                    streetDir: tower.parcel.streetDir || '',
+                                                    unit: tower.parcel.unit || '',
+                                                    postalCode: tower.parcel.postalCode || tower.parcel.zip || '',
+                                                    cityRaw: cityName,
+                                                    provinceRaw: provinceName,
+                                                    county: tower.parcel.county || '',
+                                                });
+                                            }
+                                        }}
+                                    >
+                                        Cancel
+                                    </Button>
+                                </Box>
+                            )}
+                        </Box>
                         <Divider sx={{ mb: 2 }} />
-                        {tower.parcel ? (
-                            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2 }}>
-                                <Box>
-                                    <Typography variant="body2" color="text.secondary">Address</Typography>
-                                    <Typography variant="body1">{tower.parcel.address || 'N/A'}</Typography>
+                        {tower.parcel || editingAddress ? (
+                            editingAddress ? (
+                                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2 }}>
+                                    <TextField
+                                        label="Full Address"
+                                        size="small"
+                                        fullWidth
+                                        value={addressFields.address}
+                                        onChange={(e) => handleAddressFieldChange('address', e.target.value)}
+                                        sx={{ gridColumn: { xs: '1', md: '1 / -1' } }}
+                                    />
+                                    <TextField
+                                        label="Street Number"
+                                        size="small"
+                                        value={addressFields.streetNumber}
+                                        onChange={(e) => handleAddressFieldChange('streetNumber', e.target.value)}
+                                    />
+                                    <TextField
+                                        label="Street Name"
+                                        size="small"
+                                        value={addressFields.streetName}
+                                        onChange={(e) => handleAddressFieldChange('streetName', e.target.value)}
+                                    />
+                                    <TextField
+                                        label="Street Type"
+                                        size="small"
+                                        value={addressFields.streetType}
+                                        onChange={(e) => handleAddressFieldChange('streetType', e.target.value)}
+                                        helperText="e.g. St, Ave, Blvd"
+                                    />
+                                    <TextField
+                                        label="Street Direction"
+                                        size="small"
+                                        value={addressFields.streetDir}
+                                        onChange={(e) => handleAddressFieldChange('streetDir', e.target.value)}
+                                        helperText="e.g. N, S, E, W"
+                                    />
+                                    <TextField
+                                        label="Unit"
+                                        size="small"
+                                        value={addressFields.unit}
+                                        onChange={(e) => handleAddressFieldChange('unit', e.target.value)}
+                                    />
+                                    <TextField
+                                        label="City"
+                                        size="small"
+                                        value={addressFields.cityRaw}
+                                        onChange={(e) => handleAddressFieldChange('cityRaw', e.target.value)}
+                                    />
+                                    <TextField
+                                        label="Province"
+                                        size="small"
+                                        value={addressFields.provinceRaw}
+                                        onChange={(e) => handleAddressFieldChange('provinceRaw', e.target.value)}
+                                    />
+                                    <TextField
+                                        label="Postal Code"
+                                        size="small"
+                                        value={addressFields.postalCode}
+                                        onChange={(e) => handleAddressFieldChange('postalCode', e.target.value)}
+                                    />
+                                    <TextField
+                                        label="County"
+                                        size="small"
+                                        value={addressFields.county}
+                                        onChange={(e) => handleAddressFieldChange('county', e.target.value)}
+                                    />
                                 </Box>
-                                <Box>
-                                    <Typography variant="body2" color="text.secondary">City</Typography>
-                                    <Typography variant="body1">{tower.parcel.city || 'N/A'}</Typography>
-                                </Box>
-                                <Box>
-                                    <Typography variant="body2" color="text.secondary">State</Typography>
-                                    <Typography variant="body1">{tower.parcel.state || 'N/A'}</Typography>
-                                </Box>
-                                <Box>
-                                    <Typography variant="body2" color="text.secondary">ZIP</Typography>
-                                    <Typography variant="body1">{tower.parcel.zip || 'N/A'}</Typography>
-                                </Box>
-                                <Box>
-                                    <Typography variant="body2" color="text.secondary">Parcel ID</Typography>
-                                    <Typography variant="body1">{tower.parcel.parcelId || 'N/A'}</Typography>
-                                </Box>
-                                <Box>
-                                    <Typography variant="body2" color="text.secondary">Data Source</Typography>
-                                    <Typography variant="body1">{tower.parcel.dataSource || tower.source || 'N/A'}</Typography>
-                                </Box>
-                                {tower.parcel.owner && (
-                                    <>
-                                        <Box sx={{ gridColumn: { xs: '1', md: '1 / -1' } }}>
-                                            <Divider sx={{ my: 1 }} />
-                                        </Box>
+                            ) : (
+                                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2 }}>
+                                    <Box>
+                                        <Typography variant="body2" color="text.secondary">Address</Typography>
+                                        <Typography variant="body1">{tower.parcel?.address || 'N/A'}</Typography>
+                                    </Box>
+                                    <Box>
+                                        <Typography variant="body2" color="text.secondary">City</Typography>
+                                        <Typography variant="body1">{cityName || 'N/A'}</Typography>
+                                    </Box>
+                                    <Box>
+                                        <Typography variant="body2" color="text.secondary">Province</Typography>
+                                        <Typography variant="body1">{provinceName || 'N/A'}</Typography>
+                                    </Box>
+                                    <Box>
+                                        <Typography variant="body2" color="text.secondary">Postal Code</Typography>
+                                        <Typography variant="body1">{postalCode || 'N/A'}</Typography>
+                                    </Box>
+                                    {tower.parcel?.county && (
                                         <Box>
-                                            <Typography variant="body2" color="text.secondary">Owner Name</Typography>
-                                            <Typography variant="body1">{tower.parcel.owner.name || 'N/A'}</Typography>
+                                            <Typography variant="body2" color="text.secondary">County</Typography>
+                                            <Typography variant="body1">{tower.parcel.county}</Typography>
                                         </Box>
-                                        <Box>
-                                            <Typography variant="body2" color="text.secondary">Owner Type</Typography>
-                                            <Typography variant="body1">{tower.parcel.owner.type || 'N/A'}</Typography>
-                                        </Box>
-                                        <Box sx={{ gridColumn: { xs: '1', md: '1 / -1' } }}>
-                                            <Typography variant="body2" color="text.secondary">Owner Address</Typography>
-                                            <Typography variant="body1">{tower.parcel.owner.address || 'N/A'}</Typography>
-                                        </Box>
-                                    </>
-                                )}
-                            </Box>
+                                    )}
+                                    <Box>
+                                        <Typography variant="body2" color="text.secondary">Data Source</Typography>
+                                        <Typography variant="body1">{tower.parcel?.dataSource || tower.source || 'N/A'}</Typography>
+                                    </Box>
+                                    {tower.parcel?.owner && (
+                                        <>
+                                            <Box sx={{ gridColumn: { xs: '1', md: '1 / -1' } }}>
+                                                <Divider sx={{ my: 1 }} />
+                                            </Box>
+                                            <Box>
+                                                <Typography variant="body2" color="text.secondary">Owner Name</Typography>
+                                                <Typography variant="body1">{tower.parcel.owner.name || 'N/A'}</Typography>
+                                            </Box>
+                                            <Box>
+                                                <Typography variant="body2" color="text.secondary">Owner Type</Typography>
+                                                <Typography variant="body1">{tower.parcel.owner.type || 'N/A'}</Typography>
+                                            </Box>
+                                            <Box sx={{ gridColumn: { xs: '1', md: '1 / -1' } }}>
+                                                <Typography variant="body2" color="text.secondary">Owner Address</Typography>
+                                                <Typography variant="body1">{tower.parcel.owner.address || 'N/A'}</Typography>
+                                            </Box>
+                                        </>
+                                    )}
+                                </Box>
+                            )
                         ) : (
                             <Typography variant="body2" color="text.secondary" fontStyle="italic">
                                 No parcel data. Use "Lookup Owner" to fetch parcel information.
@@ -639,24 +1055,58 @@ export default function TowerDetailPage({ params }: PageProps) {
                     />
                 </DialogContent>
                 <DialogActions>
-                    <Button
-                        onClick={() => setStatusNoteDialogOpen(false)}
-                        disabled={saving}
-                    >
+                    <Button onClick={() => setStatusNoteDialogOpen(false)} disabled={saving}>
                         Cancel
                     </Button>
-                    <Button
-                        onClick={() => handleStatusSave(false)}
-                        disabled={saving}
-                    >
+                    <Button onClick={() => handleStatusSave(false)} disabled={saving}>
                         {saving ? <CircularProgress size={20} /> : 'Save Without Note'}
                     </Button>
                     <Button
                         onClick={() => handleStatusSave(true)}
                         variant="contained"
-                        disabled={saving || (statusNote.trim() && !statusNoteAuthor.trim())}
+                        disabled={saving || (statusNote.trim() && !statusNoteAuthor.trim()) ? true : false}
                     >
                         {saving ? <CircularProgress size={20} /> : 'Save With Note'}
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
+            {/* Add New Lookup Dialog */}
+            <Dialog
+                open={addDialogOpen}
+                onClose={() => !addDialogSaving && setAddDialogOpen(false)}
+                maxWidth="sm"
+                fullWidth
+            >
+                <DialogTitle>
+                    Add New {addDialogType === 'type' ? 'Tower Type' : addDialogType === 'carrier' ? 'Carrier' : 'Licensee'}
+                </DialogTitle>
+                <DialogContent>
+                    <TextField
+                        autoFocus
+                        label="Name"
+                        fullWidth
+                        value={addDialogValue}
+                        onChange={(e) => setAddDialogValue(e.target.value)}
+                        sx={{ mt: 1 }}
+                        placeholder={`Enter new ${addDialogType} name`}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter' && addDialogValue.trim()) {
+                                handleAddNewLookup();
+                            }
+                        }}
+                    />
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setAddDialogOpen(false)} disabled={addDialogSaving}>
+                        Cancel
+                    </Button>
+                    <Button
+                        onClick={handleAddNewLookup}
+                        variant="contained"
+                        disabled={addDialogSaving || !addDialogValue.trim()}
+                    >
+                        {addDialogSaving ? <CircularProgress size={20} /> : 'Add'}
                     </Button>
                 </DialogActions>
             </Dialog>

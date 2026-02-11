@@ -18,8 +18,17 @@ export async function GET(request: Request) {
         const city = searchParams.get('city'); // Filter by city
         const county = searchParams.get('county'); // Filter by county
         const zip = searchParams.get('zip'); // Filter by zip
-        const limit = limitStr ? parseInt(limitStr) : undefined;
-        const page = pageStr ? parseInt(pageStr) : undefined;
+        const typeFilter = searchParams.get('type');
+        const carrierFilter = searchParams.get('carrier');
+        const licenseeFilter = searchParams.get('licensee');
+        const statusFilter = searchParams.get('status');
+
+        // Default limit to prevent sending too many towers at once (performance optimization)
+        // Use 1000 as default limit if not specified, unless fetching by ID
+        const DEFAULT_LIMIT = 1000;
+        const limit = limitStr ? parseInt(limitStr) : (id ? undefined : DEFAULT_LIMIT);
+        const page = pageStr ? parseInt(pageStr) : undefined; // Only set page if explicitly provided
+
         // Bounding box support
         const bbox = searchParams.get('bbox'); // minLon,minLat,maxLon,maxLat
 
@@ -27,14 +36,14 @@ export async function GET(request: Request) {
         if (distinct === 'filters') {
             const [citiesResult, statesResult, countiesResult, zipsResult] = await Promise.all([
                 prisma.$queryRaw<{ city: string }[]>`
-                    SELECT DISTINCT city FROM "Parcel"
-                    WHERE city IS NOT NULL AND city != ''
-                    ORDER BY city
+                    SELECT DISTINCT "cityRaw" as city FROM "Parcel"
+                    WHERE "cityRaw" IS NOT NULL AND "cityRaw" != ''
+                    ORDER BY "cityRaw"
                 `,
                 prisma.$queryRaw<{ state: string }[]>`
-                    SELECT DISTINCT state FROM "Parcel"
-                    WHERE state IS NOT NULL AND state != ''
-                    ORDER BY state
+                    SELECT DISTINCT "stateRaw" as state FROM "Parcel"
+                    WHERE "stateRaw" IS NOT NULL AND "stateRaw" != ''
+                    ORDER BY "stateRaw"
                 `,
                 prisma.$queryRaw<{ county: string }[]>`
                     SELECT DISTINCT county FROM "Parcel"
@@ -53,6 +62,20 @@ export async function GET(request: Request) {
                 states: statesResult.map(r => r.state),
                 counties: countiesResult.map(r => r.county),
                 zips: zipsResult.map(r => r.zip)
+            });
+        }
+
+        if (distinct === 'lookups') {
+            const [types, carriers, licensees] = await Promise.all([
+                prisma.towerType.findMany({ orderBy: { name: 'asc' } }),
+                prisma.carrier.findMany({ orderBy: { name: 'asc' } }),
+                prisma.licensee.findMany({ orderBy: { name: 'asc' } })
+            ]);
+
+            return NextResponse.json({
+                types,
+                carriers,
+                licensees
             });
         }
 
@@ -96,10 +119,15 @@ export async function GET(request: Request) {
 
                 andConditions.push({
                     OR: [
-                        // 1. Search in structured state column
+                        // 1. Search in structured state/province raw column
                         {
                             parcel: {
-                                state: { in: terms, mode: 'insensitive' }
+                                stateRaw: { in: terms, mode: 'insensitive' }
+                            }
+                        },
+                        {
+                            parcel: {
+                                provinceRaw: { in: terms, mode: 'insensitive' }
                             }
                         },
                         // 2. Search in Source (files often named 'BC_Jan11.xlsx')
@@ -129,7 +157,7 @@ export async function GET(request: Request) {
             const parcelFilters: any = {};
 
             if (city) {
-                parcelFilters.city = { equals: city, mode: 'insensitive' };
+                parcelFilters.cityRaw = { equals: city, mode: 'insensitive' };
             }
 
             if (county) {
@@ -138,6 +166,37 @@ export async function GET(request: Request) {
 
             if (zip) {
                 parcelFilters.zip = { equals: zip, mode: 'insensitive' };
+            }
+
+            // Relation filters
+            if (typeFilter) {
+                andConditions.push({
+                    type: {
+                        name: { equals: typeFilter, mode: 'insensitive' }
+                    }
+                });
+            }
+
+            if (carrierFilter) {
+                andConditions.push({
+                    carrier: {
+                        name: { equals: carrierFilter, mode: 'insensitive' }
+                    }
+                });
+            }
+
+            if (licenseeFilter) {
+                andConditions.push({
+                    licensee: {
+                        name: { equals: licenseeFilter, mode: 'insensitive' }
+                    }
+                });
+            }
+
+            if (statusFilter) {
+                andConditions.push({
+                    status: { equals: statusFilter, mode: 'insensitive' }
+                });
             }
 
             // Add parcel filters as a single condition if any exist
@@ -171,20 +230,27 @@ export async function GET(request: Request) {
                 include: {
                     parcel: {
                         include: {
-                            owner: true
+                            owner: true,
+                            city: true,
+                            province: true
                         }
                     },
+                    type: true,
+                    carrier: true,
+                    licensee: true,
                     _count: {
                         select: { notes: true }
                     }
                 },
+                orderBy: { id: 'asc' }, // Consistent ordering for pagination
                 skip,
                 take
             }),
             needsCount ? prisma.tower.count({ where: whereClause }) : Promise.resolve(undefined)
         ]);
 
-        console.log(`[API /api/towers] Returning ${towers.length} towers`);
+        const limitApplied = limit !== undefined ? ` (limit: ${limit}, page: ${page || 0})` : '';
+        console.log(`[API /api/towers] Returning ${towers.length} towers${limitApplied}${totalCount !== undefined ? ` of ${totalCount} total` : ''}`);
 
         // If pagination was used, return both data and count
         if (needsCount) {
@@ -236,7 +302,7 @@ export async function POST(request: Request) {
             create: {
                 lat: parseFloat(lat),
                 lon: parseFloat(lon),
-                type: type || 'Unknown',
+                // type: type || 'Unknown',  // TODO: Fix POST to use lookup inputs
                 status: status || 'New'
             }
         });

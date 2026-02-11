@@ -16,7 +16,7 @@ export async function GET(request: Request) {
         const lonNum = parseFloat(lon);
 
         // InformationService handles caching: check DB -> fetch API if missing -> save -> return
-        const parcelData = await InformationService.getParcelAndOwner(latNum, lonNum);
+        const parcelData: any = await InformationService.getParcelAndOwner(latNum, lonNum);
 
         if (!parcelData) {
             return NextResponse.json({ result: null, message: 'No parcel data found' });
@@ -28,16 +28,15 @@ export async function GET(request: Request) {
             result: {
                 parcel_id: parcelData.parcelId,
                 address: parcelData.address,
-                city: parcelData.city,
-                state: parcelData.state,
-                zip: parcelData.zip,
+                city: parcelData.cityRaw || '',
+                state: parcelData.stateRaw || parcelData.provinceRaw || '',
+                zip: parcelData.postalCode || parcelData.zip || '',
                 owner: parcelData.owner?.name || 'Unknown',
                 mail_address: parcelData.owner?.address || '',
-                data_source: parcelData.dataSource, // Which API provided this data
-                // Include full objects for reference
+                data_source: parcelData.dataSource,
                 _parcel: parcelData,
                 _owner: parcelData.owner,
-                _rawData: parcelData.rawData // Raw API response for debugging
+                _rawData: parcelData.rawData
             }
         });
 

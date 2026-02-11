@@ -11,9 +11,19 @@ model Tower {
   id        Int      @id @default(autoincrement())
   lat       Float
   lon       Float
-  type      String?   // e.g., "Monopole", "Lattice"
+  typeId    Int?
+  type      TowerType? @relation(fields: [typeId], references: [id])
+  carrierId Int?
+  carrier   Carrier? @relation(fields: [carrierId], references: [id]) // Denormalized for convenience
+  licenseeId Int?
+  licensee   Licensee? @relation(fields: [licenseeId], references: [id])
+  
+  businessName String?
+  remarks      String?
+  titleHolder  String?
+  expiration   String?
   status    String   @default("Unknown") // Workflow status
-  licensee  String?
+
   googleMapsUrl String?
   streetViewUrl String? // Custom street view URL once properly located
   source    String   @default("Excel Import") // "Excel Import" or "Tower Finder"
@@ -37,12 +47,21 @@ model Tower {
 model Parcel {
   id          Int      @id @default(autoincrement())
   parcelId    String?  // The official county/city parcel ID
-  address     String?  // Street address
-  city        String?
+  address     String?  // Original full address string
+  
+  // Decomposed Address Fields (ODA compatible)
+  streetNumber String?
+  streetName   String?
+  streetType   String?
+  streetDir    String?
+  unit         String?
+  postalCode   String?
+  
+  cityRaw     String?  // Raw city name
   county      String?  // County/Region
-  state       String?  // State (US) or Province (Canada)
-  province    String?  // For Canadian addresses
-  zip         String?  // ZIP code (US) or Postal code (Canada)
+  stateRaw    String?  // Raw State/Province
+  provinceRaw String?  // Raw Province (Canadian)
+  zip         String?  // Legacy or duplication for easy access reference
   country     String?  // Country code (US, CA, etc.)
   rawData     Json?    // Store raw API response for debugging
   dataSource  String?  // Track which API provided this data (e.g., "ReportAll", "Regrid", etc.)
@@ -55,6 +74,12 @@ model Parcel {
   // Relation to Owner
   ownerId     Int?
   owner       Owner?   @relation(fields: [ownerId], references: [id])
+
+  // Normalized Location Relations
+  cityId      Int?
+  city        City?       @relation(fields: [cityId], references: [id])
+  provinceId  Int?
+  province    Province?   @relation(fields: [provinceId], references: [id])
 }
 
 model Owner {
@@ -141,3 +166,47 @@ model Note {
 
   @@index([authorId])
 }
+
+
+
+model TowerType {
+  id     Int     @id @default(autoincrement())
+  name   String  @unique
+  towers Tower[]
+}
+
+model Carrier {
+  id        Int        @id @default(autoincrement())
+  name      String     @unique
+  licensees Licensee[]
+  towers    Tower[]
+}
+
+model Licensee {
+  id        Int     @id @default(autoincrement())
+  name      String  @unique
+  carrierId Int?
+  carrier   Carrier? @relation(fields: [carrierId], references: [id])
+  towers    Tower[]
+}
+
+model Province {
+  id        Int      @id @default(autoincrement())
+  code      String   @unique
+  name      String   @unique
+  cities    City[]
+  parcels   Parcel[]
+}
+
+model City {
+  id         Int      @id @default(autoincrement())
+  name       String
+  provinceId Int
+  province   Province @relation(fields: [provinceId], references: [id])
+  parcels    Parcel[]
+
+  @@unique([name, provinceId])
+}
+
+
+

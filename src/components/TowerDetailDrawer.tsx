@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
     Drawer,
     Box,
@@ -39,16 +39,29 @@ interface Tower {
     id: number;
     lat: number;
     lon: number;
-    type?: string;
+    type?: { name: string } | string;
     status?: string;
-    licensee?: string;
+    licensee?: { name: string } | string;
+    carrier?: { name: string };
     source?: string;
     parcel?: {
         address?: string;
-        city?: string;
+        streetNumber?: string;
+        streetName?: string;
+        streetType?: string;
+        streetDir?: string;
+        unit?: string;
+        postalCode?: string;
+        cityRaw?: string;
+        stateRaw?: string;
+        provinceRaw?: string;
+        city?: { name: string } | string;
+        province?: { name: string } | string;
         state?: string;
         zip?: string;
+        county?: string;
         parcelId?: string;
+        dataSource?: string;
         owner?: {
             name?: string;
             address?: string;
@@ -243,8 +256,9 @@ export default function TowerDetailDrawer({
                             TOWER INFO
                         </Typography>
                         <Box sx={{ pl: 1 }}>
-                            <Typography variant="body2"><strong>Type:</strong> {tower.type || 'Unknown'}</Typography>
-                            <Typography variant="body2"><strong>Licensee:</strong> {tower.licensee || 'N/A'}</Typography>
+                            <Typography variant="body2"><strong>Type:</strong> {(typeof tower.type === 'object' ? tower.type?.name : tower.type) || 'Unknown'}</Typography>
+                            <Typography variant="body2"><strong>Licensee:</strong> {(typeof tower.licensee === 'object' ? tower.licensee?.name : tower.licensee) || 'N/A'}</Typography>
+                            {tower.carrier && <Typography variant="body2"><strong>Carrier:</strong> {typeof tower.carrier === 'object' ? tower.carrier?.name : tower.carrier}</Typography>}
                             <Typography variant="body2"><strong>Coordinates:</strong> {tower.lat.toFixed(6)}, {tower.lon.toFixed(6)}</Typography>
                             <Typography variant="body2"><strong>Source:</strong> {tower.source || 'N/A'}</Typography>
                         </Box>
@@ -265,19 +279,24 @@ export default function TowerDetailDrawer({
                                         <strong>Address:</strong> {tower.parcel.address || 'N/A'}
                                     </Typography>
                                     <Typography variant="body2">
-                                        <strong>City:</strong> {tower.parcel.city || 'N/A'}
+                                        <strong>City:</strong> {(typeof tower.parcel.city === 'object' ? tower.parcel.city?.name : tower.parcel.city) || tower.parcel.cityRaw || 'N/A'}
                                     </Typography>
                                     <Typography variant="body2">
-                                        <strong>State:</strong> {tower.parcel.state || 'N/A'}
+                                        <strong>Province:</strong> {(typeof tower.parcel.province === 'object' ? tower.parcel.province?.name : tower.parcel.province) || tower.parcel.provinceRaw || tower.parcel.stateRaw || tower.parcel.state || 'N/A'}
                                     </Typography>
                                     <Typography variant="body2">
-                                        <strong>ZIP:</strong> {tower.parcel.zip || 'N/A'}
+                                        <strong>Postal Code:</strong> {tower.parcel.postalCode || tower.parcel.zip || 'N/A'}
                                     </Typography>
+                                    {tower.parcel.county && (
+                                        <Typography variant="body2">
+                                            <strong>County:</strong> {tower.parcel.county}
+                                        </Typography>
+                                    )}
                                     <Typography variant="body2">
                                         <strong>Parcel ID:</strong> {tower.parcel.parcelId || 'N/A'}
                                     </Typography>
                                     <Typography variant="body2">
-                                        <strong>Data Source:</strong> {(tower.parcel as any).dataSource || tower.source || 'N/A'}
+                                        <strong>Data Source:</strong> {tower.parcel.dataSource || tower.source || 'N/A'}
                                     </Typography>
                                     {tower.parcel.owner && (
                                         <>

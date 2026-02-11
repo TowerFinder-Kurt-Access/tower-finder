@@ -15,15 +15,24 @@ const Map = dynamic(() => import('@/components/Map'), {
 
 interface Tower {
   id: number;
-  type: string;
+  type?: { name: string } | string;
   subType?: string;
   lat: number;
   lon: number;
   details?: any;
   parcel?: any;
-  licensee?: string;
+  licensee?: { name: string } | string;
+  carrier?: { name: string };
   status?: string;
   source?: string;
+}
+
+interface FilterState {
+  query: string;
+  province: string;
+  type: string;
+  carrier: string;
+  licensee: string;
 }
 
 interface OwnerResult {
@@ -35,6 +44,32 @@ interface OwnerResult {
     [key: string]: any;
   } | null;
 }
+
+// Province/State coordinates for initial map positioning (centered on populated areas)
+const PROVINCE_COORDINATES: { [key: string]: { center: [number, number], zoom: number } } = {
+  // Canadian Provinces - centered on major population centers
+  "British Columbia": { center: [49.2827, -123.1207], zoom: 6 },      // Vancouver area
+  "Alberta": { center: [51.0447, -114.0719], zoom: 6 },                // Calgary area
+  "Saskatchewan": { center: [50.4452, -104.6189], zoom: 6 },           // Regina/Saskatoon area
+  "Manitoba": { center: [49.8951, -97.1384], zoom: 6 },                // Winnipeg area
+  "Ontario": { center: [43.6532, -79.3832], zoom: 6 },                 // Toronto/GTA area
+  "Quebec": { center: [45.5017, -73.5673], zoom: 6 },                  // Montreal area
+  "New Brunswick": { center: [45.9636, -66.6431], zoom: 7 },           // Fredericton area
+  "Nova Scotia": { center: [44.6488, -63.5752], zoom: 7 },             // Halifax area
+  "Prince Edward Island": { center: [46.2382, -63.1311], zoom: 9 },    // Charlottetown area
+  "Newfoundland and Labrador": { center: [47.5615, -52.7126], zoom: 6 }, // St. John's area
+  // Province Abbreviations
+  "BC": { center: [49.2827, -123.1207], zoom: 6 },
+  "AB": { center: [51.0447, -114.0719], zoom: 6 },
+  "SK": { center: [50.4452, -104.6189], zoom: 6 },
+  "MB": { center: [49.8951, -97.1384], zoom: 6 },
+  "ON": { center: [43.6532, -79.3832], zoom: 6 },
+  "QC": { center: [45.5017, -73.5673], zoom: 6 },
+  "NB": { center: [45.9636, -66.6431], zoom: 7 },
+  "NS": { center: [44.6488, -63.5752], zoom: 7 },
+  "PE": { center: [46.2382, -63.1311], zoom: 9 },
+  "NL": { center: [47.5615, -52.7126], zoom: 6 },
+};
 
 function HomeContent() {
   const router = useRouter();
@@ -114,6 +149,44 @@ function HomeContent() {
     return [totalLat / points.length, totalLon / points.length];
   };
 
+  const handleFilterChange = async (filters: FilterState) => {
+    setIsLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (filters.province) params.append('state', filters.province);
+      if (filters.type) params.append('type', filters.type);
+      if (filters.carrier) params.append('carrier', filters.carrier);
+      if (filters.licensee) params.append('licensee', filters.licensee);
+
+      // Pan to province if selected and it's a province change (or just ensure view is correct)
+      if (filters.province && PROVINCE_COORDINATES[filters.province]) {
+        setMapCenter(PROVINCE_COORDINATES[filters.province].center);
+        setZoom(PROVINCE_COORDINATES[filters.province].zoom);
+      }
+
+      if (!filters.province && !filters.type && !filters.carrier && !filters.licensee) {
+        // If all filters are cleared, maybe clear towers or show all?
+        // For now, if no province, we just clear to default?
+        // Or let the API handle it (it might return too many).
+        // The API defaults to limit 1000.
+      }
+
+      const res = await axios.get(`/api/towers?${params.toString()}`);
+      setTowers(res.data);
+
+      if (res.data.length > 0 && filters.province) {
+        // Optional: refine center based on data
+        // const newCenter = calculateCenter(res.data);
+        // setMapCenter(newCenter);
+        // setZoom(8);
+      }
+    } catch (error) {
+      console.error("Filter fetch failed:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // ...
 
   const handleStateSelect = async (state: string) => {
@@ -125,20 +198,28 @@ function HomeContent() {
         return;
       }
 
+      // Immediately pan to province if we have coordinates
+      if (PROVINCE_COORDINATES[state]) {
+        setMapCenter(PROVINCE_COORDINATES[state].center);
+        setZoom(PROVINCE_COORDINATES[state].zoom);
+      }
+
       const res = await axios.get(`/api/towers?state=${encodeURIComponent(state)}`);
       setTowers(res.data);
 
       if (res.data.length > 0) {
-        // Calculate center of mass for better view
+        // Calculate center of mass for better view and refine position
         const newCenter = calculateCenter(res.data);
         setMapCenter(newCenter);
-        // Maybe zoom out slightly if many towers?
-        setZoom(state.length === 2 ? 6 : 7); // Heuristic: State abbr might be larger area? No, always large.
+        // Adjust zoom based on tower spread
+        setZoom(8);
       } else {
-        alert(`No towers found for state: ${state}`);
+        // Keep the province view even if no towers found
+        if (!PROVINCE_COORDINATES[state]) {
+          alert(`No towers found for state: ${state}`);
+        }
       }
     } catch (error) {
-      // ...
       console.error("Failed to fetch towers by state:", error);
     } finally {
       setIsLoading(false);
@@ -285,7 +366,7 @@ function HomeContent() {
       <Box sx={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
         <Sidebar
           onSearch={handleSearch}
-          onStateSelect={handleStateSelect}
+          onFilterChange={handleFilterChange}
           isLoading={isLoading}
           results={towers} // Shows list in sidebar too
           selectedTower={selectedTower}

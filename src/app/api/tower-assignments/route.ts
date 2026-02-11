@@ -141,8 +141,12 @@ export async function GET(request: Request) {
                         parcel: {
                             select: {
                                 address: true,
+                                cityRaw: true,
+                                stateRaw: true,
+                                provinceRaw: true,
+                                postalCode: true,
                                 city: true,
-                                state: true
+                                province: true
                             }
                         }
                     }

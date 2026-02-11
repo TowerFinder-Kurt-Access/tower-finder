@@ -53,25 +53,39 @@ function TowersPageContent() {
         states: string[];
         counties: string[];
         zips: string[];
-    }>({ cities: [], states: [], counties: [], zips: [] });
+        types: string[];
+        carriers: string[];
+        licensees: string[];
+        statuses: string[];
+    }>({ cities: [], states: [], counties: [], zips: [], types: [], carriers: [], licensees: [], statuses: ['New', 'Unknown', 'In Progress', 'Contacted', 'Not Interested', 'Closed'] });
     const [filters, setFilters] = useState<{
         city?: string;
         state?: string;
         county?: string;
         zip?: string;
+        type?: string;
+        licensee?: string;
+        status?: string;
     }>({});
 
     // Load distinct filter values on mount
     useEffect(() => {
         const loadFilterOptions = async () => {
             try {
-                const res = await axios.get('/api/towers?distinct=filters');
-                setFilterOptions({
-                    cities: res.data.cities || [],
-                    states: res.data.states || [],
-                    counties: res.data.counties || [],
-                    zips: res.data.zips || []
-                });
+                const [filtersRes, lookupsRes] = await Promise.all([
+                    axios.get('/api/towers?distinct=filters'),
+                    axios.get('/api/towers?distinct=lookups')
+                ]);
+                setFilterOptions(prev => ({
+                    ...prev,
+                    cities: filtersRes.data.cities || [],
+                    states: filtersRes.data.states || [],
+                    counties: filtersRes.data.counties || [],
+                    zips: filtersRes.data.zips || [],
+                    types: (lookupsRes.data.types || []).map((t: any) => t.name),
+                    carriers: (lookupsRes.data.carriers || []).map((c: any) => c.name),
+                    licensees: (lookupsRes.data.licensees || []).map((l: any) => l.name),
+                }));
             } catch (error) {
                 console.error("Failed to fetch filter options:", error);
             }
@@ -93,17 +107,24 @@ function TowersPageContent() {
             if (filters.county) params.append('county', filters.county);
             if (filters.state) params.append('state', filters.state);
             if (filters.zip) params.append('zip', filters.zip);
+            if (filters.type) params.append('type', filters.type);
+            if (filters.licensee) params.append('licensee', filters.licensee);
+            if (filters.status) params.append('status', filters.status);
 
             const res = await axios.get(`/api/towers?${params.toString()}`);
 
             // Flatten the data structure for better DataGrid filtering
+            // Relations (type, licensee, carrier, city, province) come as objects with .name
             const flattenedTowers = (res.data.data || []).map((tower: any) => ({
                 ...tower,
+                type: typeof tower.type === 'object' ? tower.type?.name : (tower.type || ''),
+                licensee: typeof tower.licensee === 'object' ? tower.licensee?.name : (tower.licensee || ''),
+                carrier: typeof tower.carrier === 'object' ? tower.carrier?.name : (tower.carrier || ''),
                 address: tower.parcel?.address || '',
-                city: tower.parcel?.city || '',
+                city: typeof tower.parcel?.city === 'object' ? tower.parcel?.city?.name : (tower.parcel?.cityRaw || ''),
                 county: tower.parcel?.county || '',
-                state: tower.parcel?.state || '',
-                zip: tower.parcel?.zip || '',
+                state: typeof tower.parcel?.province === 'object' ? tower.parcel?.province?.name : (tower.parcel?.provinceRaw || tower.parcel?.stateRaw || ''),
+                zip: tower.parcel?.postalCode || tower.parcel?.zip || '',
                 parcelId: tower.parcel?.parcelId || '',
                 ownerName: tower.parcel?.owner?.name || '',
                 dataSource: tower.parcel?.dataSource || ''
@@ -151,10 +172,10 @@ function TowersPageContent() {
                     parcel: parcelData,
                     // Update flattened fields for DataGrid
                     address: parcelData.address || tower.address || '',
-                    city: parcelData.city || tower.city || '',
+                    city: typeof parcelData.city === 'object' ? parcelData.city?.name : (parcelData.cityRaw || tower.city || ''),
                     county: parcelData.county || tower.county || '',
-                    state: parcelData.state || tower.state || '',
-                    zip: parcelData.zip || tower.zip || '',
+                    state: typeof parcelData.province === 'object' ? parcelData.province?.name : (parcelData.provinceRaw || parcelData.stateRaw || tower.state || ''),
+                    zip: parcelData.postalCode || parcelData.zip || tower.zip || '',
                     parcelId: parcelData.parcelId || tower.parcelId || '',
                     ownerName: ownerName || '',
                     dataSource: parcelData.dataSource || tower.dataSource || ''
@@ -208,6 +229,7 @@ function TowersPageContent() {
                         onGetOwner={handleLookupOwner}
                         onViewDetails={handleViewDetails}
                         isOwnerLoading={isOwnerLoading}
+                        isLoading={isLoading}
                         filterOptions={filterOptions}
                         onFilterChange={(newFilters) => {
                             setFilters(newFilters);
