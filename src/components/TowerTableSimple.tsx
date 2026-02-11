@@ -47,6 +47,7 @@ interface TowerTableSimpleProps {
     };
     onFilterChange: (filters: { city?: string; state?: string; county?: string; zip?: string; type?: string; licensee?: string; status?: string }) => void;
     onCellEdit?: (towerId: number, field: string, value: string) => void;
+    onNotesClick?: (tower: any) => void;
 }
 
 export default function TowerTableSimple({
@@ -64,7 +65,8 @@ export default function TowerTableSimple({
     filterOptions,
     lookups,
     onFilterChange,
-    onCellEdit
+    onCellEdit,
+    onNotesClick
 }: TowerTableSimpleProps) {
     const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
     const [selectedTower, setSelectedTower] = React.useState<any>(null);
@@ -187,12 +189,22 @@ export default function TowerTableSimple({
             width: 80,
             renderCell: (params: GridRenderCellParams) => {
                 const count = params.row._count?.notes || 0;
-                return count > 0 ? (
-                    <Badge badgeContent={count} color="primary">
-                        <NotesIcon color="action" />
-                    </Badge>
-                ) : (
-                    <NotesIcon color="disabled" />
+                return (
+                    <Box
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            if (onNotesClick) onNotesClick(params.row);
+                        }}
+                        sx={{ cursor: 'pointer', display: 'flex', alignItems: 'center', height: '100%' }}
+                    >
+                        {count > 0 ? (
+                            <Badge badgeContent={count} color="primary">
+                                <NotesIcon color="action" />
+                            </Badge>
+                        ) : (
+                            <NotesIcon color="disabled" />
+                        )}
+                    </Box>
                 );
             }
         },

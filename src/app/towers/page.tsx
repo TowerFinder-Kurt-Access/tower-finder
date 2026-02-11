@@ -3,8 +3,10 @@ import { useRouter } from 'next/navigation';
 import { useState, useEffect, Suspense, useCallback } from 'react';
 import Box from '@mui/material/Box';
 import axios from 'axios';
-import { Paper, Typography } from '@mui/material';
+import { Paper, Typography, Drawer, IconButton } from '@mui/material';
+import CloseIcon from '@mui/icons-material/Close';
 import TowerTableSimple from '@/components/TowerTableSimple';
+import NotesPanel from '@/components/NotesPanel';
 
 interface Tower {
     id: number;
@@ -48,6 +50,8 @@ function TowersPageContent() {
     const [isLoading, setIsLoading] = useState<boolean>(false);
     const [selectedTower, setSelectedTower] = useState<Tower | null>(null);
     const [isOwnerLoading, setIsOwnerLoading] = useState<boolean>(false);
+    const [notesDrawerTower, setNotesDrawerTower] = useState<any>(null);
+    const [notesDrawerNotes, setNotesDrawerNotes] = useState<any[]>([]);
     const [filterOptions, setFilterOptions] = useState<{
         cities: string[];
         states: string[];
@@ -217,6 +221,28 @@ function TowersPageContent() {
         router.push(`/towers/${tower.id}`);
     };
 
+    const handleNotesClick = async (tower: any) => {
+        setNotesDrawerTower(tower);
+        try {
+            const res = await axios.get(`/api/towers/${tower.id}/notes`);
+            setNotesDrawerNotes(res.data);
+        } catch (error) {
+            console.error('Failed to load notes:', error);
+            setNotesDrawerNotes([]);
+        }
+    };
+
+    const handleNotesDrawerChange = async () => {
+        if (!notesDrawerTower) return;
+        try {
+            const res = await axios.get(`/api/towers/${notesDrawerTower.id}/notes`);
+            setNotesDrawerNotes(res.data);
+            loadTowers(); // Refresh table to update note counts
+        } catch (error) {
+            console.error('Failed to reload notes:', error);
+        }
+    };
+
     const handleCellEdit = async (towerId: number, field: string, value: string) => {
         try {
             let patchData: any = {};
@@ -271,9 +297,50 @@ function TowersPageContent() {
                             setPage(0);
                         }}
                         onCellEdit={handleCellEdit}
+                        onNotesClick={handleNotesClick}
                     />
                 </Paper>
             </Box>
+
+            {/* Notes Drawer */}
+            <Drawer
+                anchor="right"
+                open={!!notesDrawerTower}
+                onClose={() => setNotesDrawerTower(null)}
+                sx={{
+                    '& .MuiDrawer-paper': {
+                        width: { xs: '100%', sm: 450 },
+                        p: 0
+                    }
+                }}
+            >
+                {notesDrawerTower && (
+                    <>
+                        <Box sx={{
+                            p: 2,
+                            bgcolor: 'primary.main',
+                            color: 'white',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center'
+                        }}>
+                            <Typography variant="h6">
+                                Tower #{notesDrawerTower.id} - Notes
+                            </Typography>
+                            <IconButton onClick={() => setNotesDrawerTower(null)} sx={{ color: 'white' }}>
+                                <CloseIcon />
+                            </IconButton>
+                        </Box>
+                        <Box sx={{ p: 2, overflowY: 'auto', flex: 1 }}>
+                            <NotesPanel
+                                towerId={notesDrawerTower.id}
+                                notes={notesDrawerNotes}
+                                onNotesChange={handleNotesDrawerChange}
+                            />
+                        </Box>
+                    </>
+                )}
+            </Drawer>
         </Box>
     );
 }
