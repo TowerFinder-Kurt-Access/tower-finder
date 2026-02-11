@@ -622,7 +622,7 @@ export default function TowerDetailPage({ params }: PageProps) {
                                     value={selectedTypeId}
                                     label="Type"
                                     onChange={(e) => {
-                                        const val = e.target.value;
+                                        const val = String(e.target.value);
                                         if (val === ADD_NEW_VALUE) {
                                             handleLookupChange('typeId', ADD_NEW_VALUE);
                                         } else {
@@ -649,7 +649,7 @@ export default function TowerDetailPage({ params }: PageProps) {
                                     value={selectedLicenseeId}
                                     label="Licensee"
                                     onChange={(e) => {
-                                        const val = e.target.value;
+                                        const val = String(e.target.value);
                                         if (val === ADD_NEW_VALUE) {
                                             handleLookupChange('licenseeId', ADD_NEW_VALUE);
                                         } else {
@@ -676,7 +676,7 @@ export default function TowerDetailPage({ params }: PageProps) {
                                     value={selectedCarrierId}
                                     label="Carrier"
                                     onChange={(e) => {
-                                        const val = e.target.value;
+                                        const val = String(e.target.value);
                                         if (val === ADD_NEW_VALUE) {
                                             handleLookupChange('carrierId', ADD_NEW_VALUE);
                                         } else {
