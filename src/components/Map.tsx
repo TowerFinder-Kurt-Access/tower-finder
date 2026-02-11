@@ -25,7 +25,7 @@ interface Tower {
     lat: number;
     lon: number;
     licensee?: { name: string } | string;
-    carrier?: { name: string };
+    carrier?: { name: string } | string;
     status?: string;
     source?: string;
     googleMapsUrl?: string;

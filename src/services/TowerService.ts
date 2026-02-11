@@ -26,16 +26,21 @@ export class TowerService {
     /**
      * Finds or creates a tower by coordinates
      */
-    static async createOrFindTower(lat: number, lon: number, type: string = 'Unknown', status: string = 'New') {
+    static async createOrFindTower(lat: number, lon: number, typeName: string = 'Unknown', status: string = 'New') {
         return await prisma.tower.upsert({
             where: {
                 lat_lon: { lat, lon }
             },
-            update: {}, // Don't update if exists unless explicit
+            update: {},
             create: {
                 lat,
                 lon,
-                type,
+                type: typeName !== 'Unknown' ? {
+                    connectOrCreate: {
+                        where: { name: typeName },
+                        create: { name: typeName }
+                    }
+                } : undefined,
                 status
             }
         });

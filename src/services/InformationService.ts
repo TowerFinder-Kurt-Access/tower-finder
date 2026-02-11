@@ -98,7 +98,7 @@ export class InformationService {
             // Ensure Tower exists
             const tower = await tx.tower.upsert({
                 where: { lat_lon: { lat, lon } },
-                create: { lat, lon, status: 'Researched', type: 'Unknown' },
+                create: { lat, lon, status: 'Researched' },
                 update: {} // No update needed if exists
             });
 
@@ -121,24 +121,24 @@ export class InformationService {
                 create: {
                     parcelId: parcelId,
                     address: address,
-                    city: city,
-                    state: state,
-                    zip: zip,
-                    rawData: externalData, // Store complete API response for debugging
-                    dataSource: 'ReportAll', // Track which API provided this data
-                    geometry: geometry, // Store parcel boundary
+                    cityRaw: city,
+                    stateRaw: state,
+                    postalCode: zip,
+                    rawData: externalData,
+                    dataSource: 'ReportAll',
+                    geometry: geometry,
                     towerId: tower.id,
                     ownerId: owner.id
                 },
                 update: {
                     parcelId: parcelId,
                     address: address,
-                    city: city,
-                    state: state,
-                    zip: zip,
+                    cityRaw: city,
+                    stateRaw: state,
+                    postalCode: zip,
                     rawData: externalData,
                     dataSource: 'ReportAll',
-                    geometry: geometry, // Update parcel boundary
+                    geometry: geometry,
                     ownerId: owner.id
                 },
                 include: {
