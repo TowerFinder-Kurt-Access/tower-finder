@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { Box, Button, Menu, MenuItem, ListItemIcon, ListItemText, Chip, Badge } from '@mui/material';
-import { DataGrid, GridColDef, GridToolbar, GridRenderCellParams } from '@mui/x-data-grid';
+import { DataGrid, GridColDef, GridToolbar, GridRenderCellParams, GridCellEditStopReasons } from '@mui/x-data-grid';
 import MapIcon from '@mui/icons-material/Map';
 import BusinessIcon from '@mui/icons-material/Business';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
@@ -12,6 +12,11 @@ import TravelExploreIcon from '@mui/icons-material/TravelExplore';
 import InfoIcon from '@mui/icons-material/Info';
 import NotesIcon from '@mui/icons-material/Notes';
 import { getStatusLabel } from '@/lib/constants';
+
+interface LookupItem {
+    id: number;
+    name: string;
+}
 
 interface TowerTableSimpleProps {
     towers: any[];
@@ -35,7 +40,13 @@ interface TowerTableSimpleProps {
         licensees: string[];
         statuses: string[];
     };
+    lookups?: {
+        types: LookupItem[];
+        carriers: LookupItem[];
+        licensees: LookupItem[];
+    };
     onFilterChange: (filters: { city?: string; state?: string; county?: string; zip?: string; type?: string; licensee?: string; status?: string }) => void;
+    onCellEdit?: (towerId: number, field: string, value: string) => void;
 }
 
 export default function TowerTableSimple({
@@ -51,7 +62,9 @@ export default function TowerTableSimple({
     isOwnerLoading,
     isLoading,
     filterOptions,
-    onFilterChange
+    lookups,
+    onFilterChange,
+    onCellEdit
 }: TowerTableSimpleProps) {
     const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
     const [selectedTower, setSelectedTower] = React.useState<any>(null);
@@ -141,12 +154,14 @@ export default function TowerTableSimple({
         {
             field: 'licensee', headerName: 'Licensee', width: 150,
             type: 'singleSelect',
+            editable: !!onCellEdit,
             valueOptions: filterOptions.licensees,
             valueGetter: (value: any) => typeof value === 'object' ? value?.name : (value || '')
         },
         {
             field: 'type', headerName: 'Type', width: 120,
             type: 'singleSelect',
+            editable: !!onCellEdit,
             valueOptions: filterOptions.types,
             valueGetter: (value: any) => typeof value === 'object' ? value?.name : (value || '')
         },
@@ -155,6 +170,7 @@ export default function TowerTableSimple({
             headerName: 'Status',
             width: 180,
             type: 'singleSelect',
+            editable: !!onCellEdit,
             valueOptions: filterOptions.statuses,
             renderCell: (params: GridRenderCellParams) => (
                 <Chip
@@ -259,6 +275,19 @@ export default function TowerTableSimple({
                     }
                 }}
                 onFilterModelChange={handleFilterModelChange}
+                processRowUpdate={(newRow, oldRow) => {
+                    // Find which field changed
+                    const editableFields = ['type', 'licensee', 'carrier', 'status'];
+                    for (const field of editableFields) {
+                        if (newRow[field] !== oldRow[field] && onCellEdit) {
+                            onCellEdit(newRow.id, field, newRow[field]);
+                        }
+                    }
+                    return newRow;
+                }}
+                onProcessRowUpdateError={(error) => {
+                    console.error('Error updating row:', error);
+                }}
                 pageSizeOptions={[25, 50, 100]}
                 slots={{ toolbar: GridToolbar }}
                 slotProps={{

@@ -58,6 +58,11 @@ function TowersPageContent() {
         licensees: string[];
         statuses: string[];
     }>({ cities: [], states: [], counties: [], zips: [], types: [], carriers: [], licensees: [], statuses: ['New', 'Unknown', 'In Progress', 'Contacted', 'Not Interested', 'Closed'] });
+    const [lookups, setLookups] = useState<{
+        types: { id: number; name: string }[];
+        carriers: { id: number; name: string }[];
+        licensees: { id: number; name: string }[];
+    }>({ types: [], carriers: [], licensees: [] });
     const [filters, setFilters] = useState<{
         city?: string;
         state?: string;
@@ -76,15 +81,19 @@ function TowersPageContent() {
                     axios.get('/api/towers?distinct=filters'),
                     axios.get('/api/towers?distinct=lookups')
                 ]);
+                const typesData = lookupsRes.data.types || [];
+                const carriersData = lookupsRes.data.carriers || [];
+                const licenseesData = lookupsRes.data.licensees || [];
+                setLookups({ types: typesData, carriers: carriersData, licensees: licenseesData });
                 setFilterOptions(prev => ({
                     ...prev,
                     cities: filtersRes.data.cities || [],
                     states: filtersRes.data.states || [],
                     counties: filtersRes.data.counties || [],
                     zips: filtersRes.data.zips || [],
-                    types: (lookupsRes.data.types || []).map((t: any) => t.name),
-                    carriers: (lookupsRes.data.carriers || []).map((c: any) => c.name),
-                    licensees: (lookupsRes.data.licensees || []).map((l: any) => l.name),
+                    types: typesData.map((t: any) => t.name),
+                    carriers: carriersData.map((c: any) => c.name),
+                    licensees: licenseesData.map((l: any) => l.name),
                 }));
             } catch (error) {
                 console.error("Failed to fetch filter options:", error);
@@ -205,8 +214,33 @@ function TowersPageContent() {
     };
 
     const handleViewDetails = (tower: Tower) => {
-        // Navigate to tower detail page
         router.push(`/towers/${tower.id}`);
+    };
+
+    const handleCellEdit = async (towerId: number, field: string, value: string) => {
+        try {
+            let patchData: any = {};
+
+            if (field === 'status') {
+                patchData.status = value;
+            } else if (field === 'type') {
+                const found = lookups.types.find(t => t.name === value);
+                if (found) patchData.typeId = found.id;
+            } else if (field === 'licensee') {
+                const found = lookups.licensees.find(l => l.name === value);
+                if (found) patchData.licenseeId = found.id;
+            } else if (field === 'carrier') {
+                const found = lookups.carriers.find(c => c.name === value);
+                if (found) patchData.carrierId = found.id;
+            }
+
+            if (Object.keys(patchData).length > 0) {
+                await axios.patch(`/api/towers/${towerId}`, patchData);
+            }
+        } catch (error) {
+            console.error('Error updating tower:', error);
+            loadTowers(); // Reload to revert on error
+        }
     };
 
 
@@ -231,10 +265,12 @@ function TowersPageContent() {
                         isOwnerLoading={isOwnerLoading}
                         isLoading={isLoading}
                         filterOptions={filterOptions}
+                        lookups={lookups}
                         onFilterChange={(newFilters) => {
                             setFilters(newFilters);
-                            setPage(0); // Reset to first page when filters change
+                            setPage(0);
                         }}
+                        onCellEdit={handleCellEdit}
                     />
                 </Paper>
             </Box>
