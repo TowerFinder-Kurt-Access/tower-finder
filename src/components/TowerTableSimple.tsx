@@ -275,32 +275,7 @@ export default function TowerTableSimple({
             type: 'singleSelect',
             valueOptions: filterOptions.counties
         },
-        {
-            field: 'state',
-            headerName: 'Province',
-            width: 100,
-            type: 'singleSelect',
-            valueOptions: filterOptions.states
-        },
-        {
-            field: 'zip',
-            headerName: 'Postal Code',
-            width: 100,
-            type: 'singleSelect',
-            valueOptions: filterOptions.zips
-        },
-        {
-            field: 'lat',
-            headerName: 'Latitude',
-            width: 100,
-            valueGetter: (value, row) => row.lat?.toFixed(6) || ''
-        },
-        {
-            field: 'lon',
-            headerName: 'Longitude',
-            width: 100,
-            valueGetter: (value, row) => row.lon?.toFixed(6) || ''
-        },
+
         {
             field: 'actions',
             headerName: 'Actions',
