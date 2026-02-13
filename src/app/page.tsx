@@ -153,6 +153,13 @@ function HomeContent() {
 
   const handleFilterChange = async (filters: FilterState) => {
     setIsLoading(true);
+    // Track selected province so Show Leads button knows when to enable
+    if (filters.province !== undefined) {
+      setSelectedProvince(filters.province);
+      // Reset leads when province changes
+      setShowLeads(false);
+      setTowerLeads([]);
+    }
     try {
       const params = new URLSearchParams();
       if (filters.province) params.append('state', filters.province);
