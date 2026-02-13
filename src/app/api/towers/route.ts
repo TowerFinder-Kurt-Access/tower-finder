@@ -34,27 +34,41 @@ export async function GET(request: Request) {
         // Bounding box support
         const bbox = searchParams.get('bbox'); // minLon,minLat,maxLon,maxLat
 
-        // Handle distinct values request - optimized with raw queries
+        // Handle distinct values request - use normalized tables when available
         if (distinct === 'filters') {
+            // Use normalized relation names when available, fall back to raw values
             const [citiesResult, statesResult, countiesResult, zipsResult] = await Promise.all([
+                // City: prefer City table names, union with cityRaw for unlinked parcels
                 prisma.$queryRaw<{ city: string }[]>`
-                    SELECT DISTINCT "cityRaw" as city FROM "Parcel"
-                    WHERE "cityRaw" IS NOT NULL AND "cityRaw" != ''
-                    ORDER BY "cityRaw"
+                    SELECT DISTINCT name as city FROM (
+                        SELECT c."name" FROM "City" c
+                        UNION
+                        SELECT p."cityRaw" FROM "Parcel" p WHERE p."cityRaw" IS NOT NULL AND p."cityRaw" != '' AND p."cityId" IS NULL
+                    ) combined
+                    WHERE city IS NOT NULL AND city != ''
+                    ORDER BY city
                 `,
+                // Province: prefer Province table names, union with stateRaw for unlinked parcels
                 prisma.$queryRaw<{ state: string }[]>`
-                    SELECT DISTINCT "stateRaw" as state FROM "Parcel"
-                    WHERE "stateRaw" IS NOT NULL AND "stateRaw" != ''
-                    ORDER BY "stateRaw"
+                    SELECT DISTINCT name as state FROM (
+                        SELECT pr."name" FROM "Province" pr
+                        UNION
+                        SELECT p."stateRaw" FROM "Parcel" p WHERE p."stateRaw" IS NOT NULL AND p."stateRaw" != '' AND p."provinceId" IS NULL
+                        UNION
+                        SELECT p."provinceRaw" FROM "Parcel" p WHERE p."provinceRaw" IS NOT NULL AND p."provinceRaw" != '' AND p."provinceId" IS NULL
+                    ) combined
+                    WHERE state IS NOT NULL AND state != ''
+                    ORDER BY state
                 `,
                 prisma.$queryRaw<{ county: string }[]>`
                     SELECT DISTINCT county FROM "Parcel"
                     WHERE county IS NOT NULL AND county != ''
                     ORDER BY county
                 `,
+                // Zip: use COALESCE to match display logic (postalCode ?? zip)
                 prisma.$queryRaw<{ zip: string }[]>`
-                    SELECT DISTINCT zip FROM "Parcel"
-                    WHERE zip IS NOT NULL AND zip != ''
+                    SELECT DISTINCT COALESCE("postalCode", zip) as zip FROM "Parcel"
+                    WHERE COALESCE("postalCode", zip) IS NOT NULL AND COALESCE("postalCode", zip) != ''
                     ORDER BY zip
                 `
             ]);
@@ -132,11 +146,22 @@ export async function GET(request: Request) {
                                 provinceRaw: { in: terms, mode: 'insensitive' }
                             }
                         },
-                        // 2. Search in Source (files often named 'BC_Jan11.xlsx')
+                        // 2. Search in normalized Province relation (name and code)
+                        {
+                            parcel: {
+                                province: { name: { in: terms, mode: 'insensitive' } }
+                            }
+                        },
+                        {
+                            parcel: {
+                                province: { code: { in: terms, mode: 'insensitive' } }
+                            }
+                        },
+                        // 3. Search in Source (files often named 'BC_Jan11.xlsx')
                         ...terms.map(t => ({
                             source: { contains: t, mode: 'insensitive' as const }
                         })),
-                        // 3. Search in Address string
+                        // 4. Search in Address string
                         ...terms.map(t => ({
                             parcel: {
                                 address: { contains: t, mode: 'insensitive' as const }
@@ -159,7 +184,15 @@ export async function GET(request: Request) {
             const parcelFilters: any = {};
 
             if (city) {
-                parcelFilters.cityRaw = { equals: city, mode: 'insensitive' };
+                // Search both raw cityRaw and normalized City relation
+                andConditions.push({
+                    parcel: {
+                        OR: [
+                            { cityRaw: { equals: city, mode: 'insensitive' } },
+                            { city: { name: { equals: city, mode: 'insensitive' } } }
+                        ]
+                    }
+                });
             }
 
             if (county) {
@@ -167,7 +200,15 @@ export async function GET(request: Request) {
             }
 
             if (zip) {
-                parcelFilters.zip = { equals: zip, mode: 'insensitive' };
+                // Search both postalCode and zip to match display logic
+                andConditions.push({
+                    parcel: {
+                        OR: [
+                            { postalCode: { equals: zip, mode: 'insensitive' } },
+                            { zip: { equals: zip, mode: 'insensitive' } }
+                        ]
+                    }
+                });
             }
 
             // Relation filters

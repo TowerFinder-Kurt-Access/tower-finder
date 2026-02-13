@@ -135,7 +135,7 @@ export default function TowerTableSimple({
                             value={jumpPage}
                             onChange={(e) => setJumpPage(e.target.value)}
                             placeholder={(page + 1).toString()}
-                            sx={{ width: 40, '& .MuiInputBase-input': { textAlign: 'center' } }}
+                            sx={{ width: 70, '& .MuiInputBase-input': { textAlign: 'center' } }}
                             type="number"
                             inputProps={{ min: 1 }}
                         />
