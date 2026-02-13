@@ -40,6 +40,9 @@ model Tower {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // Reverse relation from TowerLead when promoted
+  leadSource TowerLead?
+
   // Coordinate uniqueness to ensure we don't duplicate towers
   @@unique([lat, lon])
 }
@@ -209,4 +212,25 @@ model City {
 }
 
 
+model TowerLead {
+  id        Int      @id @default(autoincrement())
+  lat       Float
+  lon       Float
+  source    String   // e.g. "OpenStreetMap", "Google Maps", "Manual"
+  sourceId  String?  // External ID from the source (e.g. OSM node ID)
+  type      String?  // e.g. "tower", "mast"
+  tags      Json?    // Raw metadata from the source
+  province  String?  // Province/state for quick filtering
 
+  // When promoted to a Tower, link to it
+  promotedToTowerId Int?      @unique
+  promotedToTower   Tower?    @relation(fields: [promotedToTowerId], references: [id])
+  promotedAt        DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([lat, lon, source])
+  @@index([province])
+  @@index([source])
+}

@@ -74,13 +74,15 @@ const PROVINCE_COORDINATES: { [key: string]: { center: [number, number], zoom: n
 function HomeContent() {
   const router = useRouter();
   const [towers, setTowers] = useState<Tower[]>([]);
-  const [ghostTowers, setGhostTowers] = useState<any[]>([]); // Search results
-  const [mapCenter, setMapCenter] = useState<[number, number]>([46.5, -64.0]); // Default to East Coast approximately
+  const [towerLeads, setTowerLeads] = useState<any[]>([]); // Leads from local DB
+  const [showLeads, setShowLeads] = useState<boolean>(false);
+  const [mapCenter, setMapCenter] = useState<[number, number]>([46.5, -64.0]);
   const [zoom, setZoom] = useState<number>(7);
   const [mapBounds, setMapBounds] = useState<any>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [isSearchLoading, setIsSearchLoading] = useState<boolean>(false);
+  const [isLeadsLoading, setIsLeadsLoading] = useState<boolean>(false);
   const [selectedTower, setSelectedTower] = useState<Tower | null>(null);
+  const [selectedProvince, setSelectedProvince] = useState<string>('');
   const [ownerData, setOwnerData] = useState<OwnerResult | null>(null);
   const [isOwnerLoading, setIsOwnerLoading] = useState<boolean>(false);
   const [mounted, setMounted] = useState(false);
@@ -191,6 +193,10 @@ function HomeContent() {
 
   const handleStateSelect = async (state: string) => {
     setIsLoading(true);
+    setSelectedProvince(state);
+    // Hide leads when province changes - user will toggle them back on if wanted
+    setShowLeads(false);
+    setTowerLeads([]);
     try {
       if (!state) {
         setTowers([]);
@@ -208,13 +214,10 @@ function HomeContent() {
       setTowers(res.data);
 
       if (res.data.length > 0) {
-        // Calculate center of mass for better view and refine position
         const newCenter = calculateCenter(res.data);
         setMapCenter(newCenter);
-        // Adjust zoom based on tower spread
         setZoom(8);
       } else {
-        // Keep the province view even if no towers found
         if (!PROVINCE_COORDINATES[state]) {
           alert(`No towers found for state: ${state}`);
         }
@@ -294,61 +297,72 @@ function HomeContent() {
     }
   };
 
-  const handleBoundsChange = useCallback((bounds: any) => {
-    setMapBounds(bounds);
-  }, []);
+  // Toggle tower leads visibility for the current province
+  const toggleLeadsVisibility = async () => {
+    if (!selectedProvince) {
+      alert('Please select a province first.');
+      return;
+    }
 
-  // Search for new towers in current map bounds
-  const searchTowersInArea = async () => {
-    if (!mapBounds) return;
+    if (showLeads) {
+      // Hide leads
+      setShowLeads(false);
+      setTowerLeads([]);
+      return;
+    }
 
-    setIsSearchLoading(true);
+    // Show leads - first try import (will be a no-op if already imported)
+    setIsLeadsLoading(true);
     try {
-      const { north, south, east, west } = mapBounds;
-      const res = await axios.get(`/api/search-towers?north=${north}&south=${south}&east=${east}&west=${west}`);
-
-      // Filter out towers that are already in our DB (roughly by distance)
-      const newGhostTowers = res.data.filter((ghost: any) => {
-        return !towers.some(existing =>
-          Math.abs(existing.lat - ghost.lat) < 0.0001 &&
-          Math.abs(existing.lon - ghost.lon) < 0.0001
-        );
+      // Trigger import (calls OSM only if we don't have local data)
+      await axios.post('/api/tower-leads/import', {
+        province: selectedProvince,
+        source: 'OpenStreetMap'
       });
 
-      setGhostTowers(newGhostTowers);
-      if (newGhostTowers.length === 0) {
-        alert("No new towers found in this area (or they are already in database).");
+      // Fetch leads from local DB
+      const res = await axios.get(`/api/tower-leads?province=${encodeURIComponent(selectedProvince)}`);
+      setTowerLeads(res.data);
+      setShowLeads(true);
+
+      if (res.data.length === 0) {
+        alert('No tower leads found for this province.');
       }
     } catch (error) {
-      console.error("Area search failed:", error);
-      alert("Failed to search for towers in this area.");
+      console.error('Failed to load tower leads:', error);
+      alert('Failed to load tower leads.');
     } finally {
-      setIsSearchLoading(false);
+      setIsLeadsLoading(false);
     }
   };
 
-  const handleTowerSelect = (tower: any) => {
-    if (tower.isGhost) {
-      if (tower.action === 'add') {
-        const tempTower: Tower = {
-          id: 0, // 0 indicates new/unsaved
-          type: tower.type || 'Unknown',
-          lat: tower.lat,
-          lon: tower.lon,
-          status: 'New',
-          source: 'Tower Finder'
-        };
-        setSelectedTower(tempTower);
-        setOwnerData(null);
-        alert("Selected! Click 'Get Land Owner' in the sidebar to save this tower and fetch details.");
+  const handleTowerSelect = async (tower: any) => {
+    if (tower.isLead) {
+      if (tower.action === 'promote') {
+        // Promote lead to tower
+        try {
+          const res = await axios.post(`/api/tower-leads/${tower.id}/promote`);
+          alert(res.data.message);
+          // Remove the promoted lead from the list
+          setTowerLeads(prev => prev.filter(l => l.id !== tower.id));
+          // Refresh towers to show the new one
+          if (selectedProvince) {
+            const towersRes = await axios.get(`/api/towers?state=${encodeURIComponent(selectedProvince)}`);
+            setTowers(towersRes.data);
+          }
+        } catch (error: any) {
+          const msg = error.response?.data?.message || error.response?.data?.error || 'Failed to promote lead.';
+          alert(msg);
+        }
       } else {
+        // Just select the lead for viewing
         const tempTower: Tower = {
-          id: 0, // 0 indicates new/unsaved
+          id: 0,
           type: tower.type || 'Unknown',
           lat: tower.lat,
           lon: tower.lon,
-          status: 'New',
-          source: 'Tower Finder'
+          status: 'Lead',
+          source: `Tower Leads - ${tower.source}`
         };
         setSelectedTower(tempTower);
         setOwnerData(null);
@@ -386,22 +400,22 @@ function HomeContent() {
             <Box sx={{ position: 'absolute', top: 10, right: 10, zIndex: 1000, display: 'flex', gap: 2, alignItems: 'center' }}>
               <Paper elevation={3}>
                 <button
-                  onClick={searchTowersInArea}
-                  disabled={isSearchLoading}
+                  onClick={toggleLeadsVisibility}
+                  disabled={isLeadsLoading || !selectedProvince}
                   style={{
                     padding: '8px 16px',
-                    cursor: isSearchLoading ? 'wait' : 'pointer',
-                    backgroundColor: 'white',
+                    cursor: (isLeadsLoading || !selectedProvince) ? 'not-allowed' : 'pointer',
+                    backgroundColor: showLeads ? '#4CAF50' : 'white',
                     border: 'none',
                     borderRadius: '4px',
                     fontWeight: 600,
-                    color: '#1976d2',
+                    color: showLeads ? 'white' : '#1976d2',
                     height: '40px',
                     display: 'flex',
                     alignItems: 'center'
                   }}
                 >
-                  {isSearchLoading ? 'Searching...' : 'Search This Area'}
+                  {isLeadsLoading ? 'Loading Leads...' : (showLeads ? 'Hide Leads' : 'Show Leads')}
                 </button>
               </Paper>
             </Box>
@@ -414,10 +428,10 @@ function HomeContent() {
                 center={mapCenter}
                 zoom={zoom}
                 towers={towers}
-                ghostTowers={ghostTowers}
+                towerLeads={showLeads ? towerLeads : []}
                 onTowerSelect={handleTowerSelect}
                 selectedTower={selectedTower}
-                onBoundsChange={handleBoundsChange}
+                onBoundsChange={(bounds) => setMapBounds(bounds)}
               />
             ) : (
               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>

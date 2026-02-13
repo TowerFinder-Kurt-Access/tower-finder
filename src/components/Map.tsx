@@ -46,8 +46,8 @@ interface MapProps {
     center: [number, number];
     zoom: number;
     towers: Tower[];
-    ghostTowers?: any[]; // Towers found by search but not in DB
-    onTowerSelect: (tower: Tower | any) => void; // Allow selecting ghost towers too
+    towerLeads?: any[]; // Leads from local DB
+    onTowerSelect: (tower: Tower | any) => void;
     selectedTower?: Tower | null;
     onBoundsChange?: (bounds: { north: number, south: number, east: number, west: number }) => void;
 }
@@ -99,7 +99,7 @@ function MapEvents({ onBoundsChange }: { onBoundsChange?: (bounds: any) => void 
     return null;
 }
 
-export default function Map({ center, zoom, towers, ghostTowers = [], onTowerSelect, selectedTower, onBoundsChange }: MapProps) {
+export default function Map({ center, zoom, towers, towerLeads = [], onTowerSelect, selectedTower, onBoundsChange }: MapProps) {
 
     // Debug logging for selected tower geometry
     useEffect(() => {
@@ -190,7 +190,7 @@ export default function Map({ center, zoom, towers, ghostTowers = [], onTowerSel
                 ))}
             </MarkerClusterGroup>
 
-            {/* Ghost Towers - Search Results (Grey/Yellow) - Clustered */}
+            {/* Tower Leads (Green) - Clustered */}
             <MarkerClusterGroup
                 chunkedLoading
                 maxClusterRadius={40}
@@ -200,32 +200,33 @@ export default function Map({ center, zoom, towers, ghostTowers = [], onTowerSel
                 iconCreateFunction={(cluster) => {
                     const count = cluster.getChildCount();
                     return L.divIcon({
-                        html: `<div style="background-color: #FF9800; color: white; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; font-weight: bold; border: 3px solid #F57C00; box-shadow: 0 2px 5px rgba(0,0,0,0.3);">${count}</div>`,
-                        className: 'ghost-tower-cluster-icon',
+                        html: `<div style="background-color: #4CAF50; color: white; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; font-weight: bold; border: 3px solid #2E7D32; box-shadow: 0 2px 5px rgba(0,0,0,0.3);">${count}</div>`,
+                        className: 'lead-cluster-icon',
                         iconSize: L.point(40, 40)
                     });
                 }}
             >
-                {ghostTowers && ghostTowers.map(tower => (
+                {towerLeads && towerLeads.map(lead => (
                     <CircleMarker
-                        key={`ghost-${tower.id}`}
-                        center={[tower.lat, tower.lon] as LatLngExpression}
+                        key={`lead-${lead.id}`}
+                        center={[lead.lat, lead.lon] as LatLngExpression}
                         pathOptions={{
-                            color: 'orange',
-                            fillColor: '#FF9800',
+                            color: '#4CAF50',
+                            fillColor: '#66BB6A',
                             fillOpacity: 0.6,
                             dashArray: '5, 5'
                         }}
                         radius={8}
                         eventHandlers={{
-                            click: () => onTowerSelect({ ...tower, isGhost: true })
+                            click: () => onTowerSelect({ ...lead, isLead: true })
                         }}
                     >
                         <Popup>
                             <div style={{ minWidth: '200px' }}>
-                                <strong>Generic Tower (Search Result)</strong><br />
-                                <strong>Coordinates:</strong> {tower.lat.toFixed(6)}, {tower.lon.toFixed(6)}<br />
-                                <strong>Type:</strong> {tower.type || 'Unknown'}<br />
+                                <strong>Tower Lead</strong><br />
+                                <strong>Source:</strong> {lead.source || 'Unknown'}<br />
+                                <strong>Type:</strong> {lead.type || 'Unknown'}<br />
+                                <strong>Coordinates:</strong> {lead.lat.toFixed(6)}, {lead.lon.toFixed(6)}<br />
                                 <br />
                                 <button
                                     style={{
@@ -238,12 +239,11 @@ export default function Map({ center, zoom, towers, ghostTowers = [], onTowerSel
                                         width: '100%'
                                     }}
                                     onClick={(e) => {
-                                        e.stopPropagation(); // Prevent map click
-                                        // Trigger add logic - passed via onTowerSelect or handled in parent
-                                        onTowerSelect({ ...tower, isGhost: true, action: 'add' });
+                                        e.stopPropagation();
+                                        onTowerSelect({ ...lead, isLead: true, action: 'promote' });
                                     }}
                                 >
-                                    Add to Database
+                                    Add to Towers
                                 </button>
                             </div>
                         </Popup>
