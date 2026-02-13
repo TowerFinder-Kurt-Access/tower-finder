@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { Box, Button, Menu, MenuItem, ListItemIcon, ListItemText, Chip, Badge, TextField, Stack, Typography } from '@mui/material';
-import { DataGrid, GridColDef, GridToolbar, GridRenderCellParams, GridCellEditStopReasons, GridFooterContainer, GridPagination, GridSlotsComponentsProps } from '@mui/x-data-grid';
+import { DataGrid, GridColDef, GridToolbar, GridRenderCellParams, GridCellEditStopReasons, GridFooterContainer, GridPagination, GridSlotsComponentsProps, GridColumnVisibilityModel } from '@mui/x-data-grid';
 import MapIcon from '@mui/icons-material/Map';
 import BusinessIcon from '@mui/icons-material/Business';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
@@ -71,6 +71,32 @@ export default function TowerTableSimple({
     const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
     const [selectedTower, setSelectedTower] = React.useState<any>(null);
     const [jumpPage, setJumpPage] = React.useState<string>('');
+
+    // Default column visibility (lat/lon hidden by default)
+    const defaultVisibility: GridColumnVisibilityModel = {
+        lat: false,
+        lon: false,
+    };
+
+    // Column visibility with localStorage persistence
+    const [columnVisibilityModel, setColumnVisibilityModel] = React.useState<GridColumnVisibilityModel>(() => {
+        if (typeof window !== 'undefined') {
+            const saved = localStorage.getItem('towersColumnVisibility');
+            if (saved) {
+                try {
+                    return JSON.parse(saved);
+                } catch (e) {
+                    // ignore
+                }
+            }
+        }
+        return defaultVisibility;
+    });
+
+    const handleColumnVisibilityChange = (model: GridColumnVisibilityModel) => {
+        setColumnVisibilityModel(model);
+        localStorage.setItem('towersColumnVisibility', JSON.stringify(model));
+    };
 
     const handleJumpToPage = (e: React.FormEvent) => {
         e.preventDefault();
@@ -290,6 +316,18 @@ export default function TowerTableSimple({
             valueOptions: filterOptions.zips
         },
         {
+            field: 'lat',
+            headerName: 'Latitude',
+            width: 100,
+            valueGetter: (value: any, row: any) => row.lat?.toFixed(6) || ''
+        },
+        {
+            field: 'lon',
+            headerName: 'Longitude',
+            width: 100,
+            valueGetter: (value: any, row: any) => row.lon?.toFixed(6) || ''
+        },
+        {
             field: 'actions',
             headerName: 'Actions',
             width: 120,
@@ -353,6 +391,8 @@ export default function TowerTableSimple({
                 }}
                 disableRowSelectionOnClick
                 loading={isLoading}
+                columnVisibilityModel={columnVisibilityModel}
+                onColumnVisibilityModelChange={handleColumnVisibilityChange}
             />
             <Menu
                 anchorEl={anchorEl}
