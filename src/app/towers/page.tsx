@@ -75,7 +75,33 @@ function TowersPageContent() {
         type?: string;
         licensee?: string;
         status?: string;
+        address?: string;
     }>({});
+
+    // Load settings from local storage on mount
+    useEffect(() => {
+        const savedSettings = localStorage.getItem('towersPageSettings');
+        if (savedSettings) {
+            try {
+                const parsed = JSON.parse(savedSettings);
+                if (parsed.page !== undefined) setPage(parsed.page);
+                if (parsed.rowsPerPage) setRowsPerPage(parsed.rowsPerPage);
+                if (parsed.filters) setFilters(parsed.filters);
+            } catch (e) {
+                console.error("Failed to parse saved settings", e);
+            }
+        }
+    }, []);
+
+    // Save settings when changed
+    useEffect(() => {
+        const settings = {
+            page,
+            rowsPerPage,
+            filters
+        };
+        localStorage.setItem('towersPageSettings', JSON.stringify(settings));
+    }, [page, rowsPerPage, filters]);
 
     // Load distinct filter values on mount
     useEffect(() => {
@@ -123,6 +149,7 @@ function TowersPageContent() {
             if (filters.type) params.append('type', filters.type);
             if (filters.licensee) params.append('licensee', filters.licensee);
             if (filters.status) params.append('status', filters.status);
+            if (filters.address) params.append('address', filters.address);
 
             const res = await axios.get(`/api/towers?${params.toString()}`);
 

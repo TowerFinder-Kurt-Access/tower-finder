@@ -22,6 +22,8 @@ export async function GET(request: Request) {
         const carrierFilter = searchParams.get('carrier');
         const licenseeFilter = searchParams.get('licensee');
         const statusFilter = searchParams.get('status');
+        const address = searchParams.get('address');
+        const owner = searchParams.get('owner');
 
         // Default limit to prevent sending too many towers at once (performance optimization)
         // Use 1000 as default limit if not specified, unless fetching by ID
@@ -196,6 +198,24 @@ export async function GET(request: Request) {
             if (statusFilter) {
                 andConditions.push({
                     status: { equals: statusFilter, mode: 'insensitive' }
+                });
+            }
+
+            if (address) {
+                andConditions.push({
+                    parcel: {
+                        address: { contains: address, mode: 'insensitive' }
+                    }
+                });
+            }
+
+            if (owner) {
+                andConditions.push({
+                    parcel: {
+                        owner: {
+                            name: { contains: owner, mode: 'insensitive' }
+                        }
+                    }
                 });
             }
 

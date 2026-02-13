@@ -1,8 +1,8 @@
 'use client';
 
 import * as React from 'react';
-import { Box, Button, Menu, MenuItem, ListItemIcon, ListItemText, Chip, Badge } from '@mui/material';
-import { DataGrid, GridColDef, GridToolbar, GridRenderCellParams, GridCellEditStopReasons } from '@mui/x-data-grid';
+import { Box, Button, Menu, MenuItem, ListItemIcon, ListItemText, Chip, Badge, TextField, Stack, Typography } from '@mui/material';
+import { DataGrid, GridColDef, GridToolbar, GridRenderCellParams, GridCellEditStopReasons, GridFooterContainer, GridPagination, GridSlotsComponentsProps } from '@mui/x-data-grid';
 import MapIcon from '@mui/icons-material/Map';
 import BusinessIcon from '@mui/icons-material/Business';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
@@ -45,7 +45,7 @@ interface TowerTableSimpleProps {
         carriers: LookupItem[];
         licensees: LookupItem[];
     };
-    onFilterChange: (filters: { city?: string; state?: string; county?: string; zip?: string; type?: string; licensee?: string; status?: string }) => void;
+    onFilterChange: (filters: { city?: string; state?: string; county?: string; zip?: string; type?: string; licensee?: string; status?: string; address?: string }) => void;
     onCellEdit?: (towerId: number, field: string, value: string) => void;
     onNotesClick?: (tower: any) => void;
 }
@@ -70,6 +70,57 @@ export default function TowerTableSimple({
 }: TowerTableSimpleProps) {
     const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
     const [selectedTower, setSelectedTower] = React.useState<any>(null);
+    const [jumpPage, setJumpPage] = React.useState<string>('');
+
+    const handleJumpToPage = (e: React.FormEvent) => {
+        e.preventDefault();
+        const pageNum = parseInt(jumpPage, 10);
+        // Ensure page is within valid range (1 to totalPages)
+        const totalPages = Math.ceil(totalCount / rowsPerPage);
+
+        if (!isNaN(pageNum) && pageNum >= 1) {
+            // Convert 1-based user input to 0-based API page
+            // If user enters a number larger than max, standard behavior is often to go to last page,
+            // or we can let the API handle it / user beware. Let's clamp it if we know total.
+            // But we might be in server-side pagination where we don't know total easily in all cases?
+            // current totalCount is passed in.
+
+            // Allow jumping beyond current known count if user wants to try, 
+            // but usually we should clamp to totalPages if known. 
+            // However, typical "Jump to" features allow going to any page.
+
+            const targetPage = pageNum - 1;
+            onPageChange(targetPage);
+        }
+    };
+
+    // Custom Footer Component
+    const CustomFooter = (props: NonNullable<GridSlotsComponentsProps['footer']>) => {
+        return (
+            <GridFooterContainer>
+                <Box sx={{ flex: 1 }} /> {/* Spacer to push content to right */}
+
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mr: 2 }}>
+                    <form onSubmit={handleJumpToPage} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <Typography variant="body2" sx={{ fontSize: '0.875rem' }}>Jump to:</Typography>
+                        <TextField
+                            size="small"
+                            variant="standard"
+                            value={jumpPage}
+                            onChange={(e) => setJumpPage(e.target.value)}
+                            placeholder={(page + 1).toString()}
+                            sx={{ width: 40, '& .MuiInputBase-input': { textAlign: 'center' } }}
+                            type="number"
+                            inputProps={{ min: 1 }}
+                        />
+                        <Button type="submit" size="small" sx={{ minWidth: 'auto', p: 0.5 }}>Go</Button>
+                    </form>
+                </Box>
+
+                <GridPagination />
+            </GridFooterContainer>
+        );
+    };
 
     const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, tower: any) => {
         event.stopPropagation();
@@ -131,7 +182,7 @@ export default function TowerTableSimple({
 
     const handleFilterModelChange = (filterModel: any) => {
         // Extract all filter values from the DataGrid filter model
-        const filters: { city?: string; state?: string; county?: string; zip?: string; type?: string; licensee?: string; status?: string } = {};
+        const filters: { city?: string; state?: string; county?: string; zip?: string; type?: string; licensee?: string; status?: string; address?: string } = {};
 
         if (filterModel.items && filterModel.items.length > 0) {
             filterModel.items.forEach((item: any) => {
@@ -144,6 +195,7 @@ export default function TowerTableSimple({
                         case 'type': filters.type = item.value; break;
                         case 'licensee': filters.licensee = item.value; break;
                         case 'status': filters.status = item.value; break;
+                        case 'address': filters.address = item.value; break;
                     }
                 }
             });
@@ -269,7 +321,8 @@ export default function TowerTableSimple({
     ];
 
     return (
-        <Box sx={{ height: '100%', width: '100%' }}>
+        <Box sx={{ height: '100%', width: '100%', display: 'flex', flexDirection: 'column' }}>
+            {/* Removed Top Bar */}
             <DataGrid
                 rows={towers}
                 columns={columns}
@@ -300,8 +353,11 @@ export default function TowerTableSimple({
                 onProcessRowUpdateError={(error) => {
                     console.error('Error updating row:', error);
                 }}
-                pageSizeOptions={[25, 50, 100]}
-                slots={{ toolbar: GridToolbar }}
+                pageSizeOptions={[25, 50, 100, 500]}
+                slots={{
+                    toolbar: GridToolbar,
+                    footer: CustomFooter
+                }}
                 slotProps={{
                     toolbar: {
                         showQuickFilter: true,
