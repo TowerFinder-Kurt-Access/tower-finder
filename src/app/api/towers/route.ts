@@ -43,22 +43,22 @@ export async function GET(request: Request) {
                     SELECT DISTINCT name as city FROM (
                         SELECT c."name" FROM "City" c
                         UNION
-                        SELECT p."cityRaw" FROM "Parcel" p WHERE p."cityRaw" IS NOT NULL AND p."cityRaw" != '' AND p."cityId" IS NULL
+                        SELECT p."cityRaw" as name FROM "Parcel" p WHERE p."cityRaw" IS NOT NULL AND p."cityRaw" != '' AND p."cityId" IS NULL
                     ) combined
-                    WHERE city IS NOT NULL AND city != ''
-                    ORDER BY city
+                    WHERE name IS NOT NULL AND name != ''
+                    ORDER BY name
                 `,
                 // Province: prefer Province table names, union with stateRaw for unlinked parcels
                 prisma.$queryRaw<{ state: string }[]>`
                     SELECT DISTINCT name as state FROM (
                         SELECT pr."name" FROM "Province" pr
                         UNION
-                        SELECT p."stateRaw" FROM "Parcel" p WHERE p."stateRaw" IS NOT NULL AND p."stateRaw" != '' AND p."provinceId" IS NULL
+                        SELECT p."stateRaw" as name FROM "Parcel" p WHERE p."stateRaw" IS NOT NULL AND p."stateRaw" != '' AND p."provinceId" IS NULL
                         UNION
-                        SELECT p."provinceRaw" FROM "Parcel" p WHERE p."provinceRaw" IS NOT NULL AND p."provinceRaw" != '' AND p."provinceId" IS NULL
+                        SELECT p."provinceRaw" as name FROM "Parcel" p WHERE p."provinceRaw" IS NOT NULL AND p."provinceRaw" != '' AND p."provinceId" IS NULL
                     ) combined
-                    WHERE state IS NOT NULL AND state != ''
-                    ORDER BY state
+                    WHERE name IS NOT NULL AND name != ''
+                    ORDER BY name
                 `,
                 prisma.$queryRaw<{ county: string }[]>`
                     SELECT DISTINCT county FROM "Parcel"
