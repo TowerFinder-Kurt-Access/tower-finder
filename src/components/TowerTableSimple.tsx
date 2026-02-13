@@ -275,7 +275,20 @@ export default function TowerTableSimple({
             type: 'singleSelect',
             valueOptions: filterOptions.counties
         },
-
+        {
+            field: 'state',
+            headerName: 'Province',
+            width: 100,
+            type: 'singleSelect',
+            valueOptions: filterOptions.states
+        },
+        {
+            field: 'zip',
+            headerName: 'Postal Code',
+            width: 100,
+            type: 'singleSelect',
+            valueOptions: filterOptions.zips
+        },
         {
             field: 'actions',
             headerName: 'Actions',
