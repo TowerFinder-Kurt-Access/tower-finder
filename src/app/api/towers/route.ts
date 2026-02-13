@@ -127,7 +127,7 @@ export async function GET(request: Request) {
             // Build an array of conditions to AND together
             const andConditions: any[] = [];
 
-            // State filter - uses OR for matching state/province/source
+            // State filter - match on province-related fields only
             if (state) {
                 const mapped = PROVINCE_MAPPING[state];
                 const terms = [state];
@@ -135,7 +135,7 @@ export async function GET(request: Request) {
 
                 andConditions.push({
                     OR: [
-                        // 1. Search in structured state/province raw column
+                        // 1. Search in structured state/province raw columns
                         {
                             parcel: {
                                 stateRaw: { in: terms, mode: 'insensitive' }
@@ -156,17 +156,7 @@ export async function GET(request: Request) {
                             parcel: {
                                 province: { code: { in: terms, mode: 'insensitive' } }
                             }
-                        },
-                        // 3. Search in Source (files often named 'BC_Jan11.xlsx')
-                        ...terms.map(t => ({
-                            source: { contains: t, mode: 'insensitive' as const }
-                        })),
-                        // 4. Search in Address string
-                        ...terms.map(t => ({
-                            parcel: {
-                                address: { contains: t, mode: 'insensitive' as const }
-                            }
-                        }))
+                        }
                     ]
                 });
             }
