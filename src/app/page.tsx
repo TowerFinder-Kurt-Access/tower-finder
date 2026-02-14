@@ -109,9 +109,34 @@ function HomeContent() {
 
   const searchParams = useSearchParams();
 
-  // Effect to handle URL params for selecting a tower
+  // Effect to handle URL params for selecting a tower or centering map
   useEffect(() => {
     const towerId = searchParams.get('towerId');
+    const latParam = searchParams.get('lat');
+    const lonParam = searchParams.get('lon');
+    const zoomParam = searchParams.get('zoom');
+    const cityParam = searchParams.get('city');
+    const countryParam = searchParams.get('country');
+
+    if (latParam && lonParam) {
+      const lat = parseFloat(latParam);
+      const lon = parseFloat(lonParam);
+      if (!isNaN(lat) && !isNaN(lon)) {
+        setMapCenter([lat, lon]);
+        setZoom(zoomParam ? parseInt(zoomParam) : 15); // Zoom in close if coordinates provided
+      }
+    }
+
+    if (cityParam) {
+      setSelectedCity(cityParam);
+      // If country not set but implied? 
+      // We might want to set country if possible, but city filter works on API.
+    }
+
+    if (countryParam) {
+      setSelectedCountry(countryParam);
+    }
+
     if (towerId && !selectedTower) {
       // Logic for URL-based tower selection could go here
     }
