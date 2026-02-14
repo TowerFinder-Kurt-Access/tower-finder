@@ -8,6 +8,7 @@ export default auth((req: any) => {
   const isLoggedIn = !!req.auth?.user;
   const { pathname } = req.nextUrl;
 
+  // 1. Handle auth/login routes
   if (pathname.startsWith('/api/auth') || pathname === '/login') {
     if (isLoggedIn && pathname === '/login') {
       return Response.redirect(new URL('/', req.url));
@@ -15,6 +16,12 @@ export default auth((req: any) => {
     return;
   }
 
+  // 2. Allow cron jobs to bypass auth (secured by CRON_SECRET check in the handler)
+  if (pathname.startsWith('/api/cron')) {
+    return;
+  }
+
+  // 3. Protect everything else
   if (!isLoggedIn) {
     const loginUrl = new URL('/login', req.url);
     loginUrl.searchParams.set('callbackUrl', pathname);
