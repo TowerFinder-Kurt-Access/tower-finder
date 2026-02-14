@@ -19,7 +19,7 @@ const COUNTRY_CITIES: Record<string, string[]> = {
         'Saskatoon', "St. John's", 'Toronto', 'Vancouver', 'Victoria', 'Winnipeg',
     ],
     'USA': ['Chicago', 'Houston', 'Los Angeles', 'Miami', 'New York'],
-    'Mexico': ['Guadalajara', 'Mexico City', 'Monterrey'],
+
 };
 
 const COUNTRIES = Object.keys(COUNTRY_CITIES);

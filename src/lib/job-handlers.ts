@@ -38,11 +38,6 @@ const CITY_BOUNDS: Record<string, Record<string, { north: number; south: number;
         'Houston': { north: 30.11, south: 29.52, east: -95.07, west: -95.79 },
         'Miami': { north: 25.86, south: 25.70, east: -80.12, west: -80.32 },
     },
-    'Mexico': {
-        'Mexico City': { north: 19.59, south: 19.20, east: -98.94, west: -99.37 },
-        'Guadalajara': { north: 20.78, south: 20.58, east: -103.28, west: -103.48 },
-        'Monterrey': { north: 25.82, south: 25.57, east: -100.22, west: -100.47 },
-    },
 };
 
 /**
