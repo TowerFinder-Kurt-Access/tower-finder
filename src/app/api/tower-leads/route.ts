@@ -2,27 +2,51 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getAuthUser } from '@/lib/auth-helpers';
 
-// GET /api/tower-leads?province=BC - Fetch leads for a province
+// GET /api/tower-leads - Fetch leads with pagination and filters
 export async function GET(request: Request) {
     try {
         await getAuthUser();
 
         const { searchParams } = new URL(request.url);
-        const province = searchParams.get('province');
+        const page = parseInt(searchParams.get('page') || '0');
+        const limit = parseInt(searchParams.get('limit') || '25');
+        const country = searchParams.get('country');
+        const city = searchParams.get('city');
+        const source = searchParams.get('source');
+        const type = searchParams.get('type');
 
-        if (!province) {
-            return NextResponse.json({ error: 'Province parameter is required' }, { status: 400 });
+        // Build where clause
+        const where: any = {};
+
+        if (country) {
+            where.country = { equals: country, mode: 'insensitive' };
+        }
+        if (city) {
+            where.city = { equals: city, mode: 'insensitive' };
+        }
+        if (source) {
+            where.source = { equals: source, mode: 'insensitive' };
+        }
+        if (type) {
+            where.type = { equals: type, mode: 'insensitive' };
         }
 
-        const leads = await prisma.towerLead.findMany({
-            where: {
-                province: { equals: province, mode: 'insensitive' },
-                promotedToTowerId: null // Only show non-promoted leads
-            },
-            orderBy: { id: 'asc' }
-        });
+        const [leads, totalCount] = await Promise.all([
+            prisma.towerLead.findMany({
+                where,
+                orderBy: { createdAt: 'desc' },
+                skip: page * limit,
+                take: limit,
+            }),
+            prisma.towerLead.count({ where }),
+        ]);
 
-        return NextResponse.json(leads);
+        return NextResponse.json({
+            data: leads,
+            totalCount,
+            page,
+            limit,
+        });
     } catch (error) {
         if (error instanceof Error && error.message === 'Unauthorized') {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

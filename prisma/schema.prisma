@@ -220,6 +220,8 @@ model TowerLead {
   sourceId  String?  // External ID from the source (e.g. OSM node ID)
   type      String?  // e.g. "tower", "mast"
   tags      Json?    // Raw metadata from the source
+  country   String?  // e.g. "Canada", "USA"
+  city      String?  // e.g. "Moncton", "Toronto"
   province  String?  // Province/state for quick filtering
 
   // When promoted to a Tower, link to it
@@ -231,6 +233,44 @@ model TowerLead {
   updatedAt DateTime @updatedAt
 
   @@unique([lat, lon, source])
+  @@index([country, city])
   @@index([province])
   @@index([source])
+}
+
+model LeadSearch {
+  id          Int      @id @default(autoincrement())
+  country     String
+  city        String
+  source      String   @default("OpenStreetMap")
+  status      String   @default("pending") // pending | processing | completed | failed
+  resultCount Int?
+  error       String?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([country, city, source])
+}
+
+model JobQueue {
+  id          Int      @id @default(autoincrement())
+  jobType     String   // e.g. "process_open_street_map_leads"
+  status      String   @default("pending") // pending | processing | completed | failed
+  params      Json     // Input parameters
+  result      Json?    // Output data
+  error       String?
+  attempts    Int      @default(0)
+  maxAttempts Int      @default(3)
+
+  // Scheduling
+  runAfter    DateTime @default(now())
+  startedAt   DateTime?
+  completedAt DateTime?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([status, runAfter])
+  @@index([jobType])
 }

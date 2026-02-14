@@ -9,6 +9,7 @@ import GroupIcon from '@mui/icons-material/Group';
 import TableRowsIcon from '@mui/icons-material/TableRows';
 import PersonIcon from '@mui/icons-material/Person';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
+import ExploreIcon from '@mui/icons-material/Explore';
 import LogoutIcon from '@mui/icons-material/Logout';
 import { Role } from '@prisma/client';
 
@@ -18,6 +19,7 @@ export default function NavRail() {
 
     const baseNavItems = [
         { label: 'Map', icon: <MapIcon />, path: '/' },
+        { label: 'Tower Leads', icon: <ExploreIcon />, path: '/tower-leads' },
         { label: 'Towers', icon: <TableRowsIcon />, path: '/towers' },
         { label: 'Owners', icon: <GroupIcon />, path: '/owners' },
     ];
