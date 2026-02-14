@@ -217,8 +217,12 @@ function HomeContent() {
     fetchTowerLeads();
   }, [showLeads, selectedCity, selectedCountry]);
 
-  const handleTowerSelect = (tower: Tower) => {
-    setSelectedTower(tower);
+  const handleTowerSelect = (tower: any) => {
+    if (tower.action === 'promote') {
+      handlePromoteClick(tower);
+    } else {
+      setSelectedTower(tower);
+    }
   };
 
   const handlePromoteClick = (lead: any) => {
@@ -229,22 +233,10 @@ function HomeContent() {
     setLeadToPromote(null);
   };
 
-  const handlePromoteSuccess = async (googleMapsUrl?: string) => {
-    if (!leadToPromote) return;
-
-    try {
-      await axios.post(`/api/tower-leads/${leadToPromote.id}/promote`, {
-        googleMapsUrl
-      });
-
-      // Remove from local state
-      setTowerLeads(prev => prev.filter(l => l.id !== leadToPromote.id));
-      setLeadToPromote(null);
-
-    } catch (error) {
-      console.error('Failed to promote lead:', error);
-      alert('Failed to promote lead');
-    }
+  const handlePromoteSuccess = (leadId: number) => {
+    // Remove from local state
+    setTowerLeads(prev => prev.filter(l => l.id !== leadId));
+    setLeadToPromote(null);
   };
 
   const handleCountryChange = (newCountry: string) => {
@@ -329,7 +321,6 @@ function HomeContent() {
             onTowerSelect={handleTowerSelect}
             selectedTower={selectedTower}
             towerLeads={showLeads ? towerLeads : []}
-            onLeadPromote={handlePromoteClick}
           />
         </Suspense>
 
@@ -372,7 +363,7 @@ function HomeContent() {
         <PromoteLeadDialog
           open={!!leadToPromote}
           onClose={handlePromoteClose}
-          onPromote={handlePromoteSuccess}
+          onSuccess={handlePromoteSuccess}
           lead={leadToPromote}
         />
       </Box>

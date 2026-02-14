@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect, useCallback, Suspense } from 'react';
+import Link from 'next/link';
 import {
     Box, Typography, Tabs, Tab, Paper, Button, Select, MenuItem,
     FormControl, InputLabel, Alert, CircularProgress, Chip, Stack,
@@ -10,6 +11,7 @@ import axios from 'axios';
 import PromoteLeadDialog from '@/components/PromoteLeadDialog';
 import SatelliteAltIcon from '@mui/icons-material/SatelliteAlt';
 import AddLocationAltIcon from '@mui/icons-material/AddLocationAlt';
+import MapIcon from '@mui/icons-material/Map';
 
 // Static lookup for available cities per country (matches job-handlers.ts)
 const COUNTRY_CITIES: Record<string, string[]> = {
@@ -178,6 +180,17 @@ function TowerLeadsContent() {
                                 target="_blank"
                             >
                                 <SatelliteAltIcon fontSize="small" />
+                            </IconButton>
+                        </Tooltip>
+
+                        <Tooltip title="Show in Map">
+                            <IconButton
+                                size="small"
+                                color="secondary"
+                                component={Link}
+                                href={`/?lat=${lead.lat}&lon=${lead.lon}&zoom=18&city=${encodeURIComponent(lead.city || '')}&country=${encodeURIComponent(lead.country || '')}`}
+                            >
+                                <MapIcon fontSize="small" />
                             </IconButton>
                         </Tooltip>
 
