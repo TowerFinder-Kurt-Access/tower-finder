@@ -7,6 +7,7 @@ import {
     IconButton, Tooltip, TextField, Autocomplete
 } from '@mui/material';
 import { DataGrid, GridColDef, GridPaginationModel, GridToolbar } from '@mui/x-data-grid';
+import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import axios from 'axios';
 import PromoteLeadDialog from '@/components/PromoteLeadDialog';
 import SatelliteAltIcon from '@mui/icons-material/SatelliteAlt';
@@ -62,7 +63,31 @@ import { useLocationData } from '@/hooks/use-location-data';
 // ... imports remain the same ...
 
 function TowerLeadsContent() {
-    const [activeTab, setActiveTab] = useState(0);
+    const searchParams = useSearchParams();
+    const router = useRouter();
+    const pathname = usePathname();
+
+    // Initialize tab from URL or default to 0
+    const initialTab = parseInt(searchParams.get('tab') || '0', 10);
+    const [activeTab, setActiveTab] = useState(initialTab);
+
+    // Sync tab state with URL (handles back/forward navigation)
+    useEffect(() => {
+        const tabParam = searchParams.get('tab');
+        if (tabParam) {
+            setActiveTab(parseInt(tabParam, 10));
+        } else {
+            setActiveTab(0);
+        }
+    }, [searchParams]);
+
+
+    const handleTabChange = (_: React.SyntheticEvent, newValue: number) => {
+        // Update URL to persist tab state
+        const params = new URLSearchParams(searchParams.toString());
+        params.set('tab', newValue.toString());
+        router.push(`${pathname}?${params.toString()}`);
+    };
 
     // Tab 1: Tower Leads table state
     const [leads, setLeads] = useState<any[]>([]);
@@ -77,12 +102,17 @@ function TowerLeadsContent() {
     const [filterPromoted, setFilterPromoted] = useState('all'); // all, true, false
     const [leadToPromote, setLeadToPromote] = useState<any>(null);
 
-    // Dynamic Data for Filters
-    const {
-        countries: filterCountries,
-        provinces: filterProvinces,
-        cities: filterCities
-    } = useLocationData(filterCountry, filterProvince);
+    // Unified Filter Options (Tab 1)
+    // Use Static Data for Country/Province to show "all options" by default
+    const filterCountries = STATIC_COUNTRIES;
+
+    // Get provinces based on selected country (static)
+    const filterProvinces = filterCountry
+        ? (STATIC_LOCATIONS[filterCountry] ? Object.keys(STATIC_LOCATIONS[filterCountry]) : [])
+        : [];
+
+    // Keep cities dynamic (from DB) because static list is too small/empty for USA
+    const { cities: filterCities } = useLocationData(filterCountry, filterProvince);
 
     // Tab 2: Find leads form state
     const [selectedCountry, setSelectedCountry] = useState('');
@@ -310,7 +340,7 @@ function TowerLeadsContent() {
                 Tower Leads
             </Typography>
 
-            <Tabs value={activeTab} onChange={(_, v) => setActiveTab(v)} sx={{ mb: 2 }}>
+            <Tabs value={activeTab} onChange={handleTabChange} sx={{ mb: 2 }}>
                 <Tab label="Tower Leads" />
                 <Tab label="Find Tower Leads" />
             </Tabs>
