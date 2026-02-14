@@ -49,15 +49,23 @@ interface Tower {
 
 export interface FilterState {
     query: string;
-    province: string;
+    city: string;
     type: string;
     carrier: string;
     licensee: string;
 }
 
+
+
 interface SidebarProps {
     onSearch: (query: string) => void;
-    onStateSelect?: (state: string) => void;
+    // onStateSelect removed
+    onCitySelect?: (city: string) => void;
+    cities?: string[]; // List of available cities filtered by country
+    selectedCity?: string;
+    onCountrySelect?: (country: string) => void;
+    countries?: string[];
+    selectedCountry?: string;
     onFilterChange: (filters: FilterState) => void;
     isLoading: boolean;
     results: Tower[];
@@ -70,33 +78,20 @@ interface SidebarProps {
     onViewChange: (view: 'map' | 'table') => void;
 }
 
-const CANADIAN_PROVINCES = [
-    "British Columbia",
-    "Alberta",
-    "Saskatchewan",
-    "Manitoba",
-    "Ontario",
-    "Quebec",
-    "New Brunswick",
-    "Nova Scotia",
-    "Prince Edward Island",
-    "Newfoundland and Labrador"
-];
-
-const PROVINCE_INITIATED_STATES = [
-    "BC", "AB", "SK", "MB", "ON", "QC", "NB", "NS", "PE", "NL"
-];
-
 export default function Sidebar({
     onSearch,
-    onStateSelect,
+    onCitySelect,
+    cities = [],
+    selectedCity = '',
+    onCountrySelect,
+    countries = [],
+    selectedCountry = '',
     onFilterChange,
     isLoading,
     results,
     selectedTower,
     onLookupOwner,
     isOwnerLoading,
-
     ownerData,
     onSelectTower,
     currentView,
@@ -104,7 +99,7 @@ export default function Sidebar({
 }: SidebarProps) {
     const [query, setQuery] = useState('');
     const [collapsed, setCollapsed] = useState(false);
-    const [selectedProvince, setSelectedProvince] = useState('');
+    // const [selectedProvince, setSelectedProvince] = useState(''); // Managed by parent now
     const [selectedType, setSelectedType] = useState('');
     const [selectedCarrier, setSelectedCarrier] = useState('');
     const [selectedLicensee, setSelectedLicensee] = useState('');
@@ -128,7 +123,7 @@ export default function Sidebar({
     const triggerFilter = (newFilters: Partial<FilterState>) => {
         onFilterChange({
             query: newFilters.query !== undefined ? newFilters.query : query,
-            province: newFilters.province !== undefined ? newFilters.province : selectedProvince,
+            city: newFilters.city !== undefined ? newFilters.city : selectedCity, // Updated to city
             type: newFilters.type !== undefined ? newFilters.type : selectedType,
             carrier: newFilters.carrier !== undefined ? newFilters.carrier : selectedCarrier,
             licensee: newFilters.licensee !== undefined ? newFilters.licensee : selectedLicensee
@@ -145,13 +140,20 @@ export default function Sidebar({
         setCollapsed(!collapsed);
     };
 
-    const handleProvinceChange = (event: SelectChangeEvent) => {
+    const handleCountryChange = (event: SelectChangeEvent) => {
         const val = event.target.value as string;
-        setSelectedProvince(val);
-        if (onStateSelect) {
-            onStateSelect(val);
+        if (onCountrySelect) {
+            onCountrySelect(val);
         }
-        triggerFilter({ province: val });
+    }
+
+    const handleCityChange = (event: SelectChangeEvent) => {
+        const val = event.target.value as string;
+        // setSelectedProvince(val); // No local state needed if controlled
+        if (onCitySelect) {
+            onCitySelect(val);
+        }
+        triggerFilter({ city: val });
     };
 
     const handleFilterSelect = (field: 'type' | 'carrier' | 'licensee') => (event: SelectChangeEvent) => {
@@ -221,20 +223,35 @@ export default function Sidebar({
             {/* Filter & Search Area */}
             <Box sx={{ p: 2, borderBottom: '1px solid #eee' }}>
 
-                {/* Province Filter - Only show on map view */}
+                {/* City/Country Filter - Only show on map view */}
                 {currentView === 'map' && (
                     <>
                         <FormControl fullWidth size="small" sx={{ mb: 2 }}>
-                            <InputLabel id="province-select-label">Province</InputLabel>
+                            <InputLabel id="country-select-label">Country</InputLabel>
                             <Select
-                                labelId="province-select-label"
-                                value={selectedProvince}
-                                label="Province"
-                                onChange={handleProvinceChange}
+                                labelId="country-select-label"
+                                value={selectedCountry}
+                                label="Country"
+                                onChange={handleCountryChange}
                             >
-                                <MenuItem value=""><em>None</em></MenuItem>
-                                {CANADIAN_PROVINCES.map((p) => (
-                                    <MenuItem key={p} value={p}>{p}</MenuItem>
+                                <MenuItem value=""><em>Select Country</em></MenuItem>
+                                {countries.map((c) => (
+                                    <MenuItem key={c} value={c}>{c}</MenuItem>
+                                ))}
+                            </Select>
+                        </FormControl>
+
+                        <FormControl fullWidth size="small" sx={{ mb: 2 }} disabled={!selectedCountry}>
+                            <InputLabel id="city-select-label">City</InputLabel>
+                            <Select
+                                labelId="city-select-label"
+                                value={selectedCity}
+                                label="City"
+                                onChange={handleCityChange}
+                            >
+                                <MenuItem value=""><em>All Cities</em></MenuItem>
+                                {cities.map((city) => (
+                                    <MenuItem key={city} value={city}>{city}</MenuItem>
                                 ))}
                             </Select>
                         </FormControl>
@@ -279,9 +296,9 @@ export default function Sidebar({
                         {isLoading ? <CircularProgress size={24} color="inherit" /> : <SearchIcon />}
                     </Button>
                 </form>
-                {results.length > 0 && selectedProvince && (
+                {results.length > 0 && selectedCity && (
                     <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-                        Showing filtered towers in {selectedProvince}.
+                        Showing filtered towers in {selectedCity}.
                     </Typography>
                 )}
             </Box>
@@ -331,9 +348,9 @@ export default function Sidebar({
                         <LocationOnIcon sx={{ fontSize: 40, opacity: 0.5, mb: 1 }} />
                         <Typography variant="body2">
                             {currentView === 'map'
-                                ? (selectedProvince
+                                ? (selectedCity
                                     ? "Zooming to region... Select a tower."
-                                    : "Please select a Province to view towers.")
+                                    : "Please select a City to view towers.")
                                 : "Select a tower from the table to view details."}
                         </Typography>
                     </Box>
