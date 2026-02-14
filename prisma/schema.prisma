@@ -241,7 +241,8 @@ model TowerLead {
 model LeadSearch {
   id          Int      @id @default(autoincrement())
   country     String
-  city        String
+  province    String?
+  city        String?  // Made optional filter? Or keep mandatory? User wants "province OR state".
   source      String   @default("OpenStreetMap")
   status      String   @default("pending") // pending | processing | completed | failed
   resultCount Int?
@@ -250,7 +251,7 @@ model LeadSearch {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  @@unique([country, city, source])
+  @@unique([country, province, city, source])
 }
 
 model JobQueue {

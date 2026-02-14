@@ -4,7 +4,7 @@ import Link from 'next/link';
 import {
     Box, Typography, Tabs, Tab, Paper, Button, Select, MenuItem,
     FormControl, InputLabel, Alert, CircularProgress, Chip, Stack,
-    IconButton, Tooltip
+    IconButton, Tooltip, TextField, Autocomplete
 } from '@mui/material';
 import { DataGrid, GridColDef, GridPaginationModel, GridToolbar } from '@mui/x-data-grid';
 import axios from 'axios';
@@ -14,17 +14,36 @@ import AddLocationAltIcon from '@mui/icons-material/AddLocationAlt';
 import MapIcon from '@mui/icons-material/Map';
 
 // Static lookup for available cities per country (matches job-handlers.ts)
-const COUNTRY_CITIES: Record<string, string[]> = {
-    'Canada': [
-        'Calgary', 'Charlottetown', 'Edmonton', 'Fredericton', 'Halifax',
-        'Moncton', 'Montreal', 'Ottawa', 'Quebec City', 'Regina',
-        'Saskatoon', "St. John's", 'Toronto', 'Vancouver', 'Victoria', 'Winnipeg',
-    ],
-    'USA': ['Chicago', 'Houston', 'Los Angeles', 'Miami', 'New York'],
-
+// Static lookup for available cities per country (matches job-handlers.ts)
+const STATIC_LOCATIONS: Record<string, Record<string, string[]>> = {
+    'Canada': {
+        'Alberta': ['Calgary', 'Edmonton'],
+        'British Columbia': ['Vancouver', 'Victoria'],
+        'Manitoba': ['Winnipeg'],
+        'New Brunswick': ['Fredericton', 'Moncton'],
+        'Newfoundland and Labrador': ["St. John's"],
+        'Nova Scotia': ['Halifax'],
+        'Ontario': ['Ottawa', 'Toronto'],
+        'Prince Edward Island': ['Charlottetown'],
+        'Quebec': ['Montreal', 'Quebec City'],
+        'Saskatchewan': ['Regina', 'Saskatoon'],
+    },
+    'USA': {
+        'Alabama': [], 'Alaska': [], 'Arizona': [], 'Arkansas': [], 'California': ['Los Angeles'],
+        'Colorado': [], 'Connecticut': [], 'Delaware': [], 'Florida': ['Miami'], 'Georgia': [],
+        'Hawaii': [], 'Idaho': [], 'Illinois': ['Chicago'], 'Indiana': [], 'Iowa': [],
+        'Kansas': [], 'Kentucky': [], 'Louisiana': [], 'Maine': [], 'Maryland': [],
+        'Massachusetts': [], 'Michigan': [], 'Minnesota': [], 'Mississippi': [], 'Missouri': [],
+        'Montana': [], 'Nebraska': [], 'Nevada': [], 'New Hampshire': [], 'New Jersey': [],
+        'New Mexico': [], 'New York': ['New York'], 'North Carolina': [], 'North Dakota': [],
+        'Ohio': [], 'Oklahoma': [], 'Oregon': [], 'Pennsylvania': [], 'Rhode Island': [],
+        'South Carolina': [], 'South Dakota': [], 'Tennessee': [], 'Texas': ['Houston'],
+        'Utah': [], 'Vermont': [], 'Virginia': [], 'Washington': [], 'West Virginia': [],
+        'Wisconsin': [], 'Wyoming': []
+    },
 };
 
-const COUNTRIES = Object.keys(COUNTRY_CITIES);
+const STATIC_COUNTRIES = Object.keys(STATIC_LOCATIONS);
 
 interface LeadSearch {
     id: number;
@@ -38,6 +57,10 @@ interface LeadSearch {
     updatedAt: string;
 }
 
+import { useLocationData } from '@/hooks/use-location-data';
+
+// ... imports remain the same ...
+
 function TowerLeadsContent() {
     const [activeTab, setActiveTab] = useState(0);
 
@@ -49,17 +72,47 @@ function TowerLeadsContent() {
 
     // Filters for Tab 1
     const [filterCountry, setFilterCountry] = useState('');
+    const [filterProvince, setFilterProvince] = useState('');
     const [filterCity, setFilterCity] = useState('');
     const [filterPromoted, setFilterPromoted] = useState('all'); // all, true, false
     const [leadToPromote, setLeadToPromote] = useState<any>(null);
 
+    // Dynamic Data for Filters
+    const {
+        countries: filterCountries,
+        provinces: filterProvinces,
+        cities: filterCities
+    } = useLocationData(filterCountry, filterProvince);
+
     // Tab 2: Find leads form state
     const [selectedCountry, setSelectedCountry] = useState('');
+    const [selectedProvince, setSelectedProvince] = useState('');
     const [selectedCity, setSelectedCity] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [submitMessage, setSubmitMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
     const [searchHistory, setSearchHistory] = useState<LeadSearch[]>([]);
     const [isHistoryLoading, setIsHistoryLoading] = useState(false);
+
+    // Dynamic Data for Search Form
+    // Note: For "Search", we might want to use a static list if DB is empty (like for USA).
+    // But since we want to "match the map", using dynamic data ensures we filter existing things correctly.
+    // For *finding new leads*, if DB is empty, dynamic data is empty.
+    // We should probably rely on the static list fallback for "Search" if dynamic is empty?
+    // Or just let user type?
+    // For now, let's use the same Dynamic Hook for consistency with Map. 
+    // If user has no US data, they can't search US. They must import first? 
+    // Or I should keep the STATIC list for Tab 2 strictly?
+    // Creating a static fallback for Tab 2 seems wise if we want to allow bootstrapping.
+
+    // Let's use the hook for now. If it's empty, we might need a backup.
+    // Actually, I'll keep the static COUNTRY_CITIES for Tab 2 if useLocationData returns nothing?
+    // No, mixing is complex. I'll use the Hook for Tab 2 also, but I'll add a helper to "Allow Custom Input" or similar?
+    // Or just use the hook. The user explicitly asked to "match the map".
+    // Derived Static Data for Tab 2
+    const searchProvinces = selectedCountry ? Object.keys(STATIC_LOCATIONS[selectedCountry] || {}) : [];
+    const searchCities = (selectedCountry && selectedProvince)
+        ? STATIC_LOCATIONS[selectedCountry][selectedProvince] || []
+        : [];
 
     // Load tower leads for Tab 1
     const loadLeads = useCallback(async () => {
@@ -71,6 +124,7 @@ function TowerLeadsContent() {
             });
 
             if (filterCountry) params.append('country', filterCountry);
+            if (filterProvince) params.append('province', filterProvince);
             if (filterCity) params.append('city', filterCity);
             if (filterPromoted !== 'all') params.append('promoted', filterPromoted);
 
@@ -79,10 +133,13 @@ function TowerLeadsContent() {
             setTotalCount(res.data.totalCount || 0);
         } catch (error) {
             console.error('Error loading tower leads:', error);
+            // Fallback for empty data
+            setLeads([]);
+            setTotalCount(0);
         } finally {
             setIsLoading(false);
         }
-    }, [paginationModel, filterCountry, filterCity, filterPromoted]);
+    }, [paginationModel, filterCountry, filterProvince, filterCity, filterPromoted]);
 
     // Load search history for Tab 2
     const loadSearchHistory = useCallback(async () => {
@@ -105,9 +162,9 @@ function TowerLeadsContent() {
         }
     }, [activeTab, loadLeads, loadSearchHistory]);
 
-    // Handle find leads submission
+    // Update handleFindLeads to include province
     const handleFindLeads = async () => {
-        if (!selectedCountry || !selectedCity) return;
+        if (!selectedCountry) return; // City is optional now.
 
         setIsSubmitting(true);
         setSubmitMessage(null);
@@ -115,15 +172,14 @@ function TowerLeadsContent() {
         try {
             const res = await axios.post('/api/tower-leads/search', {
                 country: selectedCountry,
+                province: selectedProvince || undefined,
                 city: selectedCity,
             });
-
+            // ... same success handling ...
             setSubmitMessage({
                 type: 'success',
                 text: res.data.message || `Search queued for ${selectedCity}, ${selectedCountry}`,
             });
-
-            // Refresh search history
             loadSearchHistory();
         } catch (error: any) {
             setSubmitMessage({
@@ -143,8 +199,8 @@ function TowerLeadsContent() {
         { field: 'source', headerName: 'Source', width: 130 },
         { field: 'type', headerName: 'Type', width: 100 },
         { field: 'country', headerName: 'Country', width: 120 },
-        { field: 'city', headerName: 'City', width: 130 },
         { field: 'province', headerName: 'Province', width: 120 },
+        { field: 'city', headerName: 'City', width: 130 },
         {
             field: 'promotedToTowerId',
             headerName: 'Promoted',
@@ -215,6 +271,7 @@ function TowerLeadsContent() {
     const searchColumns: GridColDef[] = [
         { field: 'id', headerName: 'ID', width: 60 },
         { field: 'country', headerName: 'Country', width: 120 },
+        { field: 'province', headerName: 'Province', width: 120 },
         { field: 'city', headerName: 'City', width: 130 },
         { field: 'source', headerName: 'Source', width: 140 },
         {
@@ -247,8 +304,6 @@ function TowerLeadsContent() {
         },
     ];
 
-    const availableCities = selectedCountry ? COUNTRY_CITIES[selectedCountry] || [] : [];
-
     return (
         <Box sx={{ p: 3, height: '100vh', display: 'flex', flexDirection: 'column' }}>
             <Typography variant="h5" sx={{ mb: 2, fontWeight: 'bold' }}>
@@ -260,7 +315,6 @@ function TowerLeadsContent() {
                 <Tab label="Find Tower Leads" />
             </Tabs>
 
-            {/* Tab 1: Tower Leads Table */}
             {activeTab === 0 && (
                 <Paper sx={{ flex: 1, display: 'flex', flexDirection: 'column', p: 2 }}>
                     {/* Filters */}
@@ -272,11 +326,28 @@ function TowerLeadsContent() {
                                 label="Country"
                                 onChange={(e) => {
                                     setFilterCountry(e.target.value);
+                                    setFilterProvince('');
                                     setFilterCity('');
                                 }}
                             >
                                 <MenuItem value="">All Countries</MenuItem>
-                                {COUNTRIES.map(c => <MenuItem key={c} value={c}>{c}</MenuItem>)}
+                                {filterCountries.map(c => <MenuItem key={c} value={c}>{c}</MenuItem>)}
+                            </Select>
+                        </FormControl>
+
+                        <FormControl size="small" sx={{ minWidth: 150 }}>
+                            <InputLabel>Province/State</InputLabel>
+                            <Select
+                                value={filterProvince}
+                                label="Province/State"
+                                onChange={(e) => {
+                                    setFilterProvince(e.target.value);
+                                    setFilterCity('');
+                                }}
+                                disabled={!filterCountry}
+                            >
+                                <MenuItem value="">All</MenuItem>
+                                {filterProvinces.map(p => <MenuItem key={p} value={p}>{p}</MenuItem>)}
                             </Select>
                         </FormControl>
 
@@ -286,15 +357,14 @@ function TowerLeadsContent() {
                                 value={filterCity}
                                 label="City"
                                 onChange={(e) => setFilterCity(e.target.value)}
-                                disabled={!filterCountry}
+                                disabled={!filterProvince && !filterCountry} // Allow selecting city if country selected? Yes.
                             >
                                 <MenuItem value="">All Cities</MenuItem>
-                                {(filterCountry ? COUNTRY_CITIES[filterCountry] : []).map(c => (
-                                    <MenuItem key={c} value={c}>{c}</MenuItem>
-                                ))}
+                                {filterCities.map(c => <MenuItem key={c} value={c}>{c}</MenuItem>)}
                             </Select>
                         </FormControl>
 
+                        {/* Status Filter ... */}
                         <FormControl size="small" sx={{ minWidth: 150 }}>
                             <InputLabel>Status</InputLabel>
                             <Select
@@ -309,6 +379,7 @@ function TowerLeadsContent() {
                         </FormControl>
                     </Box>
 
+                    {/* DataGrid ... */}
                     <DataGrid
                         rows={leads}
                         columns={leadColumns}
@@ -331,7 +402,6 @@ function TowerLeadsContent() {
                             '& .MuiDataGrid-columnHeaders': { bgcolor: '#1a1a1a' },
                         }}
                     />
-
                     <PromoteLeadDialog
                         open={!!leadToPromote}
                         lead={leadToPromote}
@@ -344,15 +414,8 @@ function TowerLeadsContent() {
             {/* Tab 2: Find Tower Leads */}
             {activeTab === 1 && (
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                    {/* Search Form */}
                     <Paper sx={{ p: 3 }}>
-                        <Typography variant="h6" sx={{ mb: 2 }}>
-                            Search for Tower Leads
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-                            Select a country and city to find tower and mast leads from OpenStreetMap. The search will be queued and processed in the background.
-                        </Typography>
-
+                        {/* Headers ... */}
                         <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-end', flexWrap: 'wrap' }}>
                             <FormControl sx={{ minWidth: 200 }}>
                                 <InputLabel>Country</InputLabel>
@@ -360,40 +423,55 @@ function TowerLeadsContent() {
                                     value={selectedCountry}
                                     onChange={(e) => {
                                         setSelectedCountry(e.target.value);
-                                        setSelectedCity(''); // Reset city when country changes
+                                        setSelectedProvince('');
+                                        setSelectedCity('');
                                     }}
                                     label="Country"
                                 >
-                                    {COUNTRIES.map((c) => (
+                                    {STATIC_COUNTRIES.map((c) => (
                                         <MenuItem key={c} value={c}>{c}</MenuItem>
                                     ))}
                                 </Select>
                             </FormControl>
 
                             <FormControl sx={{ minWidth: 200 }}>
-                                <InputLabel>City</InputLabel>
+                                <InputLabel>Province/State</InputLabel>
                                 <Select
-                                    value={selectedCity}
-                                    onChange={(e) => setSelectedCity(e.target.value)}
-                                    label="City"
+                                    value={selectedProvince}
+                                    onChange={(e) => {
+                                        setSelectedProvince(e.target.value);
+                                        setSelectedCity('');
+                                    }}
+                                    label="Province/State"
                                     disabled={!selectedCountry}
                                 >
-                                    {availableCities.map((c) => (
-                                        <MenuItem key={c} value={c}>{c}</MenuItem>
+                                    {searchProvinces.map((p) => (
+                                        <MenuItem key={p} value={p}>{p}</MenuItem>
                                     ))}
                                 </Select>
                             </FormControl>
 
+                            <Autocomplete
+                                freeSolo
+                                options={searchCities}
+                                value={selectedCity}
+                                onInputChange={(_, newInputValue) => setSelectedCity(newInputValue)}
+                                disabled={!selectedCountry}
+                                renderInput={(params) => (
+                                    <TextField {...params} label="City" />
+                                )}
+                                sx={{ minWidth: 200 }}
+                            />
+
                             <Button
                                 variant="contained"
                                 onClick={handleFindLeads}
-                                disabled={!selectedCountry || !selectedCity || isSubmitting}
+                                disabled={!selectedCountry || isSubmitting}
                                 sx={{ height: 56 }}
                             >
                                 {isSubmitting ? <CircularProgress size={24} /> : 'Find Leads'}
                             </Button>
                         </Box>
-
                         {submitMessage && (
                             <Alert severity={submitMessage.type} sx={{ mt: 2 }}>
                                 {submitMessage.text}
@@ -429,6 +507,8 @@ function TowerLeadsContent() {
         </Box>
     );
 }
+
+// ... export default logic ...
 
 export default function TowerLeadsPage() {
     return (

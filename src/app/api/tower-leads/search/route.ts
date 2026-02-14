@@ -33,19 +33,29 @@ export async function POST(request: Request) {
         await getAuthUser();
 
         const body = await request.json();
-        const { country, city } = body;
+        const { country, province, city } = body;
 
-        if (!country || !city) {
+        if (!country) {
             return NextResponse.json(
-                { error: 'country and city are required' },
+                { error: 'country is required' },
                 { status: 400 }
             );
         }
 
         // Upsert the LeadSearch record (prevents duplicates)
+        // Upsert the LeadSearch record (prevents duplicates)
+        // Use empty strings for optional fields to avoid Prisma null constraint issues on unique keys
+        const provinceVal = province || '';
+        const cityVal = city || '';
+
         const leadSearch = await prisma.leadSearch.upsert({
             where: {
-                country_city_source: { country, city, source: 'OpenStreetMap' },
+                country_province_city_source: {
+                    country,
+                    province: provinceVal,
+                    city: cityVal,
+                    source: 'OpenStreetMap'
+                }
             },
             update: {
                 status: 'pending',
@@ -53,7 +63,8 @@ export async function POST(request: Request) {
             },
             create: {
                 country,
-                city,
+                province: provinceVal,
+                city: cityVal,
                 source: 'OpenStreetMap',
                 status: 'pending',
             },
@@ -62,7 +73,8 @@ export async function POST(request: Request) {
         // Enqueue a job to process the leads
         const job = await enqueueJob('process_open_street_map_leads', {
             country,
-            city,
+            province: provinceVal,
+            city: cityVal,
         });
 
         return NextResponse.json({
