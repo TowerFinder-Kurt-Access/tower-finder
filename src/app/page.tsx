@@ -38,46 +38,7 @@ interface OwnerResult {
   } | null;
 }
 
-const COUNTRIES = ['Canada', 'USA'];
 
-const CITIES_BY_COUNTRY: Record<string, string[]> = {
-  'Canada': [
-    'Moncton', 'Toronto', 'Vancouver', 'Montreal', 'Calgary', 'Edmonton', 'Ottawa',
-    'Winnipeg', 'Halifax', 'Quebec City', 'Saskatoon', 'Regina', "St. John's",
-    'Victoria', 'Fredericton', 'Charlottetown'
-  ],
-  'USA': [
-    'New York', 'Los Angeles', 'Chicago', 'Houston', 'Miami'
-  ]
-};
-
-// City coordinates for initial map positioning
-const CITY_COORDINATES: { [key: string]: { center: [number, number], zoom: number } } = {
-  // Canada
-  'Moncton': { center: [46.0878, -64.7782], zoom: 12 },
-  'Toronto': { center: [43.6532, -79.3832], zoom: 11 },
-  'Vancouver': { center: [49.2827, -123.1207], zoom: 11 },
-  'Montreal': { center: [45.5017, -73.5673], zoom: 11 },
-  'Calgary': { center: [51.0447, -114.0719], zoom: 11 },
-  'Edmonton': { center: [53.5461, -113.4938], zoom: 11 },
-  'Ottawa': { center: [45.4215, -75.6972], zoom: 11 },
-  'Winnipeg': { center: [49.8951, -97.1384], zoom: 11 },
-  'Halifax': { center: [44.6488, -63.5752], zoom: 12 },
-  'Quebec City': { center: [46.8139, -71.2080], zoom: 12 },
-  'Saskatoon': { center: [52.1332, -106.6700], zoom: 12 },
-  'Regina': { center: [50.4452, -104.6189], zoom: 12 },
-  "St. John's": { center: [47.5615, -52.7126], zoom: 12 },
-  'Victoria': { center: [48.4284, -123.3656], zoom: 12 },
-  'Fredericton': { center: [45.9636, -66.6431], zoom: 13 },
-  'Charlottetown': { center: [46.2382, -63.1311], zoom: 13 },
-
-  // USA
-  'New York': { center: [40.7128, -74.0060], zoom: 11 },
-  'Los Angeles': { center: [34.0522, -118.2437], zoom: 11 },
-  'Chicago': { center: [41.8781, -87.6298], zoom: 11 },
-  'Houston': { center: [29.7604, -95.3698], zoom: 11 },
-  'Miami': { center: [25.7617, -80.1918], zoom: 12 },
-};
 
 function HomeContent() {
   const router = useRouter();
@@ -87,10 +48,14 @@ function HomeContent() {
   const [mapCenter, setMapCenter] = useState<[number, number]>([46.5, -64.0]); // Default to Moncton area
   const [zoom, setZoom] = useState<number>(7);
   const [mapBounds, setMapBounds] = useState<any>(null);
+  const [boundsToFit, setBoundsToFit] = useState<[[number, number], [number, number]] | undefined>(undefined);
+  const [shouldFitBounds, setShouldFitBounds] = useState<boolean>(false);
+
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isLeadsLoading, setIsLeadsLoading] = useState<boolean>(false);
   const [selectedTower, setSelectedTower] = useState<Tower | null>(null);
   const [selectedCity, setSelectedCity] = useState<string>('');
+  const [selectedProvince, setSelectedProvince] = useState<string>('');
   const [selectedCountry, setSelectedCountry] = useState<string>('');
   const [ownerData, setOwnerData] = useState<OwnerResult | null>(null);
   const [isOwnerLoading, setIsOwnerLoading] = useState<boolean>(false);
@@ -127,15 +92,8 @@ function HomeContent() {
       }
     }
 
-    if (cityParam) {
-      setSelectedCity(cityParam);
-      // If country not set but implied? 
-      // We might want to set country if possible, but city filter works on API.
-    }
-
-    if (countryParam) {
-      setSelectedCountry(countryParam);
-    }
+    if (cityParam) setSelectedCity(cityParam);
+    if (countryParam) setSelectedCountry(countryParam);
 
     if (towerId && !selectedTower) {
       // Logic for URL-based tower selection could go here
@@ -155,23 +113,38 @@ function HomeContent() {
         const params: any = {};
 
         // Filters
+        if (selectedCountry) params.country = selectedCountry;
+        if (selectedProvince) params.state = selectedProvince;
         if (selectedCity) params.city = selectedCity;
+
         if (selectedType) params.type = selectedType;
         if (selectedCarrier) params.carrier = selectedCarrier;
         if (selectedLicensee) params.licensee = selectedLicensee;
 
         // BBox (only if allowed / needed)
-        // If we want to support panning map to search area even with filters:
-        if (mapBounds) {
+        // Only use map bounds if we are NOT in the middle of a filter-triggered fit
+        // And if we haven't just changed filters (which triggers a "global" search for that region)
+        if (mapBounds && !shouldFitBounds && !((selectedCity || selectedProvince) && towers.length === 0)) {
+          // Logic refinement: 
+          // If I have a city selected, I generally WANT to see all towers in that city,
+          // UNLESS I have zoomed in manually?
+          // But if I have a city filter, `api/towers` might return ALL towers in city if limit allows.
+          // If I send bbox, I restrict it.
+          // If `shouldFitBounds` is true, it means we recently changed filter, so we want the initial "full view" of the filter results.
+          // So we omit bbox.
+          // If `shouldFitBounds` is false, it means we are panning around.
           const { _southWest, _northEast } = mapBounds;
           params.bbox = `${_southWest.lng},${_southWest.lat},${_northEast.lng},${_northEast.lat}`;
         }
 
-        // Note: api/towers does NOT support 'country' filter yet.
-        // If selectedCountry is set but no City, we just rely on map bounds or explicit city.
+        // Explicitly omit bbox if we are fitting bounds (refreshing data for new region)
+        if (shouldFitBounds) {
+          delete params.bbox;
+        }
 
         const { data } = await axios.get('/api/towers', { params });
         setTowers(data);
+
       } catch (error) {
         console.error('Error fetching towers:', error);
       } finally {
@@ -184,7 +157,26 @@ function HomeContent() {
     }, 500);
 
     return () => clearTimeout(timeoutId);
-  }, [mapBounds, selectedCity, selectedType, selectedCarrier, selectedLicensee]); // Country only affects city selection for now for Towers
+  }, [mapBounds, selectedCountry, selectedProvince, selectedCity, selectedType, selectedCarrier, selectedLicensee, shouldFitBounds]);
+
+  // Fit bounds when towers change AND we have flagged to fit bounds
+  useEffect(() => {
+    if (shouldFitBounds && towers.length > 0) {
+      // Calculate bounds
+      let minLat = 90, maxLat = -90, minLon = 180, maxLon = -180;
+      towers.forEach(t => {
+        if (t.lat < minLat) minLat = t.lat;
+        if (t.lat > maxLat) maxLat = t.lat;
+        if (t.lon < minLon) minLon = t.lon;
+        if (t.lon > maxLon) maxLon = t.lon;
+      });
+
+      // Add padding? Map.tsx fitBounds handles padding.
+      setBoundsToFit([[minLat, minLon], [maxLat, maxLon]]);
+      setShouldFitBounds(false); // Reset flag
+    }
+  }, [towers, shouldFitBounds]);
+
 
   // Fetch Tower Leads
   useEffect(() => {
@@ -241,21 +233,24 @@ function HomeContent() {
 
   const handleCountryChange = (newCountry: string) => {
     setSelectedCountry(newCountry);
-    setSelectedCity(''); // Reset city when country changes
+    setSelectedProvince('');
+    setSelectedCity('');
+    setShouldFitBounds(true);
     setShowLeads(false);
     setTowerLeads([]);
   }
 
+  const handleProvinceChange = (newProvince: string) => {
+    setSelectedProvince(newProvince);
+    setSelectedCity('');
+    setShouldFitBounds(true);
+    setShowLeads(false);
+    setTowerLeads([]);
+  };
+
   const handleCityChange = (newCity: string) => {
     setSelectedCity(newCity);
-
-    // Recenter map if city has coordinates
-    if (CITY_COORDINATES[newCity]) {
-      setMapCenter(CITY_COORDINATES[newCity].center);
-      setZoom(CITY_COORDINATES[newCity].zoom);
-    }
-
-    // Reset leads when city changes
+    setShouldFitBounds(true);
     setShowLeads(false);
     setTowerLeads([]);
   };
@@ -263,10 +258,7 @@ function HomeContent() {
   const handleLookupOwner = async (tower: Tower) => {
     setIsOwnerLoading(true);
     try {
-      // Implement owner lookup logic if needed (or verify where this is used)
-      // Previous code had this prop but logic was missing or elsewhere.
-      // Assuming it's calling an API.
-      const res = await axios.get(`/api/towers/${tower.id}/owner`); // Hypothetical endpoint
+      const res = await axios.get(`/api/towers/${tower.id}/owner`);
       setOwnerData(res.data);
     } catch (e) {
       console.error(e);
@@ -277,7 +269,13 @@ function HomeContent() {
   }
 
   const handleFilterChange = (filters: FilterState) => {
-    if (filters.city !== undefined) setSelectedCity(filters.city);
+    if (filters.city !== undefined && filters.city !== selectedCity) handleCityChange(filters.city);
+    // ^ Note: Sidebar calls onCitySelect separately, but triggerFilter also includes city.
+    // We should ensure we don't double trigger. 
+    // Sidebar logic: handleCityChange triggers triggerFilter AND onCitySelect.
+    // onFilterChange in Page updates state? 
+    // Let's rely on specific handlers for Location, and general handler for others.
+
     if (filters.type !== undefined) setSelectedType(filters.type);
     if (filters.carrier !== undefined) setSelectedCarrier(filters.carrier);
     if (filters.licensee !== undefined) setSelectedLicensee(filters.licensee);
@@ -296,12 +294,16 @@ function HomeContent() {
         onSelectTower={handleTowerSelect}
         isOwnerLoading={isOwnerLoading}
         ownerData={ownerData}
-        cities={selectedCountry ? CITIES_BY_COUNTRY[selectedCountry] || [] : []} // Only show cities for selected country
+
         selectedCity={selectedCity}
         onCitySelect={handleCityChange}
-        countries={COUNTRIES}
+
+        selectedProvince={selectedProvince}
+        onProvinceSelect={handleProvinceChange}
+
         selectedCountry={selectedCountry}
         onCountrySelect={handleCountryChange}
+
         onFilterChange={handleFilterChange}
         onSearch={(q) => console.log(q)}
         isLoading={isLoading}
@@ -317,6 +319,7 @@ function HomeContent() {
             towers={towers}
             center={mapCenter}
             zoom={zoom}
+            bounds={boundsToFit}
             onBoundsChange={handleBoundsChange}
             onTowerSelect={handleTowerSelect}
             selectedTower={selectedTower}

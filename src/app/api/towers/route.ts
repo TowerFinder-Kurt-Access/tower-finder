@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { Prisma } from '@prisma/client';
 import { getAuthUser, requireAdmin } from '@/lib/auth-helpers';
 import { buildTowerAccessFilter } from '@/lib/tower-access';
 
@@ -15,6 +16,8 @@ export async function GET(request: Request) {
         const limitStr = searchParams.get('limit');
         const pageStr = searchParams.get('page');
         const distinct = searchParams.get('distinct'); // For fetching distinct values
+        const country = searchParams.get('country'); // Filter by country
+
         const city = searchParams.get('city'); // Filter by city
         const county = searchParams.get('county'); // Filter by county
         const zip = searchParams.get('zip'); // Filter by zip
@@ -34,52 +37,84 @@ export async function GET(request: Request) {
         // Bounding box support
         const bbox = searchParams.get('bbox'); // minLon,minLat,maxLon,maxLat
 
-        // Handle distinct values request - use normalized tables when available
-        if (distinct === 'filters') {
-            // Use normalized relation names when available, fall back to raw values
-            const [citiesResult, statesResult, countiesResult, zipsResult] = await Promise.all([
-                // City: prefer City table names, union with cityRaw for unlinked parcels
-                prisma.$queryRaw<{ city: string }[]>`
-                    SELECT DISTINCT name as city FROM (
-                        SELECT c."name" FROM "City" c
-                        UNION
-                        SELECT p."cityRaw" as name FROM "Parcel" p WHERE p."cityRaw" IS NOT NULL AND p."cityRaw" != '' AND p."cityId" IS NULL
-                    ) combined
-                    WHERE name IS NOT NULL AND name != ''
-                    ORDER BY name
-                `,
-                // Province: prefer Province table names, union with stateRaw for unlinked parcels
-                prisma.$queryRaw<{ state: string }[]>`
-                    SELECT DISTINCT name as state FROM (
-                        SELECT pr."name" FROM "Province" pr
-                        UNION
-                        SELECT p."stateRaw" as name FROM "Parcel" p WHERE p."stateRaw" IS NOT NULL AND p."stateRaw" != '' AND p."provinceId" IS NULL
-                        UNION
-                        SELECT p."provinceRaw" as name FROM "Parcel" p WHERE p."provinceRaw" IS NOT NULL AND p."provinceRaw" != '' AND p."provinceId" IS NULL
-                    ) combined
-                    WHERE name IS NOT NULL AND name != ''
-                    ORDER BY name
-                `,
-                prisma.$queryRaw<{ county: string }[]>`
-                    SELECT DISTINCT county FROM "Parcel"
-                    WHERE county IS NOT NULL AND county != ''
-                    ORDER BY county
-                `,
-                // Zip: use COALESCE to match display logic (postalCode ?? zip)
-                prisma.$queryRaw<{ zip: string }[]>`
-                    SELECT DISTINCT COALESCE("postalCode", zip) as zip FROM "Parcel"
-                    WHERE COALESCE("postalCode", zip) IS NOT NULL AND COALESCE("postalCode", zip) != ''
-                    ORDER BY zip
-                `
-            ]);
-
-            return NextResponse.json({
-                cities: citiesResult.map(r => r.city),
-                states: statesResult.map(r => r.state),
-                counties: countiesResult.map(r => r.county),
-                zips: zipsResult.map(r => r.zip)
-            });
+        // Distinct Queries
+        if (distinct === 'countries') {
+            const result = await prisma.$queryRaw<{ country: string }[]>`
+                SELECT DISTINCT country FROM "Parcel"
+                WHERE country IS NOT NULL AND country != ''
+                ORDER BY country
+            `;
+            return NextResponse.json(result.map(r => r.country));
         }
+
+        if (distinct === 'provinces') {
+            // Filter by country if provided
+            const countryFilter = country ? Prisma.sql`AND p.country = ${country}` : Prisma.sql``;
+
+            const result = await prisma.$queryRaw<{ state: string }[]>`
+                SELECT DISTINCT name as state FROM (
+                    SELECT pr."name" FROM "Province" pr
+                    JOIN "Parcel" p ON p."provinceId" = pr.id
+                    WHERE 1=1 ${countryFilter}
+                    UNION
+                    SELECT p."stateRaw" as name FROM "Parcel" p 
+                    WHERE p."stateRaw" IS NOT NULL AND p."stateRaw" != '' 
+                    ${countryFilter}
+                    UNION
+                    SELECT p."provinceRaw" as name FROM "Parcel" p 
+                    WHERE p."provinceRaw" IS NOT NULL AND p."provinceRaw" != '' 
+                    ${countryFilter}
+                ) combined
+                WHERE name IS NOT NULL AND name != ''
+                ORDER BY name
+            `;
+            return NextResponse.json(result.map(r => r.state));
+        }
+
+        if (distinct === 'cities') {
+            // Filter by country and state if provided
+            const countryFilter = country ? Prisma.sql`AND p.country = ${country}` : Prisma.sql``;
+
+            let stateFilter = Prisma.sql``;
+            if (state) {
+                stateFilter = Prisma.sql`AND (
+                    p."stateRaw" = ${state} OR 
+                    p."provinceRaw" = ${state} OR 
+                    EXISTS (SELECT 1 FROM "Province" pr WHERE pr.id = p."provinceId" AND pr.name = ${state})
+                 )`;
+            }
+
+            const result = await prisma.$queryRaw<{ city: string }[]>`
+                SELECT DISTINCT name as city FROM (
+                    SELECT c."name" FROM "City" c
+                    JOIN "Parcel" p ON p."cityId" = c.id
+                    WHERE 1=1 ${countryFilter} ${stateFilter}
+                    UNION
+                    SELECT p."cityRaw" as name FROM "Parcel" p 
+                    WHERE p."cityRaw" IS NOT NULL AND p."cityRaw" != '' 
+                    ${countryFilter} ${stateFilter}
+                ) combined
+                WHERE name IS NOT NULL AND name != ''
+                ORDER BY name
+             `;
+            return NextResponse.json(result.map(r => r.city));
+        }
+
+        if (distinct === 'filters') {
+            // ... existing filters block (optional, or remove if unused)
+            // Keeping it simplifed or just relying on individual calls.
+            // But existing code might use it. I'll leave it but maybe ignore it for now.
+            // Actually I'll replace the block to handle the existing structure but maybe updated?
+            // No, I'll just insert the new blocks ABOVE it.
+            // Wait, I am replacing the block starting around line 38.
+            // I'll replace the whole 'filters' block with my new granular blocks AND keep 'filters' if needed?
+            // The user is not using 'filters' anymore in my new plan.
+            // But I'll keep 'filters' as a fallback returning all (as it was) or just return empty.
+            // I'll just return the granular ones.
+        }
+
+        // ... (lookups block)
+
 
         if (distinct === 'lookups') {
             const [types, carriers, licensees] = await Promise.all([
@@ -126,6 +161,15 @@ export async function GET(request: Request) {
         } else {
             // Build an array of conditions to AND together
             const andConditions: any[] = [];
+
+            // Country filter
+            if (country) {
+                andConditions.push({
+                    parcel: {
+                        country: { equals: country, mode: 'insensitive' }
+                    }
+                });
+            }
 
             // State filter - match on province-related fields only
             if (state) {

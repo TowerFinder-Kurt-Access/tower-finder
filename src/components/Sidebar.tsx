@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Box from '@mui/material/Box';
 import TextField from '@mui/material/TextField';
 import Button from '@mui/material/Button';
@@ -59,13 +59,17 @@ export interface FilterState {
 
 interface SidebarProps {
     onSearch: (query: string) => void;
-    // onStateSelect removed
-    onCitySelect?: (city: string) => void;
-    cities?: string[]; // List of available cities filtered by country
-    selectedCity?: string;
-    onCountrySelect?: (country: string) => void;
-    countries?: string[];
-    selectedCountry?: string;
+
+    // Selection handlers
+    onCitySelect: (city: string) => void;
+    selectedCity: string;
+
+    onProvinceSelect: (province: string) => void;
+    selectedProvince: string;
+
+    onCountrySelect: (country: string) => void;
+    selectedCountry: string;
+
     onFilterChange: (filters: FilterState) => void;
     isLoading: boolean;
     results: Tower[];
@@ -81,11 +85,11 @@ interface SidebarProps {
 export default function Sidebar({
     onSearch,
     onCitySelect,
-    cities = [],
-    selectedCity = '',
+    selectedCity,
+    onProvinceSelect,
+    selectedProvince,
     onCountrySelect,
-    countries = [],
-    selectedCountry = '',
+    selectedCountry,
     onFilterChange,
     isLoading,
     results,
@@ -99,7 +103,6 @@ export default function Sidebar({
 }: SidebarProps) {
     const [query, setQuery] = useState('');
     const [collapsed, setCollapsed] = useState(false);
-    // const [selectedProvince, setSelectedProvince] = useState(''); // Managed by parent now
     const [selectedType, setSelectedType] = useState('');
     const [selectedCarrier, setSelectedCarrier] = useState('');
     const [selectedLicensee, setSelectedLicensee] = useState('');
@@ -108,7 +111,13 @@ export default function Sidebar({
     const [carriers, setCarriers] = useState<{ id: number, name: string }[]>([]);
     const [licensees, setLicensees] = useState<{ id: number, name: string }[]>([]);
 
-    useState(() => {
+    // Dynamic Filter Options
+    const [availableCountries, setAvailableCountries] = useState<string[]>([]);
+    const [availableProvinces, setAvailableProvinces] = useState<string[]>([]);
+    const [availableCities, setAvailableCities] = useState<string[]>([]);
+
+    // Fetch initial lookups and countries
+    useEffect(() => {
         // Fetch lookups
         fetch('/api/towers?distinct=lookups')
             .then(res => res.json())
@@ -118,12 +127,46 @@ export default function Sidebar({
                 setLicensees(data.licensees || []);
             })
             .catch(err => console.error('Failed to fetch lookups', err));
-    });
+
+        // Fetch Countries
+        fetch('/api/towers?distinct=countries')
+            .then(res => res.json())
+            .then(data => setAvailableCountries(data))
+            .catch(err => console.error('Failed to fetch countries', err));
+    }, []);
+
+    // Fetch Provinces when Country changes
+    useEffect(() => {
+        if (selectedCountry) {
+            fetch(`/api/towers?distinct=provinces&country=${encodeURIComponent(selectedCountry)}`)
+                .then(res => res.json())
+                .then(data => setAvailableProvinces(data))
+                .catch(err => console.error('Failed to fetch provinces', err));
+        } else {
+            setAvailableProvinces([]);
+        }
+    }, [selectedCountry]);
+
+    // Fetch Cities when Country or Province changes
+    useEffect(() => {
+        if (selectedCountry) {
+            let url = `/api/towers?distinct=cities&country=${encodeURIComponent(selectedCountry)}`;
+            if (selectedProvince) {
+                url += `&state=${encodeURIComponent(selectedProvince)}`;
+            }
+            fetch(url)
+                .then(res => res.json())
+                .then(data => setAvailableCities(data))
+                .catch(err => console.error('Failed to fetch cities', err));
+        } else {
+            setAvailableCities([]);
+        }
+    }, [selectedCountry, selectedProvince]);
 
     const triggerFilter = (newFilters: Partial<FilterState>) => {
         onFilterChange({
             query: newFilters.query !== undefined ? newFilters.query : query,
-            city: newFilters.city !== undefined ? newFilters.city : selectedCity, // Updated to city
+            city: newFilters.city !== undefined ? newFilters.city : selectedCity,
             type: newFilters.type !== undefined ? newFilters.type : selectedType,
             carrier: newFilters.carrier !== undefined ? newFilters.carrier : selectedCarrier,
             licensee: newFilters.licensee !== undefined ? newFilters.licensee : selectedLicensee
@@ -147,9 +190,15 @@ export default function Sidebar({
         }
     }
 
+    const handleProvinceChange = (event: SelectChangeEvent) => {
+        const val = event.target.value as string;
+        if (onProvinceSelect) {
+            onProvinceSelect(val);
+        }
+    };
+
     const handleCityChange = (event: SelectChangeEvent) => {
         const val = event.target.value as string;
-        // setSelectedProvince(val); // No local state needed if controlled
         if (onCitySelect) {
             onCitySelect(val);
         }
@@ -223,7 +272,7 @@ export default function Sidebar({
             {/* Filter & Search Area */}
             <Box sx={{ p: 2, borderBottom: '1px solid #eee' }}>
 
-                {/* City/Country Filter - Only show on map view */}
+                {/* City/Country/Province Filter - Only show on map view */}
                 {currentView === 'map' && (
                     <>
                         <FormControl fullWidth size="small" sx={{ mb: 2 }}>
@@ -235,8 +284,23 @@ export default function Sidebar({
                                 onChange={handleCountryChange}
                             >
                                 <MenuItem value=""><em>Select Country</em></MenuItem>
-                                {countries.map((c) => (
+                                {availableCountries.map((c) => (
                                     <MenuItem key={c} value={c}>{c}</MenuItem>
+                                ))}
+                            </Select>
+                        </FormControl>
+
+                        <FormControl fullWidth size="small" sx={{ mb: 2 }} disabled={!selectedCountry}>
+                            <InputLabel id="province-select-label">Province / State</InputLabel>
+                            <Select
+                                labelId="province-select-label"
+                                value={selectedProvince}
+                                label="Province / State"
+                                onChange={handleProvinceChange}
+                            >
+                                <MenuItem value=""><em>All Regions</em></MenuItem>
+                                {availableProvinces.map((p) => (
+                                    <MenuItem key={p} value={p}>{p}</MenuItem>
                                 ))}
                             </Select>
                         </FormControl>
@@ -250,7 +314,7 @@ export default function Sidebar({
                                 onChange={handleCityChange}
                             >
                                 <MenuItem value=""><em>All Cities</em></MenuItem>
-                                {cities.map((city) => (
+                                {availableCities.map((city) => (
                                     <MenuItem key={city} value={city}>{city}</MenuItem>
                                 ))}
                             </Select>

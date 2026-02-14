@@ -8,13 +8,15 @@ import { useEffect } from 'react';
 import type { LatLngExpression } from 'leaflet';
 
 // Component to handle map center updates
-function MapUpdater({ center, zoom }: { center: LatLngExpression, zoom: number }) {
+function MapUpdater({ center, zoom, bounds }: { center: LatLngExpression, zoom: number, bounds?: LatLngExpression[] }) {
     const map = useMap();
     useEffect(() => {
-        if (center) {
+        if (bounds) {
+            map.fitBounds(bounds as L.LatLngBoundsExpression, { padding: [50, 50], duration: 1 });
+        } else if (center) {
             map.flyTo(center, zoom || 13, { duration: 2 });
         }
-    }, [center, zoom, map]);
+    }, [center, zoom, bounds, map]);
     return null;
 }
 
@@ -45,6 +47,7 @@ interface Tower {
 interface MapProps {
     center: [number, number];
     zoom: number;
+    bounds?: [[number, number], [number, number]]; // SouthWest, NorthEast
     towers: Tower[];
     towerLeads?: any[]; // Leads from local DB
     onTowerSelect: (tower: Tower | any) => void;
@@ -99,7 +102,7 @@ function MapEvents({ onBoundsChange }: { onBoundsChange?: (bounds: any) => void 
     return null;
 }
 
-export default function Map({ center, zoom, towers, towerLeads = [], onTowerSelect, selectedTower, onBoundsChange }: MapProps) {
+export default function Map({ center, zoom, bounds, towers, towerLeads = [], onTowerSelect, selectedTower, onBoundsChange }: MapProps) {
 
     // Debug logging for selected tower geometry
     useEffect(() => {
@@ -124,7 +127,7 @@ export default function Map({ center, zoom, towers, towerLeads = [], onTowerSele
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             />
 
-            <MapUpdater center={center as LatLngExpression} zoom={zoom} />
+            <MapUpdater center={center as LatLngExpression} zoom={zoom} bounds={bounds as LatLngExpression[]} />
             <MapEvents onBoundsChange={onBoundsChange} />
 
             {/* Draw parcel polygon for selected tower */}
