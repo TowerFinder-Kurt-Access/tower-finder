@@ -12,6 +12,7 @@ const Map = dynamic(() => import('@/components/Map'), {
   ssr: false,
   loading: () => <p>Loading Map...</p>
 });
+import PromoteLeadDialog from '@/components/PromoteLeadDialog';
 
 interface Tower {
   id: number;
@@ -86,6 +87,7 @@ function HomeContent() {
   const [ownerData, setOwnerData] = useState<OwnerResult | null>(null);
   const [isOwnerLoading, setIsOwnerLoading] = useState<boolean>(false);
   const [mounted, setMounted] = useState(false);
+  const [leadToPromote, setLeadToPromote] = useState<any>(null);
 
   // Ensure component is mounted (client-side only)
   useEffect(() => {
@@ -318,22 +320,23 @@ function HomeContent() {
       return;
     }
 
-    // Show leads - first try import (will be a no-op if already imported)
+    // Show leads - fetch from local DB using the new API
     setIsLeadsLoading(true);
     try {
-      // Trigger import (calls OSM only if we don't have local data)
-      await axios.post('/api/tower-leads/import', {
-        province: selectedProvince,
-        source: 'OpenStreetMap'
-      });
-
-      // Fetch leads from local DB
       const res = await axios.get(`/api/tower-leads?province=${encodeURIComponent(selectedProvince)}`);
-      setTowerLeads(res.data);
+      setTowerLeads(res.data); // The API now returns { data: [], totalCount: ... } or just []?
+      // Wait, my rewrite returns { data: [], totalCount, ... }
+      // OLD API returned array. NEW API returns object.
+      // I need to check the API response format.
+      // file:///c:/Users/alexa/Development/tower-finder/src/app/api/tower-leads/route.ts
+      // It returns { data: leads, ... }
+
+      const leadsData = res.data.data || [];
+      setTowerLeads(leadsData);
       setShowLeads(true);
 
-      if (res.data.length === 0) {
-        alert('No tower leads found for this province.');
+      if (leadsData.length === 0) {
+        alert('No tower leads found for this province. Go to "Tower Leads" page to find more.');
       }
     } catch (error) {
       console.error('Failed to load tower leads:', error);
@@ -346,21 +349,8 @@ function HomeContent() {
   const handleTowerSelect = async (tower: any) => {
     if (tower.isLead) {
       if (tower.action === 'promote') {
-        // Promote lead to tower
-        try {
-          const res = await axios.post(`/api/tower-leads/${tower.id}/promote`);
-          alert(res.data.message);
-          // Remove the promoted lead from the list
-          setTowerLeads(prev => prev.filter(l => l.id !== tower.id));
-          // Refresh towers to show the new one
-          if (selectedProvince) {
-            const towersRes = await axios.get(`/api/towers?state=${encodeURIComponent(selectedProvince)}`);
-            setTowers(towersRes.data);
-          }
-        } catch (error: any) {
-          const msg = error.response?.data?.message || error.response?.data?.error || 'Failed to promote lead.';
-          alert(msg);
-        }
+        // Open the promote dialog
+        setLeadToPromote(tower);
       } else {
         // Just select the lead for viewing
         const tempTower: Tower = {
@@ -448,7 +438,27 @@ function HomeContent() {
           </Box>
         </Box>
       </Box>
-    </Box>
+
+
+      <PromoteLeadDialog
+        open={!!leadToPromote}
+        lead={leadToPromote}
+        onClose={() => setLeadToPromote(null)}
+        onSuccess={async (leadId) => {
+          // Remove the promoted lead from the list
+          setTowerLeads(prev => prev.filter(l => l.id !== leadId));
+          // Refresh towers to show the new one
+          if (selectedProvince) {
+            try {
+              const towersRes = await axios.get(`/api/towers?state=${encodeURIComponent(selectedProvince)}`);
+              setTowers(towersRes.data);
+            } catch (e) {
+              console.error("Failed to refresh towers", e);
+            }
+          }
+        }}
+      />
+    </Box >
   );
 }
 

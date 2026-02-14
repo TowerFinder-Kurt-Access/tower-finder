@@ -31,6 +31,18 @@ export async function GET(request: Request) {
             where.type = { equals: type, mode: 'insensitive' };
         }
 
+        const province = searchParams.get('province');
+        if (province) {
+            where.province = { equals: province, mode: 'insensitive' };
+        }
+
+        const promoted = searchParams.get('promoted');
+        if (promoted === 'true') {
+            where.promotedToTowerId = { not: null };
+        } else if (promoted === 'false') {
+            where.promotedToTowerId = null;
+        }
+
         const [leads, totalCount] = await Promise.all([
             prisma.towerLead.findMany({
                 where,

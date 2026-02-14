@@ -206,49 +206,73 @@ export default function Map({ center, zoom, towers, towerLeads = [], onTowerSele
                     });
                 }}
             >
-                {towerLeads && towerLeads.map(lead => (
-                    <CircleMarker
-                        key={`lead-${lead.id}`}
-                        center={[lead.lat, lead.lon] as LatLngExpression}
-                        pathOptions={{
-                            color: '#4CAF50',
-                            fillColor: '#66BB6A',
-                            fillOpacity: 0.6,
-                            dashArray: '5, 5'
-                        }}
-                        radius={8}
-                        eventHandlers={{
-                            click: () => onTowerSelect({ ...lead, isLead: true })
-                        }}
-                    >
-                        <Popup>
-                            <div style={{ minWidth: '200px' }}>
-                                <strong>Tower Lead</strong><br />
-                                <strong>Source:</strong> {lead.source || 'Unknown'}<br />
-                                <strong>Type:</strong> {lead.type || 'Unknown'}<br />
-                                <strong>Coordinates:</strong> {lead.lat.toFixed(6)}, {lead.lon.toFixed(6)}<br />
-                                <br />
-                                <button
-                                    style={{
-                                        backgroundColor: '#4CAF50',
-                                        color: 'white',
-                                        border: 'none',
-                                        padding: '5px 10px',
-                                        borderRadius: '4px',
-                                        cursor: 'pointer',
-                                        width: '100%'
-                                    }}
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        onTowerSelect({ ...lead, isLead: true, action: 'promote' });
-                                    }}
-                                >
-                                    Add to Towers
-                                </button>
-                            </div>
-                        </Popup>
-                    </CircleMarker>
-                ))}
+                {towerLeads && towerLeads
+                    .filter(lead => !lead.promotedToTowerId) // Hide already-promoted leads
+                    .map(lead => (
+                        <CircleMarker
+                            key={`lead-${lead.id}`}
+                            center={[lead.lat, lead.lon] as LatLngExpression}
+                            pathOptions={{
+                                color: '#4CAF50',
+                                fillColor: '#66BB6A',
+                                fillOpacity: 0.6,
+                                dashArray: '5, 5'
+                            }}
+                            radius={8}
+                            eventHandlers={{
+                                click: () => onTowerSelect({ ...lead, isLead: true })
+                            }}
+                        >
+                            <Popup>
+                                <div style={{ minWidth: '220px' }}>
+                                    <strong>Tower Lead</strong><br />
+                                    <strong>Source:</strong> {lead.source || 'Unknown'}<br />
+                                    <strong>Type:</strong> {lead.type || 'Unknown'}<br />
+                                    <strong>Coordinates:</strong> {lead.lat.toFixed(6)}, {lead.lon.toFixed(6)}<br />
+                                    {lead.country && <><strong>Location:</strong> {lead.city}, {lead.country}<br /></>}
+                                    <br />
+                                    <a
+                                        href={`https://www.google.com/maps/@${lead.lat},${lead.lon},18z/data=!3m1!1e1`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        style={{
+                                            display: 'block',
+                                            backgroundColor: '#1976d2',
+                                            color: 'white',
+                                            border: 'none',
+                                            padding: '5px 10px',
+                                            borderRadius: '4px',
+                                            cursor: 'pointer',
+                                            width: '100%',
+                                            textAlign: 'center',
+                                            textDecoration: 'none',
+                                            marginBottom: '6px',
+                                            boxSizing: 'border-box',
+                                        }}
+                                    >
+                                        🛰️ View Satellite
+                                    </a>
+                                    <button
+                                        style={{
+                                            backgroundColor: '#4CAF50',
+                                            color: 'white',
+                                            border: 'none',
+                                            padding: '5px 10px',
+                                            borderRadius: '4px',
+                                            cursor: 'pointer',
+                                            width: '100%'
+                                        }}
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            onTowerSelect({ ...lead, isLead: true, action: 'promote' });
+                                        }}
+                                    >
+                                        ➕ Add to Towers
+                                    </button>
+                                </div>
+                            </Popup>
+                        </CircleMarker>
+                    ))}
             </MarkerClusterGroup>
         </MapContainer>
     );

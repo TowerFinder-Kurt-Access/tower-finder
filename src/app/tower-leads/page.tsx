@@ -2,10 +2,14 @@
 import { useState, useEffect, useCallback, Suspense } from 'react';
 import {
     Box, Typography, Tabs, Tab, Paper, Button, Select, MenuItem,
-    FormControl, InputLabel, Alert, CircularProgress, Chip
+    FormControl, InputLabel, Alert, CircularProgress, Chip, Stack,
+    IconButton, Tooltip
 } from '@mui/material';
 import { DataGrid, GridColDef, GridPaginationModel, GridToolbar } from '@mui/x-data-grid';
 import axios from 'axios';
+import PromoteLeadDialog from '@/components/PromoteLeadDialog';
+import SatelliteAltIcon from '@mui/icons-material/SatelliteAlt';
+import AddLocationAltIcon from '@mui/icons-material/AddLocationAlt';
 
 // Static lookup for available cities per country (matches job-handlers.ts)
 const COUNTRY_CITIES: Record<string, string[]> = {
@@ -41,6 +45,12 @@ function TowerLeadsContent() {
     const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({ page: 0, pageSize: 25 });
     const [isLoading, setIsLoading] = useState(false);
 
+    // Filters for Tab 1
+    const [filterCountry, setFilterCountry] = useState('');
+    const [filterCity, setFilterCity] = useState('');
+    const [filterPromoted, setFilterPromoted] = useState('all'); // all, true, false
+    const [leadToPromote, setLeadToPromote] = useState<any>(null);
+
     // Tab 2: Find leads form state
     const [selectedCountry, setSelectedCountry] = useState('');
     const [selectedCity, setSelectedCity] = useState('');
@@ -58,6 +68,10 @@ function TowerLeadsContent() {
                 limit: paginationModel.pageSize.toString(),
             });
 
+            if (filterCountry) params.append('country', filterCountry);
+            if (filterCity) params.append('city', filterCity);
+            if (filterPromoted !== 'all') params.append('promoted', filterPromoted);
+
             const res = await axios.get(`/api/tower-leads?${params.toString()}`);
             setLeads(res.data.data || []);
             setTotalCount(res.data.totalCount || 0);
@@ -66,7 +80,7 @@ function TowerLeadsContent() {
         } finally {
             setIsLoading(false);
         }
-    }, [paginationModel]);
+    }, [paginationModel, filterCountry, filterCity, filterPromoted]);
 
     // Load search history for Tab 2
     const loadSearchHistory = useCallback(async () => {
@@ -145,6 +159,43 @@ function TowerLeadsContent() {
             width: 160,
             valueGetter: (value: any) => value ? new Date(value).toLocaleDateString() : '',
         },
+        {
+            field: 'actions',
+            headerName: 'Actions',
+            width: 150,
+            sortable: false,
+            renderCell: (params) => {
+                const lead = params.row;
+                const isPromoted = !!lead.promotedToTowerId;
+
+                return (
+                    <Stack direction="row" spacing={1}>
+                        <Tooltip title="View Satellite">
+                            <IconButton
+                                size="small"
+                                color="primary"
+                                href={`https://www.google.com/maps/@${lead.lat},${lead.lon},18z/data=!3m1!1e1`}
+                                target="_blank"
+                            >
+                                <SatelliteAltIcon fontSize="small" />
+                            </IconButton>
+                        </Tooltip>
+
+                        {!isPromoted && (
+                            <Tooltip title="Promote to Tower">
+                                <IconButton
+                                    size="small"
+                                    color="success"
+                                    onClick={() => setLeadToPromote(lead)}
+                                >
+                                    <AddLocationAltIcon fontSize="small" />
+                                </IconButton>
+                            </Tooltip>
+                        )}
+                    </Stack>
+                );
+            }
+        }
     ];
 
     // DataGrid columns for search history
@@ -198,7 +249,53 @@ function TowerLeadsContent() {
 
             {/* Tab 1: Tower Leads Table */}
             {activeTab === 0 && (
-                <Paper sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                <Paper sx={{ flex: 1, display: 'flex', flexDirection: 'column', p: 2 }}>
+                    {/* Filters */}
+                    <Box sx={{ display: 'flex', gap: 2, mb: 2, flexWrap: 'wrap' }}>
+                        <FormControl size="small" sx={{ minWidth: 150 }}>
+                            <InputLabel>Country</InputLabel>
+                            <Select
+                                value={filterCountry}
+                                label="Country"
+                                onChange={(e) => {
+                                    setFilterCountry(e.target.value);
+                                    setFilterCity('');
+                                }}
+                            >
+                                <MenuItem value="">All Countries</MenuItem>
+                                {COUNTRIES.map(c => <MenuItem key={c} value={c}>{c}</MenuItem>)}
+                            </Select>
+                        </FormControl>
+
+                        <FormControl size="small" sx={{ minWidth: 150 }}>
+                            <InputLabel>City</InputLabel>
+                            <Select
+                                value={filterCity}
+                                label="City"
+                                onChange={(e) => setFilterCity(e.target.value)}
+                                disabled={!filterCountry}
+                            >
+                                <MenuItem value="">All Cities</MenuItem>
+                                {(filterCountry ? COUNTRY_CITIES[filterCountry] : []).map(c => (
+                                    <MenuItem key={c} value={c}>{c}</MenuItem>
+                                ))}
+                            </Select>
+                        </FormControl>
+
+                        <FormControl size="small" sx={{ minWidth: 150 }}>
+                            <InputLabel>Status</InputLabel>
+                            <Select
+                                value={filterPromoted}
+                                label="Status"
+                                onChange={(e) => setFilterPromoted(e.target.value)}
+                            >
+                                <MenuItem value="all">All</MenuItem>
+                                <MenuItem value="false">Not Promoted</MenuItem>
+                                <MenuItem value="true">Promoted</MenuItem>
+                            </Select>
+                        </FormControl>
+                    </Box>
+
                     <DataGrid
                         rows={leads}
                         columns={leadColumns}
@@ -220,6 +317,13 @@ function TowerLeadsContent() {
                             '& .MuiDataGrid-cell': { borderBottom: '1px solid #333' },
                             '& .MuiDataGrid-columnHeaders': { bgcolor: '#1a1a1a' },
                         }}
+                    />
+
+                    <PromoteLeadDialog
+                        open={!!leadToPromote}
+                        lead={leadToPromote}
+                        onClose={() => setLeadToPromote(null)}
+                        onSuccess={() => loadLeads()}
                     />
                 </Paper>
             )}

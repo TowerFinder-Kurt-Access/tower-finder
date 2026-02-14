@@ -13,6 +13,14 @@ export async function POST(
         const { id } = await params;
         const leadId = parseInt(id);
 
+        // Parse body for optional streetViewUrl
+        let body: { googleMapsUrl?: string } = {};
+        try {
+            body = await request.json();
+        } catch {
+            // No body is fine — googleMapsUrl is optional
+        }
+
         if (isNaN(leadId)) {
             return NextResponse.json({ error: 'Invalid lead ID' }, { status: 400 });
         }
@@ -63,7 +71,8 @@ export async function POST(
                     lat: lead.lat,
                     lon: lead.lon,
                     status: 'New',
-                    source: `Tower Leads - ${lead.source}`
+                    source: `Tower Leads - ${lead.source}`,
+                    googleMapsUrl: body.googleMapsUrl || null,
                 }
             });
 
