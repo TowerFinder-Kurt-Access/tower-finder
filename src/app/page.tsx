@@ -160,22 +160,49 @@ function HomeContent() {
   }, [mapBounds, selectedCountry, selectedProvince, selectedCity, selectedType, selectedCarrier, selectedLicensee, shouldFitBounds]);
 
   // Fit bounds when towers change AND we have flagged to fit bounds
+  // Fit bounds using Geocoding API when filter changes
+  useEffect(() => {
+    if (shouldFitBounds && (selectedCountry || selectedProvince || selectedCity)) {
+      const fetchBounds = async () => {
+        try {
+          const params = new URLSearchParams();
+          if (selectedCountry) params.set('country', selectedCountry);
+          if (selectedProvince) params.set('province', selectedProvince);
+          if (selectedCity) params.set('city', selectedCity);
+
+          const res = await fetch(`/api/geocode?${params.toString()}`);
+          if (res.ok) {
+            const bounds = await res.json(); // { north, south, east, west }
+            // Convert to Leaflet bounds: [[south, west], [north, east]]
+            // Wait, Leaflet bounds are [[lat1, lon1], [lat2, lon2]] (corner 1, corner 2)
+            setBoundsToFit([[bounds.south, bounds.west], [bounds.north, bounds.east]]);
+          }
+        } catch (error) {
+          console.error('Geocoding failed, falling back to data bounds', error);
+          // Fallback to data bounds handled below? 
+          // If we fail here, we might want to let the "towers" effect handle it?
+          // But we setShouldFitBounds(false) only on success?
+          // If we don't set false, the other effect might run?
+          // Actually, let's keep the other effect as a backup, but modified.
+        } finally {
+          setShouldFitBounds(false);
+        }
+      };
+      fetchBounds();
+    }
+  }, [shouldFitBounds, selectedCountry, selectedProvince, selectedCity]);
+
+  // Backup: Fit bounds when towers change if geocoding didn't happen (or if we want strict data fit?)
+  // User prefers geocoding. So I'll disable this fallback for now or only use it if shouldFitBounds is STILL true (which implies geocoding failed/skipped).
+  // But purely relying on Geocoding is safer for "empty" regions.
+  /* 
   useEffect(() => {
     if (shouldFitBounds && towers.length > 0) {
-      // Calculate bounds
-      let minLat = 90, maxLat = -90, minLon = 180, maxLon = -180;
-      towers.forEach(t => {
-        if (t.lat < minLat) minLat = t.lat;
-        if (t.lat > maxLat) maxLat = t.lat;
-        if (t.lon < minLon) minLon = t.lon;
-        if (t.lon > maxLon) maxLon = t.lon;
-      });
-
-      // Add padding? Map.tsx fitBounds handles padding.
-      setBoundsToFit([[minLat, minLon], [maxLat, maxLon]]);
-      setShouldFitBounds(false); // Reset flag
+      // ... existing logic ...
+      setShouldFitBounds(false);
     }
-  }, [towers, shouldFitBounds]);
+  }, [towers, shouldFitBounds]); 
+  */
 
 
   // Fetch Tower Leads
@@ -238,6 +265,7 @@ function HomeContent() {
     setShouldFitBounds(true);
     setShowLeads(false);
     setTowerLeads([]);
+    setTowers([]); // Clear current markers immediately
   }
 
   const handleProvinceChange = (newProvince: string) => {
@@ -246,6 +274,7 @@ function HomeContent() {
     setShouldFitBounds(true);
     setShowLeads(false);
     setTowerLeads([]);
+    setTowers([]); // Clear current markers immediately
   };
 
   const handleCityChange = (newCity: string) => {
@@ -253,6 +282,7 @@ function HomeContent() {
     setShouldFitBounds(true);
     setShowLeads(false);
     setTowerLeads([]);
+    setTowers([]); // Clear current markers immediately
   };
 
   const handleLookupOwner = async (tower: Tower) => {

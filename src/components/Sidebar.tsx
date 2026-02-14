@@ -20,6 +20,7 @@ import FormControl from '@mui/material/FormControl';
 import InputLabel from '@mui/material/InputLabel';
 import Select, { SelectChangeEvent } from '@mui/material/Select';
 import MenuItem from '@mui/material/MenuItem';
+import { STATIC_LOCATIONS, STATIC_COUNTRIES } from '@/lib/locations';
 
 interface Tower {
     id: number;
@@ -112,11 +113,9 @@ export default function Sidebar({
     const [licensees, setLicensees] = useState<{ id: number, name: string }[]>([]);
 
     // Dynamic Filter Options
-    const [availableCountries, setAvailableCountries] = useState<string[]>([]);
-    const [availableProvinces, setAvailableProvinces] = useState<string[]>([]);
     const [availableCities, setAvailableCities] = useState<string[]>([]);
 
-    // Fetch initial lookups and countries
+    // Fetch initial lookups
     useEffect(() => {
         // Fetch lookups
         fetch('/api/towers?distinct=lookups')
@@ -127,25 +126,12 @@ export default function Sidebar({
                 setLicensees(data.licensees || []);
             })
             .catch(err => console.error('Failed to fetch lookups', err));
-
-        // Fetch Countries
-        fetch('/api/towers?distinct=countries')
-            .then(res => res.json())
-            .then(data => setAvailableCountries(data))
-            .catch(err => console.error('Failed to fetch countries', err));
     }, []);
 
-    // Fetch Provinces when Country changes
-    useEffect(() => {
-        if (selectedCountry) {
-            fetch(`/api/towers?distinct=provinces&country=${encodeURIComponent(selectedCountry)}`)
-                .then(res => res.json())
-                .then(data => setAvailableProvinces(data))
-                .catch(err => console.error('Failed to fetch provinces', err));
-        } else {
-            setAvailableProvinces([]);
-        }
-    }, [selectedCountry]);
+    const availableCountries = STATIC_COUNTRIES;
+    const availableProvinces = selectedCountry
+        ? (STATIC_LOCATIONS[selectedCountry] ? Object.keys(STATIC_LOCATIONS[selectedCountry]) : [])
+        : [];
 
     // Fetch Cities when Country or Province changes
     useEffect(() => {

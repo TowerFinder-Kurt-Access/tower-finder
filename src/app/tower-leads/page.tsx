@@ -14,37 +14,7 @@ import SatelliteAltIcon from '@mui/icons-material/SatelliteAlt';
 import AddLocationAltIcon from '@mui/icons-material/AddLocationAlt';
 import MapIcon from '@mui/icons-material/Map';
 
-// Static lookup for available cities per country (matches job-handlers.ts)
-// Static lookup for available cities per country (matches job-handlers.ts)
-const STATIC_LOCATIONS: Record<string, Record<string, string[]>> = {
-    'Canada': {
-        'Alberta': ['Calgary', 'Edmonton'],
-        'British Columbia': ['Vancouver', 'Victoria'],
-        'Manitoba': ['Winnipeg'],
-        'New Brunswick': ['Fredericton', 'Moncton'],
-        'Newfoundland and Labrador': ["St. John's"],
-        'Nova Scotia': ['Halifax'],
-        'Ontario': ['Ottawa', 'Toronto'],
-        'Prince Edward Island': ['Charlottetown'],
-        'Quebec': ['Montreal', 'Quebec City'],
-        'Saskatchewan': ['Regina', 'Saskatoon'],
-    },
-    'USA': {
-        'Alabama': [], 'Alaska': [], 'Arizona': [], 'Arkansas': [], 'California': ['Los Angeles'],
-        'Colorado': [], 'Connecticut': [], 'Delaware': [], 'Florida': ['Miami'], 'Georgia': [],
-        'Hawaii': [], 'Idaho': [], 'Illinois': ['Chicago'], 'Indiana': [], 'Iowa': [],
-        'Kansas': [], 'Kentucky': [], 'Louisiana': [], 'Maine': [], 'Maryland': [],
-        'Massachusetts': [], 'Michigan': [], 'Minnesota': [], 'Mississippi': [], 'Missouri': [],
-        'Montana': [], 'Nebraska': [], 'Nevada': [], 'New Hampshire': [], 'New Jersey': [],
-        'New Mexico': [], 'New York': ['New York'], 'North Carolina': [], 'North Dakota': [],
-        'Ohio': [], 'Oklahoma': [], 'Oregon': [], 'Pennsylvania': [], 'Rhode Island': [],
-        'South Carolina': [], 'South Dakota': [], 'Tennessee': [], 'Texas': ['Houston'],
-        'Utah': [], 'Vermont': [], 'Virginia': [], 'Washington': [], 'West Virginia': [],
-        'Wisconsin': [], 'Wyoming': []
-    },
-};
-
-const STATIC_COUNTRIES = Object.keys(STATIC_LOCATIONS);
+import { STATIC_LOCATIONS, STATIC_COUNTRIES } from '@/lib/locations';
 
 interface LeadSearch {
     id: number;
