@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getAuthUser } from '@/lib/auth-helpers';
 
+import { PROVINCE_TO_ABBR, ABBR_TO_PROVINCE } from '@/lib/locations';
+
 // GET /api/tower-leads - Fetch leads with pagination and filters
 export async function GET(request: Request) {
     try {
@@ -21,14 +23,33 @@ export async function GET(request: Request) {
                 select: { province: true },
                 orderBy: { province: 'asc' }
             });
-            return NextResponse.json(result.map(r => r.province).filter(Boolean));
+
+            // Normalize results: Convert abbreviations to full names and deduplicate
+            const provinces = new Set<string>();
+            result.forEach(r => {
+                if (!r.province) return;
+                // If it's an abbreviation like "AB", map to "Alberta". Otherwise keep as is.
+                const fullName = ABBR_TO_PROVINCE[r.province] || r.province;
+                provinces.add(fullName);
+            });
+
+            return NextResponse.json(Array.from(provinces).sort());
         }
 
         if (distinct === 'cities') {
             const where: any = {};
             if (country) where.country = { equals: country, mode: 'insensitive' };
             const province = searchParams.get('province');
-            if (province) where.province = { equals: province, mode: 'insensitive' };
+            if (province) {
+                // Determine abbreviations to search for both "Alberta" and "AB"
+                const abbr = PROVINCE_TO_ABBR[province];
+                const fullName = ABBR_TO_PROVINCE[province];
+                const searchValues = [province];
+                if (abbr) searchValues.push(abbr);
+                if (fullName) searchValues.push(fullName);
+
+                where.province = { in: searchValues, mode: 'insensitive' };
+            }
             const result = await prisma.towerLead.findMany({
                 where: { ...where, city: { not: null } },
                 distinct: ['city'],
@@ -36,6 +57,30 @@ export async function GET(request: Request) {
                 orderBy: { city: 'asc' }
             });
             return NextResponse.json(result.map(r => r.city).filter(Boolean));
+        }
+
+        if (distinct === 'sources') {
+            const where: any = {};
+            if (country) where.country = { equals: country, mode: 'insensitive' };
+            const result = await prisma.towerLead.findMany({
+                where: { ...where, source: { not: null } },
+                distinct: ['source'],
+                select: { source: true },
+                orderBy: { source: 'asc' }
+            });
+            return NextResponse.json(result.map(r => r.source).filter(Boolean));
+        }
+
+        if (distinct === 'types') {
+            const where: any = {};
+            if (country) where.country = { equals: country, mode: 'insensitive' };
+            const result = await prisma.towerLead.findMany({
+                where: { ...where, type: { not: null } },
+                distinct: ['type'],
+                select: { type: true },
+                orderBy: { type: 'asc' }
+            });
+            return NextResponse.json(result.map(r => r.type).filter(Boolean));
         }
 
         const page = parseInt(searchParams.get('page') || '0');
@@ -51,18 +96,28 @@ export async function GET(request: Request) {
             where.country = { equals: country, mode: 'insensitive' };
         }
         if (city) {
-            where.city = { equals: city, mode: 'insensitive' };
+            where.city = { contains: city, mode: 'insensitive' };
         }
         if (source) {
-            where.source = { equals: source, mode: 'insensitive' };
+            where.source = { contains: source, mode: 'insensitive' };
         }
         if (type) {
-            where.type = { equals: type, mode: 'insensitive' };
+            where.type = { contains: type, mode: 'insensitive' };
         }
 
         const province = searchParams.get('province');
         if (province) {
-            where.province = { equals: province, mode: 'insensitive' };
+            // Determine abbreviations to search for both "Alberta" and "AB"
+            const abbr = PROVINCE_TO_ABBR[province];
+            const fullName = ABBR_TO_PROVINCE[province];
+            const searchValues = [province];
+            if (abbr) searchValues.push(abbr); // If query is "Alberta", add "AB"
+            if (fullName) searchValues.push(fullName); // If query is "AB", add "Alberta"
+
+            // Deduplicate
+            const uniqueSearchValues = Array.from(new Set(searchValues));
+
+            where.province = { in: uniqueSearchValues, mode: 'insensitive' };
         }
 
         const promoted = searchParams.get('promoted');

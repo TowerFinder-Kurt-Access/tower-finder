@@ -6,7 +6,7 @@ import {
     FormControl, InputLabel, Alert, CircularProgress, Chip, Stack,
     IconButton, Tooltip, TextField, Autocomplete
 } from '@mui/material';
-import { DataGrid, GridColDef, GridPaginationModel, GridToolbar } from '@mui/x-data-grid';
+import { DataGrid, GridColDef, GridPaginationModel, GridToolbar, GridFilterModel } from '@mui/x-data-grid';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import axios from 'axios';
 import PromoteLeadDialog from '@/components/PromoteLeadDialog';
@@ -16,7 +16,7 @@ import MapIcon from '@mui/icons-material/Map';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import AddOwnerDialog from '@/components/AddOwnerDialog';
 
-import { STATIC_LOCATIONS } from '@/lib/locations';
+import { STATIC_LOCATIONS, ABBR_TO_PROVINCE } from '@/lib/locations';
 import { useCountry } from '@/lib/country-context';
 
 interface LeadSearch {
@@ -62,59 +62,48 @@ function TowerLeadsContent() {
     const [leads, setLeads] = useState<any[]>([]);
     const [totalCount, setTotalCount] = useState(0);
     const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({ page: 0, pageSize: 25 });
+    const [filterModel, setFilterModel] = useState<GridFilterModel>({ items: [] });
     const [isLoading, setIsLoading] = useState(false);
 
     // Filters for Tab 1
     const filterCountry = globalCountry || '';
-    const [filterProvince, setFilterProvince] = useState('');
-    const [filterCity, setFilterCity] = useState('');
     const [filterPromoted, setFilterPromoted] = useState('all');
     const [leadToPromote, setLeadToPromote] = useState<any>(null);
     const [addOwnerForTowerId, setAddOwnerForTowerId] = useState<number | null>(null);
 
-    // Reset province/city when global country changes
-    useEffect(() => {
-        setFilterProvince('');
-        setFilterCity('');
-    }, [globalCountry]);
-
-    // Dynamic provinces and cities
+    // Dynamic options for column filters
     const [filterProvinces, setFilterProvinces] = useState<string[]>([]);
-    const [filterCities, setFilterCities] = useState<string[]>([]);
+    const [filterSources, setFilterSources] = useState<string[]>([]);
+    const [filterTypes, setFilterTypes] = useState<string[]>([]);
 
     useEffect(() => {
         if (!filterCountry) {
             setFilterProvinces([]);
+            setFilterSources([]);
+            setFilterTypes([]);
             return;
         }
         const load = async () => {
+            const countryParam = encodeURIComponent(filterCountry);
             try {
-                const res = await axios.get(`/api/tower-leads?distinct=provinces&country=${encodeURIComponent(filterCountry)}`);
-                if (isMounted.current) setFilterProvinces(res.data || []);
-            } catch {
-                if (isMounted.current) setFilterProvinces([]);
+                // Fetch all distinct values in parallel
+                const [provincesRes, sourcesRes, typesRes] = await Promise.all([
+                    axios.get(`/api/tower-leads?distinct=provinces&country=${countryParam}`).catch(() => ({ data: [] })),
+                    axios.get(`/api/tower-leads?distinct=sources&country=${countryParam}`).catch(() => ({ data: [] })),
+                    axios.get(`/api/tower-leads?distinct=types&country=${countryParam}`).catch(() => ({ data: [] })),
+                ]);
+
+                if (isMounted.current) {
+                    setFilterProvinces(provincesRes.data || []);
+                    setFilterSources(sourcesRes.data || []);
+                    setFilterTypes(typesRes.data || []);
+                }
+            } catch (error) {
+                console.error("Failed to load filter options", error);
             }
         };
         load();
     }, [filterCountry]);
-
-    useEffect(() => {
-        if (!filterCountry) {
-            setFilterCities([]);
-            return;
-        }
-        const load = async () => {
-            try {
-                const params = new URLSearchParams({ distinct: 'cities', country: filterCountry });
-                if (filterProvince) params.append('province', filterProvince);
-                const res = await axios.get(`/api/tower-leads?${params.toString()}`);
-                if (isMounted.current) setFilterCities(res.data || []);
-            } catch {
-                if (isMounted.current) setFilterCities([]);
-            }
-        };
-        load();
-    }, [filterCountry, filterProvince]);
 
     // Tab 2: Find leads form state
     const [selectedProvince, setSelectedProvince] = useState('');
@@ -140,9 +129,17 @@ function TowerLeadsContent() {
             });
 
             if (filterCountry) params.append('country', filterCountry);
-            if (filterProvince) params.append('province', filterProvince);
-            if (filterCity) params.append('city', filterCity);
             if (filterPromoted !== 'all') params.append('promoted', filterPromoted);
+
+            // Handle column filters (DataGrid)
+            filterModel.items.forEach((item) => {
+                if (!item.value) return;
+                // Map DataGrid fields to API params
+                // Supported: city, province, source, type, country (if overridden)
+                if (['city', 'province', 'source', 'type', 'country'].includes(item.field)) {
+                    params.append(item.field, item.value);
+                }
+            });
 
             const res = await axios.get(`/api/tower-leads?${params.toString()}`);
             if (isMounted.current) {
@@ -158,7 +155,7 @@ function TowerLeadsContent() {
         } finally {
             if (isMounted.current) setIsLoading(false);
         }
-    }, [paginationModel, filterCountry, filterProvince, filterCity, filterPromoted]);
+    }, [paginationModel, filterCountry, filterPromoted, filterModel]);
 
     // Load search history for Tab 2
     const loadSearchHistory = useCallback(async () => {
@@ -216,10 +213,32 @@ function TowerLeadsContent() {
         { field: 'id', headerName: 'ID', width: 70 },
         { field: 'lat', headerName: 'Latitude', width: 120 },
         { field: 'lon', headerName: 'Longitude', width: 120 },
-        { field: 'source', headerName: 'Source', width: 130 },
-        { field: 'type', headerName: 'Type', width: 100 },
+        {
+            field: 'source',
+            headerName: 'Source',
+            width: 130,
+            type: 'singleSelect',
+            valueOptions: filterSources,
+        },
+        {
+            field: 'type',
+            headerName: 'Type',
+            width: 100,
+            type: 'singleSelect',
+            valueOptions: filterTypes,
+        },
         { field: 'country', headerName: 'Country', width: 120 },
-        { field: 'province', headerName: 'Province', width: 120 },
+        {
+            field: 'province',
+            headerName: 'Province',
+            width: 120,
+            type: 'singleSelect',
+            valueOptions: filterProvinces,
+            valueFormatter: (value: any) => {
+                if (!value) return '';
+                return ABBR_TO_PROVINCE[value] || value;
+            }
+        },
         { field: 'city', headerName: 'City', width: 130 },
         {
             field: 'promotedToTowerId',
@@ -297,12 +316,20 @@ function TowerLeadsContent() {
                 );
             }
         }
-    ], []);
+    ], [filterProvinces, filterSources, filterTypes]);
 
     const searchColumns: GridColDef[] = useMemo(() => [
         { field: 'id', headerName: 'ID', width: 60 },
         { field: 'country', headerName: 'Country', width: 120 },
-        { field: 'province', headerName: 'Province', width: 120 },
+        {
+            field: 'province',
+            headerName: 'Province',
+            width: 120,
+            valueFormatter: (value: any) => {
+                if (!value) return '';
+                return ABBR_TO_PROVINCE[value] || value;
+            }
+        },
         { field: 'city', headerName: 'City', width: 130 },
         { field: 'source', headerName: 'Source', width: 140 },
         {
@@ -350,35 +377,6 @@ function TowerLeadsContent() {
                 <Paper sx={{ flex: 1, display: 'flex', flexDirection: 'column', p: 2 }}>
                     <Box sx={{ display: 'flex', gap: 2, mb: 2, flexWrap: 'wrap' }}>
                         <FormControl size="small" sx={{ minWidth: 150 }}>
-                            <InputLabel>Province/State</InputLabel>
-                            <Select
-                                value={filterProvince}
-                                label="Province/State"
-                                onChange={(e) => {
-                                    setFilterProvince(e.target.value);
-                                    setFilterCity('');
-                                }}
-                                disabled={!filterCountry}
-                            >
-                                <MenuItem value="">All</MenuItem>
-                                {filterProvinces.map(p => <MenuItem key={p} value={p}>{p}</MenuItem>)}
-                            </Select>
-                        </FormControl>
-
-                        <FormControl size="small" sx={{ minWidth: 150 }}>
-                            <InputLabel>City</InputLabel>
-                            <Select
-                                value={filterCity}
-                                label="City"
-                                onChange={(e) => setFilterCity(e.target.value)}
-                                disabled={!filterProvince && !filterCountry}
-                            >
-                                <MenuItem value="">All Cities</MenuItem>
-                                {filterCities.map(c => <MenuItem key={c} value={c}>{c}</MenuItem>)}
-                            </Select>
-                        </FormControl>
-
-                        <FormControl size="small" sx={{ minWidth: 150 }}>
                             <InputLabel>Status</InputLabel>
                             <Select
                                 value={filterPromoted}
@@ -400,6 +398,9 @@ function TowerLeadsContent() {
                         paginationModel={paginationModel}
                         onPaginationModelChange={setPaginationModel}
                         paginationMode="server"
+                        filterMode="server"
+                        filterModel={filterModel}
+                        onFilterModelChange={setFilterModel}
                         pageSizeOptions={[10, 25, 50, 100]}
                         disableRowSelectionOnClick
                         slots={{ toolbar: GridToolbar }}
