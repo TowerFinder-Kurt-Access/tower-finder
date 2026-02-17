@@ -20,7 +20,8 @@ import FormControl from '@mui/material/FormControl';
 import InputLabel from '@mui/material/InputLabel';
 import Select, { SelectChangeEvent } from '@mui/material/Select';
 import MenuItem from '@mui/material/MenuItem';
-import { STATIC_LOCATIONS, STATIC_COUNTRIES } from '@/lib/locations';
+import { STATIC_LOCATIONS } from '@/lib/locations';
+import { useCountry } from '@/lib/country-context';
 
 interface Tower {
     id: number;
@@ -68,9 +69,6 @@ interface SidebarProps {
     onProvinceSelect: (province: string) => void;
     selectedProvince: string;
 
-    onCountrySelect: (country: string) => void;
-    selectedCountry: string;
-
     onFilterChange: (filters: FilterState) => void;
     isLoading: boolean;
     results: Tower[];
@@ -89,8 +87,6 @@ export default function Sidebar({
     selectedCity,
     onProvinceSelect,
     selectedProvince,
-    onCountrySelect,
-    selectedCountry,
     onFilterChange,
     isLoading,
     results,
@@ -107,6 +103,8 @@ export default function Sidebar({
     const [selectedType, setSelectedType] = useState('');
     const [selectedCarrier, setSelectedCarrier] = useState('');
     const [selectedLicensee, setSelectedLicensee] = useState('');
+
+    const { country: selectedCountry } = useCountry();
 
     const [types, setTypes] = useState<{ id: number, name: string }[]>([]);
     const [carriers, setCarriers] = useState<{ id: number, name: string }[]>([]);
@@ -128,7 +126,6 @@ export default function Sidebar({
             .catch(err => console.error('Failed to fetch lookups', err));
     }, []);
 
-    const availableCountries = STATIC_COUNTRIES;
     const availableProvinces = selectedCountry
         ? (STATIC_LOCATIONS[selectedCountry] ? Object.keys(STATIC_LOCATIONS[selectedCountry]) : [])
         : [];
@@ -168,13 +165,6 @@ export default function Sidebar({
     const toggleSidebar = () => {
         setCollapsed(!collapsed);
     };
-
-    const handleCountryChange = (event: SelectChangeEvent) => {
-        const val = event.target.value as string;
-        if (onCountrySelect) {
-            onCountrySelect(val);
-        }
-    }
 
     const handleProvinceChange = (event: SelectChangeEvent) => {
         const val = event.target.value as string;
@@ -261,21 +251,6 @@ export default function Sidebar({
                 {/* City/Country/Province Filter - Only show on map view */}
                 {currentView === 'map' && (
                     <>
-                        <FormControl fullWidth size="small" sx={{ mb: 2 }}>
-                            <InputLabel id="country-select-label">Country</InputLabel>
-                            <Select
-                                labelId="country-select-label"
-                                value={selectedCountry}
-                                label="Country"
-                                onChange={handleCountryChange}
-                            >
-                                <MenuItem value=""><em>Select Country</em></MenuItem>
-                                {availableCountries.map((c) => (
-                                    <MenuItem key={c} value={c}>{c}</MenuItem>
-                                ))}
-                            </Select>
-                        </FormControl>
-
                         <FormControl fullWidth size="small" sx={{ mb: 2 }} disabled={!selectedCountry}>
                             <InputLabel id="province-select-label">Province / State</InputLabel>
                             <Select

@@ -23,7 +23,9 @@
       "Bash(wc:*)",
       "Bash(where:*)",
       "Bash(del \"c:\\\\Users\\\\alexa\\\\Development\\\\tower-finder\\\\_temp_extract.js\")",
-      "Bash(npx next build)"
+      "Bash(npx next build)",
+      "Bash(cat:*)",
+      "Bash(npx tsc:*)"
     ]
   }
 }

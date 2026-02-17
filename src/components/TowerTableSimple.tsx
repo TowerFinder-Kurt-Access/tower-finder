@@ -11,6 +11,7 @@ import MoreVertIcon from '@mui/icons-material/MoreVert';
 import TravelExploreIcon from '@mui/icons-material/TravelExplore';
 import InfoIcon from '@mui/icons-material/Info';
 import NotesIcon from '@mui/icons-material/Notes';
+import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import { getStatusLabel } from '@/lib/constants';
 
 interface LookupItem {
@@ -48,6 +49,8 @@ interface TowerTableSimpleProps {
     onFilterChange: (filters: { city?: string; state?: string; county?: string; zip?: string; type?: string; licensee?: string; status?: string; address?: string }) => void;
     onCellEdit?: (towerId: number, field: string, value: string) => void;
     onNotesClick?: (tower: any) => void;
+    onAddOwner?: (tower: any) => void;
+    country?: string;
 }
 
 export default function TowerTableSimple({
@@ -66,7 +69,9 @@ export default function TowerTableSimple({
     lookups,
     onFilterChange,
     onCellEdit,
-    onNotesClick
+    onNotesClick,
+    onAddOwner,
+    country
 }: TowerTableSimpleProps) {
     const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
     const [selectedTower, setSelectedTower] = React.useState<any>(null);
@@ -303,14 +308,14 @@ export default function TowerTableSimple({
         },
         {
             field: 'state',
-            headerName: 'Province',
+            headerName: country === 'USA' ? 'State' : 'Province',
             width: 100,
             type: 'singleSelect',
             valueOptions: filterOptions.states
         },
         {
             field: 'zip',
-            headerName: 'Postal Code',
+            headerName: country === 'USA' ? 'ZIP' : 'Postal Code',
             width: 100,
             type: 'singleSelect',
             valueOptions: filterOptions.zips
@@ -436,6 +441,19 @@ export default function TowerTableSimple({
                     </ListItemIcon>
                     <ListItemText>Search Nearby (Bing)</ListItemText>
                 </MenuItem>
+                {onAddOwner && (
+                    <MenuItem onClick={() => {
+                        if (selectedTower) {
+                            onAddOwner(selectedTower);
+                            handleMenuClose();
+                        }
+                    }}>
+                        <ListItemIcon>
+                            <PersonAddIcon fontSize="small" />
+                        </ListItemIcon>
+                        <ListItemText>Add Owner</ListItemText>
+                    </MenuItem>
+                )}
             </Menu>
         </Box>
     );

@@ -12,10 +12,17 @@ import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import ExploreIcon from '@mui/icons-material/Explore';
 import LogoutIcon from '@mui/icons-material/Logout';
 import { Role } from '@prisma/client';
+import { useCountry } from '@/lib/country-context';
+
+const COUNTRIES = [
+    { code: 'Canada', flag: '\ud83c\udde8\ud83c\udde6', short: 'CA' },
+    { code: 'USA', flag: '\ud83c\uddfa\ud83c\uddf8', short: 'US' },
+];
 
 export default function NavRail() {
     const pathname = usePathname();
     const { data: session } = useSession();
+    const { country, setCountry } = useCountry();
 
     const baseNavItems = [
         { label: 'Map', icon: <MapIcon />, path: '/' },
@@ -85,6 +92,37 @@ export default function NavRail() {
             {/* Main Navigation Items */}
             <Box sx={{ display: 'flex', flexDirection: 'column', width: '100%', gap: 2 }}>
                 {navItems.map(renderNavItem)}
+            </Box>
+
+            {/* Country Selector */}
+            <Box sx={{ mt: 3, width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
+                <Typography variant="caption" sx={{ fontSize: '0.6rem', color: '#888', textTransform: 'uppercase' }}>
+                    Country
+                </Typography>
+                {COUNTRIES.map(c => (
+                    <Box
+                        key={c.code}
+                        onClick={() => setCountry(country === c.code ? '' : c.code)}
+                        sx={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            py: 1,
+                            cursor: 'pointer',
+                            bgcolor: country === c.code ? '#333' : 'transparent',
+                            borderLeft: country === c.code ? '4px solid #ff9800' : '4px solid transparent',
+                            '&:hover': { bgcolor: '#444' },
+                            transition: '0.2s',
+                            width: '100%'
+                        }}
+                    >
+                        <Typography sx={{ fontSize: '1.2rem' }}>{c.flag}</Typography>
+                        <Typography variant="caption" sx={{ fontSize: '0.65rem', fontWeight: country === c.code ? 'bold' : 'normal', color: country === c.code ? '#ff9800' : 'white' }}>
+                            {c.short}
+                        </Typography>
+                    </Box>
+                ))}
             </Box>
 
             {/* Bottom Actions (Profile & Logout) */}

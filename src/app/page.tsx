@@ -6,6 +6,7 @@ import dynamic from 'next/dynamic';
 import Sidebar, { FilterState } from '@/components/Sidebar';
 import axios from 'axios';
 import { Paper } from '@mui/material';
+import { useCountry } from '@/lib/country-context';
 import MapIcon from '@mui/icons-material/Map';
 // Dynamically import Map to avoid SSR issues with Leaflet
 const Map = dynamic(() => import('@/components/Map'), {
@@ -56,7 +57,7 @@ function HomeContent() {
   const [selectedTower, setSelectedTower] = useState<Tower | null>(null);
   const [selectedCity, setSelectedCity] = useState<string>('');
   const [selectedProvince, setSelectedProvince] = useState<string>('');
-  const [selectedCountry, setSelectedCountry] = useState<string>('');
+  const { country: selectedCountry } = useCountry();
   const [ownerData, setOwnerData] = useState<OwnerResult | null>(null);
   const [isOwnerLoading, setIsOwnerLoading] = useState<boolean>(false);
   const [mounted, setMounted] = useState(false);
@@ -81,8 +82,6 @@ function HomeContent() {
     const lonParam = searchParams.get('lon');
     const zoomParam = searchParams.get('zoom');
     const cityParam = searchParams.get('city');
-    const countryParam = searchParams.get('country');
-
     if (latParam && lonParam) {
       const lat = parseFloat(latParam);
       const lon = parseFloat(lonParam);
@@ -93,7 +92,6 @@ function HomeContent() {
     }
 
     if (cityParam) setSelectedCity(cityParam);
-    if (countryParam) setSelectedCountry(countryParam);
 
     if (towerId && !selectedTower) {
       // Logic for URL-based tower selection could go here
@@ -258,15 +256,15 @@ function HomeContent() {
     setLeadToPromote(null);
   };
 
-  const handleCountryChange = (newCountry: string) => {
-    setSelectedCountry(newCountry);
+  // Reset province/city when global country changes
+  useEffect(() => {
     setSelectedProvince('');
     setSelectedCity('');
     setShouldFitBounds(true);
     setShowLeads(false);
     setTowerLeads([]);
-    setTowers([]); // Clear current markers immediately
-  }
+    setTowers([]);
+  }, [selectedCountry]);
 
   const handleProvinceChange = (newProvince: string) => {
     setSelectedProvince(newProvince);
@@ -330,9 +328,6 @@ function HomeContent() {
 
         selectedProvince={selectedProvince}
         onProvinceSelect={handleProvinceChange}
-
-        selectedCountry={selectedCountry}
-        onCountrySelect={handleCountryChange}
 
         onFilterChange={handleFilterChange}
         onSearch={(q) => console.log(q)}

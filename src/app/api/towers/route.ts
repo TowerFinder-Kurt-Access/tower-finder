@@ -101,16 +101,67 @@ export async function GET(request: Request) {
         }
 
         if (distinct === 'filters') {
-            // ... existing filters block (optional, or remove if unused)
-            // Keeping it simplifed or just relying on individual calls.
-            // But existing code might use it. I'll leave it but maybe ignore it for now.
-            // Actually I'll replace the block to handle the existing structure but maybe updated?
-            // No, I'll just insert the new blocks ABOVE it.
-            // Wait, I am replacing the block starting around line 38.
-            // I'll replace the whole 'filters' block with my new granular blocks AND keep 'filters' if needed?
-            // The user is not using 'filters' anymore in my new plan.
-            // But I'll keep 'filters' as a fallback returning all (as it was) or just return empty.
-            // I'll just return the granular ones.
+            const countryFilter = country ? Prisma.sql`AND p.country = ${country}` : Prisma.sql``;
+
+            const [citiesResult, statesResult, countiesResult, zipsResult] = await Promise.all([
+                prisma.$queryRaw<{ city: string }[]>`
+                    SELECT DISTINCT name as city FROM (
+                        SELECT c."name" FROM "City" c
+                        JOIN "Parcel" p ON p."cityId" = c.id
+                        WHERE 1=1 ${countryFilter}
+                        UNION
+                        SELECT p."cityRaw" as name FROM "Parcel" p
+                        WHERE p."cityRaw" IS NOT NULL AND p."cityRaw" != ''
+                        ${countryFilter}
+                    ) combined
+                    WHERE name IS NOT NULL AND name != ''
+                    ORDER BY name
+                `,
+                prisma.$queryRaw<{ state: string }[]>`
+                    SELECT DISTINCT name as state FROM (
+                        SELECT pr."name" FROM "Province" pr
+                        JOIN "Parcel" p ON p."provinceId" = pr.id
+                        WHERE 1=1 ${countryFilter}
+                        UNION
+                        SELECT p."stateRaw" as name FROM "Parcel" p
+                        WHERE p."stateRaw" IS NOT NULL AND p."stateRaw" != ''
+                        ${countryFilter}
+                        UNION
+                        SELECT p."provinceRaw" as name FROM "Parcel" p
+                        WHERE p."provinceRaw" IS NOT NULL AND p."provinceRaw" != ''
+                        ${countryFilter}
+                    ) combined
+                    WHERE name IS NOT NULL AND name != ''
+                    ORDER BY name
+                `,
+                prisma.$queryRaw<{ county: string }[]>`
+                    SELECT DISTINCT p.county
+                    FROM "Parcel" p
+                    WHERE p.county IS NOT NULL AND p.county != ''
+                    ${countryFilter}
+                    ORDER BY p.county
+                `,
+                prisma.$queryRaw<{ zip: string }[]>`
+                    SELECT DISTINCT name as zip FROM (
+                        SELECT p."postalCode" as name FROM "Parcel" p
+                        WHERE p."postalCode" IS NOT NULL AND p."postalCode" != ''
+                        ${countryFilter}
+                        UNION
+                        SELECT p.zip as name FROM "Parcel" p
+                        WHERE p.zip IS NOT NULL AND p.zip != ''
+                        ${countryFilter}
+                    ) combined
+                    WHERE name IS NOT NULL AND name != ''
+                    ORDER BY name
+                `
+            ]);
+
+            return NextResponse.json({
+                cities: citiesResult.map(r => r.city),
+                states: statesResult.map(r => r.state),
+                counties: countiesResult.map(r => r.county),
+                zips: zipsResult.map(r => r.zip)
+            });
         }
 
         // ... (lookups block)

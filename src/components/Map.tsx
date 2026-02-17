@@ -165,14 +165,20 @@ export default function Map({ center, zoom, bounds, towers, towerLeads = [], onT
                     });
                 }}
             >
-                {towers && towers.map(tower => (
+                {towers && towers.map(tower => {
+                    const isSelected = selectedTower?.id === tower.id;
+                    const isFromLead = tower.source && tower.source.startsWith('Tower Leads');
+                    const markerColor = isSelected ? '#2196f3' : (isFromLead ? '#1565C0' : 'red');
+                    const fillColor = isSelected ? '#2196f3' : (isFromLead ? '#42A5F5' : '#f00');
+
+                    return (
                     <CircleMarker
                         key={`tower-${tower.id}`}
                         center={[tower.lat, tower.lon] as LatLngExpression}
                         pathOptions={{
-                            color: selectedTower?.id === tower.id ? '#2196f3' : 'red',
-                            fillColor: selectedTower?.id === tower.id ? '#2196f3' : '#f00',
-                            fillOpacity: 0.5
+                            color: markerColor,
+                            fillColor: fillColor,
+                            fillOpacity: isFromLead ? 0.7 : 0.5
                         }}
                         radius={10}
                         eventHandlers={{
@@ -190,7 +196,8 @@ export default function Map({ center, zoom, bounds, towers, towerLeads = [], onT
                             </div>
                         </Popup>
                     </CircleMarker>
-                ))}
+                    );
+                })}
             </MarkerClusterGroup>
 
             {/* Tower Leads (Green) - Clustered */}

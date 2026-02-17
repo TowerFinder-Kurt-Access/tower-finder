@@ -8,9 +8,38 @@ export async function GET(request: Request) {
         await getAuthUser();
 
         const { searchParams } = new URL(request.url);
+        const distinct = searchParams.get('distinct');
+        const country = searchParams.get('country');
+
+        // Handle distinct queries for filter dropdowns
+        if (distinct === 'provinces') {
+            const where: any = {};
+            if (country) where.country = { equals: country, mode: 'insensitive' };
+            const result = await prisma.towerLead.findMany({
+                where: { ...where, province: { not: null } },
+                distinct: ['province'],
+                select: { province: true },
+                orderBy: { province: 'asc' }
+            });
+            return NextResponse.json(result.map(r => r.province).filter(Boolean));
+        }
+
+        if (distinct === 'cities') {
+            const where: any = {};
+            if (country) where.country = { equals: country, mode: 'insensitive' };
+            const province = searchParams.get('province');
+            if (province) where.province = { equals: province, mode: 'insensitive' };
+            const result = await prisma.towerLead.findMany({
+                where: { ...where, city: { not: null } },
+                distinct: ['city'],
+                select: { city: true },
+                orderBy: { city: 'asc' }
+            });
+            return NextResponse.json(result.map(r => r.city).filter(Boolean));
+        }
+
         const page = parseInt(searchParams.get('page') || '0');
         const limit = parseInt(searchParams.get('limit') || '25');
-        const country = searchParams.get('country');
         const city = searchParams.get('city');
         const source = searchParams.get('source');
         const type = searchParams.get('type');

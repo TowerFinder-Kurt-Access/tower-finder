@@ -5,6 +5,7 @@ import Box from '@mui/material/Box';
 import NavRail from '@/components/NavRail';
 import ContentArea from '@/components/ContentArea';
 import { SessionProvider } from 'next-auth/react';
+import { CountryProvider } from '@/lib/country-context';
 
 export const metadata: Metadata = {
   title: "Tower Finder 4900",
@@ -19,16 +20,18 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <body>
         <ThemeRegistry>
           <SessionProvider session={session}>
-            {session ? (
-              <Box sx={{ display: 'flex', height: '100vh', width: '100vw', overflow: 'hidden' }}>
-                <NavRail />
-                <ContentArea>
-                  {children}
-                </ContentArea>
-              </Box>
-            ) : (
-              children
-            )}
+            <CountryProvider>
+              {session ? (
+                <Box sx={{ display: 'flex', height: '100vh', width: '100vw', overflow: 'hidden' }}>
+                  <NavRail />
+                  <ContentArea>
+                    {children}
+                  </ContentArea>
+                </Box>
+              ) : (
+                children
+              )}
+            </CountryProvider>
           </SessionProvider>
         </ThemeRegistry>
       </body>

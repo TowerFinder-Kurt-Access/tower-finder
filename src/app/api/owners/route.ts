@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { Prisma } from '@prisma/client';
 
 // GET /api/owners - List all owners grouped by parcel
 export async function GET(request: Request) {
@@ -19,34 +20,59 @@ export async function GET(request: Request) {
 
         // Handle distinct values request for filters
         if (distinct === 'filters') {
+            const countryParam = searchParams.get('country');
+            const countryFilter = countryParam ? Prisma.sql`AND p.country = ${countryParam}` : Prisma.sql``;
+
             const [citiesResult, statesResult, countiesResult, zipsResult] = await Promise.all([
                 prisma.$queryRaw<{ city: string }[]>`
-                    SELECT DISTINCT p.city
-                    FROM "Parcel" p
-                    WHERE p.city IS NOT NULL AND p.city != ''
-                    AND p."ownerId" IS NOT NULL
-                    ORDER BY p.city
+                    SELECT DISTINCT name as city FROM (
+                        SELECT c."name" FROM "City" c
+                        JOIN "Parcel" p ON p."cityId" = c.id
+                        WHERE p."ownerId" IS NOT NULL ${countryFilter}
+                        UNION
+                        SELECT p."cityRaw" as name FROM "Parcel" p
+                        WHERE p."cityRaw" IS NOT NULL AND p."cityRaw" != ''
+                        AND p."ownerId" IS NOT NULL ${countryFilter}
+                    ) combined
+                    WHERE name IS NOT NULL AND name != ''
+                    ORDER BY name
                 `,
                 prisma.$queryRaw<{ state: string }[]>`
-                    SELECT DISTINCT p.state
-                    FROM "Parcel" p
-                    WHERE p.state IS NOT NULL AND p.state != ''
-                    AND p."ownerId" IS NOT NULL
-                    ORDER BY p.state
+                    SELECT DISTINCT name as state FROM (
+                        SELECT pr."name" FROM "Province" pr
+                        JOIN "Parcel" p ON p."provinceId" = pr.id
+                        WHERE p."ownerId" IS NOT NULL ${countryFilter}
+                        UNION
+                        SELECT p."stateRaw" as name FROM "Parcel" p
+                        WHERE p."stateRaw" IS NOT NULL AND p."stateRaw" != ''
+                        AND p."ownerId" IS NOT NULL ${countryFilter}
+                        UNION
+                        SELECT p."provinceRaw" as name FROM "Parcel" p
+                        WHERE p."provinceRaw" IS NOT NULL AND p."provinceRaw" != ''
+                        AND p."ownerId" IS NOT NULL ${countryFilter}
+                    ) combined
+                    WHERE name IS NOT NULL AND name != ''
+                    ORDER BY name
                 `,
                 prisma.$queryRaw<{ county: string }[]>`
                     SELECT DISTINCT p.county
                     FROM "Parcel" p
                     WHERE p.county IS NOT NULL AND p.county != ''
-                    AND p."ownerId" IS NOT NULL
+                    AND p."ownerId" IS NOT NULL ${countryFilter}
                     ORDER BY p.county
                 `,
                 prisma.$queryRaw<{ zip: string }[]>`
-                    SELECT DISTINCT p.zip
-                    FROM "Parcel" p
-                    WHERE p.zip IS NOT NULL AND p.zip != ''
-                    AND p."ownerId" IS NOT NULL
-                    ORDER BY p.zip
+                    SELECT DISTINCT name as zip FROM (
+                        SELECT p."postalCode" as name FROM "Parcel" p
+                        WHERE p."postalCode" IS NOT NULL AND p."postalCode" != ''
+                        AND p."ownerId" IS NOT NULL ${countryFilter}
+                        UNION
+                        SELECT p.zip as name FROM "Parcel" p
+                        WHERE p.zip IS NOT NULL AND p.zip != ''
+                        AND p."ownerId" IS NOT NULL ${countryFilter}
+                    ) combined
+                    WHERE name IS NOT NULL AND name != ''
+                    ORDER BY name
                 `
             ]);
 
@@ -59,17 +85,57 @@ export async function GET(request: Request) {
         }
 
         // Build where clause for filters
-        const parcelFilters: any = {};
-        if (city) parcelFilters.city = { equals: city, mode: 'insensitive' };
-        if (county) parcelFilters.county = { equals: county, mode: 'insensitive' };
-        if (state) parcelFilters.state = { equals: state, mode: 'insensitive' };
-        if (zip) parcelFilters.zip = { equals: zip, mode: 'insensitive' };
+        const countryParam = searchParams.get('country');
+        const andConditions: any[] = [];
+
+        if (countryParam) {
+            andConditions.push({
+                parcel: { country: { equals: countryParam, mode: 'insensitive' } }
+            });
+        }
+
+        if (city) {
+            andConditions.push({
+                parcel: {
+                    OR: [
+                        { cityRaw: { equals: city, mode: 'insensitive' } },
+                        { city: { name: { equals: city, mode: 'insensitive' } } }
+                    ]
+                }
+            });
+        }
+
+        if (county) {
+            andConditions.push({
+                parcel: { county: { equals: county, mode: 'insensitive' } }
+            });
+        }
+
+        if (state) {
+            andConditions.push({
+                OR: [
+                    { parcel: { stateRaw: { equals: state, mode: 'insensitive' } } },
+                    { parcel: { provinceRaw: { equals: state, mode: 'insensitive' } } },
+                    { parcel: { province: { name: { equals: state, mode: 'insensitive' } } } },
+                    { parcel: { province: { code: { equals: state, mode: 'insensitive' } } } }
+                ]
+            });
+        }
+
+        if (zip) {
+            andConditions.push({
+                parcel: {
+                    OR: [
+                        { postalCode: { equals: zip, mode: 'insensitive' } },
+                        { zip: { equals: zip, mode: 'insensitive' } }
+                    ]
+                }
+            });
+        }
 
         const whereClause: any = {
-            parcel: {
-                isNot: null,
-                ...parcelFilters
-            }
+            parcel: { isNot: null },
+            ...(andConditions.length > 0 ? { AND: andConditions } : {})
         };
 
         // Get all towers with owner information
@@ -78,7 +144,11 @@ export async function GET(request: Request) {
             include: {
                 parcel: {
                     include: {
-                        owner: true
+                        owner: {
+                            include: { contacts: true }
+                        },
+                        city: true,
+                        province: true
                     }
                 }
             }
@@ -93,12 +163,16 @@ export async function GET(request: Request) {
                     ? tower.parcel.owner
                     : tower.parcel.owner.name || 'Unknown';
 
-                const parcelId = tower.parcel.parcelId || tower.parcel.parcel_id || 'Unknown';
+                const parcelId = tower.parcel.parcelId || 'Unknown';
                 const address = tower.parcel.address || '';
-                const city = tower.parcel.city || '';
+                const cityVal = typeof tower.parcel.city === 'object' && tower.parcel.city
+                    ? (tower.parcel.city as any).name
+                    : (tower.parcel.cityRaw || '');
                 const county = tower.parcel.county || '';
-                const state = tower.parcel.state || '';
-                const zip = tower.parcel.zip || '';
+                const stateVal = typeof tower.parcel.province === 'object' && tower.parcel.province
+                    ? (tower.parcel.province as any).name
+                    : (tower.parcel.provinceRaw || tower.parcel.stateRaw || '');
+                const zip = tower.parcel.postalCode || tower.parcel.zip || '';
 
                 const key = `${ownerName}-${parcelId}`;
 
@@ -107,15 +181,29 @@ export async function GET(request: Request) {
                     existing.towerCount += 1;
                     existing.towerIds.push(tower.id);
                 } else {
+                    const ownerObj = tower.parcel.owner as any;
+                    const contacts = ownerObj?.contacts || [];
+                    const phones = contacts
+                        .filter((c: any) => c.type === 'Phone')
+                        .map((c: any) => c.value);
+                    const emails = contacts
+                        .filter((c: any) => c.type === 'Email')
+                        .map((c: any) => c.value);
+
                     ownerMap.set(key, {
                         id: key,
+                        ownerId: ownerObj?.id || null,
                         ownerName,
+                        ownerType: ownerObj?.type || '',
+                        ownerAddress: ownerObj?.address || '',
                         parcelId,
                         address,
-                        city,
+                        city: cityVal,
                         county,
-                        state,
+                        state: stateVal,
                         zip,
+                        phones,
+                        emails,
                         towerCount: 1,
                         towerIds: [tower.id]
                     });
@@ -138,5 +226,46 @@ export async function GET(request: Request) {
     } catch (error) {
         console.error('Error fetching owners:', error);
         return NextResponse.json({ error: 'Failed to fetch owners' }, { status: 500 });
+    }
+}
+
+// POST /api/owners - Create a new owner with optional contacts and link to a tower's parcel
+export async function POST(request: Request) {
+    try {
+        const body = await request.json();
+        const { name, type, address, contacts, towerId } = body;
+
+        if (!name) {
+            return NextResponse.json({ error: 'Owner name is required' }, { status: 400 });
+        }
+
+        const owner = await prisma.owner.create({
+            data: {
+                name,
+                type: type || null,
+                address: address || null,
+                contacts: contacts && contacts.length > 0 ? {
+                    create: contacts.map((c: { type: string; value: string; label?: string }) => ({
+                        type: c.type,
+                        value: c.value,
+                        label: c.label || null
+                    }))
+                } : undefined
+            },
+            include: { contacts: true }
+        });
+
+        // If towerId provided, link owner to the tower's parcel
+        if (towerId) {
+            await prisma.parcel.updateMany({
+                where: { towerId: parseInt(towerId) },
+                data: { ownerId: owner.id }
+            });
+        }
+
+        return NextResponse.json(owner, { status: 201 });
+    } catch (error) {
+        console.error('Error creating owner:', error);
+        return NextResponse.json({ error: 'Failed to create owner' }, { status: 500 });
     }
 }

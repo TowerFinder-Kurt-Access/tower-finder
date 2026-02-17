@@ -43,6 +43,8 @@ import EditIcon from '@mui/icons-material/Edit';
 import SaveIcon from '@mui/icons-material/Save';
 import CancelIcon from '@mui/icons-material/Cancel';
 import NotesPanel from '@/components/NotesPanel';
+import AddOwnerDialog from '@/components/AddOwnerDialog';
+import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import { TOWER_STATUS_OPTIONS, getStatusLabel } from '@/lib/constants';
 
 // Dynamically import Map to avoid SSR issues with Leaflet
@@ -135,6 +137,7 @@ export default function TowerDetailPage({ params }: PageProps) {
     const [saving, setSaving] = useState(false);
     const [notes, setNotes] = useState<Note[]>([]);
     const [isOwnerLoading, setIsOwnerLoading] = useState(false);
+    const [addOwnerOpen, setAddOwnerOpen] = useState(false);
     const [mounted, setMounted] = useState(false);
     const [streetViewUrl, setStreetViewUrl] = useState('');
     const [isEditingStreetView, setIsEditingStreetView] = useState(false);
@@ -574,6 +577,9 @@ export default function TowerDetailPage({ params }: PageProps) {
                     </Button>
                     <Button startIcon={<TravelExploreIcon />} onClick={handleOpenBingMaps} size="small">
                         Search Nearby
+                    </Button>
+                    <Button startIcon={<PersonAddIcon />} onClick={() => setAddOwnerOpen(true)} size="small" color="warning">
+                        Add Owner
                     </Button>
                 </Toolbar>
             </AppBar>
@@ -1070,6 +1076,14 @@ export default function TowerDetailPage({ params }: PageProps) {
                     </Button>
                 </DialogActions>
             </Dialog>
+
+            {/* Add Owner Dialog */}
+            <AddOwnerDialog
+                open={addOwnerOpen}
+                onClose={() => setAddOwnerOpen(false)}
+                onSuccess={() => loadTower()}
+                towerId={towerId}
+            />
 
             {/* Add New Lookup Dialog */}
             <Dialog

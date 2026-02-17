@@ -13,8 +13,11 @@ import PromoteLeadDialog from '@/components/PromoteLeadDialog';
 import SatelliteAltIcon from '@mui/icons-material/SatelliteAlt';
 import AddLocationAltIcon from '@mui/icons-material/AddLocationAlt';
 import MapIcon from '@mui/icons-material/Map';
+import PersonAddIcon from '@mui/icons-material/PersonAdd';
+import AddOwnerDialog from '@/components/AddOwnerDialog';
 
-import { STATIC_LOCATIONS, STATIC_COUNTRIES } from '@/lib/locations';
+import { STATIC_LOCATIONS } from '@/lib/locations';
+import { useCountry } from '@/lib/country-context';
 
 interface LeadSearch {
     id: number;
@@ -36,6 +39,7 @@ function TowerLeadsContent() {
     const searchParams = useSearchParams();
     const router = useRouter();
     const pathname = usePathname();
+    const { country: globalCountry } = useCountry();
 
     // Initialize tab from URL or default to 0
     const initialTab = parseInt(searchParams.get('tab') || '0', 10);
@@ -65,27 +69,57 @@ function TowerLeadsContent() {
     const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({ page: 0, pageSize: 25 });
     const [isLoading, setIsLoading] = useState(false);
 
-    // Filters for Tab 1
-    const [filterCountry, setFilterCountry] = useState('');
+    // Filters for Tab 1 - use global country
+    const filterCountry = globalCountry || '';
     const [filterProvince, setFilterProvince] = useState('');
     const [filterCity, setFilterCity] = useState('');
     const [filterPromoted, setFilterPromoted] = useState('all'); // all, true, false
     const [leadToPromote, setLeadToPromote] = useState<any>(null);
+    const [addOwnerForTowerId, setAddOwnerForTowerId] = useState<number | null>(null);
 
-    // Unified Filter Options (Tab 1)
-    // Use Static Data for Country/Province to show "all options" by default
-    const filterCountries = STATIC_COUNTRIES;
+    // Reset province/city when global country changes
+    useEffect(() => {
+        setFilterProvince('');
+        setFilterCity('');
+    }, [globalCountry]);
 
-    // Get provinces based on selected country (static)
-    const filterProvinces = filterCountry
-        ? (STATIC_LOCATIONS[filterCountry] ? Object.keys(STATIC_LOCATIONS[filterCountry]) : [])
-        : [];
+    // Dynamic provinces and cities from tower-leads DB
+    const [filterProvinces, setFilterProvinces] = useState<string[]>([]);
+    const [filterCities, setFilterCities] = useState<string[]>([]);
 
-    // Keep cities dynamic (from DB) because static list is too small/empty for USA
-    const { cities: filterCities } = useLocationData(filterCountry, filterProvince);
+    // Load provinces dynamically when country changes
+    useEffect(() => {
+        if (!filterCountry) {
+            setFilterProvinces([]);
+            return;
+        }
+        const load = async () => {
+            try {
+                const res = await axios.get(`/api/tower-leads?distinct=provinces&country=${encodeURIComponent(filterCountry)}`);
+                setFilterProvinces(res.data || []);
+            } catch { setFilterProvinces([]); }
+        };
+        load();
+    }, [filterCountry]);
+
+    // Load cities dynamically when country or province changes
+    useEffect(() => {
+        if (!filterCountry) {
+            setFilterCities([]);
+            return;
+        }
+        const load = async () => {
+            try {
+                const params = new URLSearchParams({ distinct: 'cities', country: filterCountry });
+                if (filterProvince) params.append('province', filterProvince);
+                const res = await axios.get(`/api/tower-leads?${params.toString()}`);
+                setFilterCities(res.data || []);
+            } catch { setFilterCities([]); }
+        };
+        load();
+    }, [filterCountry, filterProvince]);
 
     // Tab 2: Find leads form state
-    const [selectedCountry, setSelectedCountry] = useState('');
     const [selectedProvince, setSelectedProvince] = useState('');
     const [selectedCity, setSelectedCity] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -109,9 +143,9 @@ function TowerLeadsContent() {
     // No, mixing is complex. I'll use the Hook for Tab 2 also, but I'll add a helper to "Allow Custom Input" or similar?
     // Or just use the hook. The user explicitly asked to "match the map".
     // Derived Static Data for Tab 2
-    const searchProvinces = selectedCountry ? Object.keys(STATIC_LOCATIONS[selectedCountry] || {}) : [];
-    const searchCities = (selectedCountry && selectedProvince)
-        ? STATIC_LOCATIONS[selectedCountry][selectedProvince] || []
+    const searchProvinces = globalCountry ? Object.keys(STATIC_LOCATIONS[globalCountry] || {}) : [];
+    const searchCities = (globalCountry && selectedProvince)
+        ? STATIC_LOCATIONS[globalCountry][selectedProvince] || []
         : [];
 
     // Load tower leads for Tab 1
@@ -164,21 +198,21 @@ function TowerLeadsContent() {
 
     // Update handleFindLeads to include province
     const handleFindLeads = async () => {
-        if (!selectedCountry) return; // City is optional now.
+        if (!globalCountry) return; // City is optional now.
 
         setIsSubmitting(true);
         setSubmitMessage(null);
 
         try {
             const res = await axios.post('/api/tower-leads/search', {
-                country: selectedCountry,
+                country: globalCountry,
                 province: selectedProvince || undefined,
                 city: selectedCity,
             });
             // ... same success handling ...
             setSubmitMessage({
                 type: 'success',
-                text: res.data.message || `Search queued for ${selectedCity}, ${selectedCountry}`,
+                text: res.data.message || `Search queued for ${selectedCity}, ${globalCountry}`,
             });
             loadSearchHistory();
         } catch (error: any) {
@@ -261,6 +295,18 @@ function TowerLeadsContent() {
                                 </IconButton>
                             </Tooltip>
                         )}
+
+                        {isPromoted && (
+                            <Tooltip title="Add Owner">
+                                <IconButton
+                                    size="small"
+                                    color="warning"
+                                    onClick={() => setAddOwnerForTowerId(lead.promotedToTowerId)}
+                                >
+                                    <PersonAddIcon fontSize="small" />
+                                </IconButton>
+                            </Tooltip>
+                        )}
                     </Stack>
                 );
             }
@@ -319,22 +365,6 @@ function TowerLeadsContent() {
                 <Paper sx={{ flex: 1, display: 'flex', flexDirection: 'column', p: 2 }}>
                     {/* Filters */}
                     <Box sx={{ display: 'flex', gap: 2, mb: 2, flexWrap: 'wrap' }}>
-                        <FormControl size="small" sx={{ minWidth: 150 }}>
-                            <InputLabel>Country</InputLabel>
-                            <Select
-                                value={filterCountry}
-                                label="Country"
-                                onChange={(e) => {
-                                    setFilterCountry(e.target.value);
-                                    setFilterProvince('');
-                                    setFilterCity('');
-                                }}
-                            >
-                                <MenuItem value="">All Countries</MenuItem>
-                                {filterCountries.map(c => <MenuItem key={c} value={c}>{c}</MenuItem>)}
-                            </Select>
-                        </FormControl>
-
                         <FormControl size="small" sx={{ minWidth: 150 }}>
                             <InputLabel>Province/State</InputLabel>
                             <Select
@@ -408,6 +438,12 @@ function TowerLeadsContent() {
                         onClose={() => setLeadToPromote(null)}
                         onSuccess={() => loadLeads()}
                     />
+                    <AddOwnerDialog
+                        open={!!addOwnerForTowerId}
+                        onClose={() => setAddOwnerForTowerId(null)}
+                        onSuccess={() => loadLeads()}
+                        towerId={addOwnerForTowerId || undefined}
+                    />
                 </Paper>
             )}
 
@@ -418,23 +454,6 @@ function TowerLeadsContent() {
                         {/* Headers ... */}
                         <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-end', flexWrap: 'wrap' }}>
                             <FormControl sx={{ minWidth: 200 }}>
-                                <InputLabel>Country</InputLabel>
-                                <Select
-                                    value={selectedCountry}
-                                    onChange={(e) => {
-                                        setSelectedCountry(e.target.value);
-                                        setSelectedProvince('');
-                                        setSelectedCity('');
-                                    }}
-                                    label="Country"
-                                >
-                                    {STATIC_COUNTRIES.map((c) => (
-                                        <MenuItem key={c} value={c}>{c}</MenuItem>
-                                    ))}
-                                </Select>
-                            </FormControl>
-
-                            <FormControl sx={{ minWidth: 200 }}>
                                 <InputLabel>Province/State</InputLabel>
                                 <Select
                                     value={selectedProvince}
@@ -443,7 +462,7 @@ function TowerLeadsContent() {
                                         setSelectedCity('');
                                     }}
                                     label="Province/State"
-                                    disabled={!selectedCountry}
+                                    disabled={!globalCountry}
                                 >
                                     {searchProvinces.map((p) => (
                                         <MenuItem key={p} value={p}>{p}</MenuItem>
@@ -456,7 +475,7 @@ function TowerLeadsContent() {
                                 options={searchCities}
                                 value={selectedCity}
                                 onInputChange={(_, newInputValue) => setSelectedCity(newInputValue)}
-                                disabled={!selectedCountry}
+                                disabled={!globalCountry}
                                 renderInput={(params) => (
                                     <TextField {...params} label="City" />
                                 )}
@@ -466,7 +485,7 @@ function TowerLeadsContent() {
                             <Button
                                 variant="contained"
                                 onClick={handleFindLeads}
-                                disabled={!selectedCountry || isSubmitting}
+                                disabled={!globalCountry || isSubmitting}
                                 sx={{ height: 56 }}
                             >
                                 {isSubmitting ? <CircularProgress size={24} /> : 'Find Leads'}

@@ -7,6 +7,8 @@ import { Paper, Typography, Drawer, IconButton } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import TowerTableSimple from '@/components/TowerTableSimple';
 import NotesPanel from '@/components/NotesPanel';
+import AddOwnerDialog from '@/components/AddOwnerDialog';
+import { useCountry } from '@/lib/country-context';
 
 interface Tower {
     id: number;
@@ -42,6 +44,7 @@ interface OwnerResult {
 
 function TowersPageContent() {
     const router = useRouter();
+    const { country: globalCountry } = useCountry();
 
     const [towers, setTowers] = useState<Tower[]>([]);
     const [totalCount, setTotalCount] = useState<number>(0);
@@ -51,6 +54,7 @@ function TowersPageContent() {
     const [selectedTower, setSelectedTower] = useState<Tower | null>(null);
     const [isOwnerLoading, setIsOwnerLoading] = useState<boolean>(false);
     const [notesDrawerTower, setNotesDrawerTower] = useState<any>(null);
+    const [addOwnerTower, setAddOwnerTower] = useState<any>(null);
     const [notesDrawerNotes, setNotesDrawerNotes] = useState<any[]>([]);
     const [filterOptions, setFilterOptions] = useState<{
         cities: string[];
@@ -103,12 +107,13 @@ function TowersPageContent() {
         localStorage.setItem('towersPageSettings', JSON.stringify(settings));
     }, [page, rowsPerPage, filters]);
 
-    // Load distinct filter values on mount
+    // Load distinct filter values (re-fetch when global country changes)
     useEffect(() => {
         const loadFilterOptions = async () => {
             try {
+                const countryParam = globalCountry ? `&country=${encodeURIComponent(globalCountry)}` : '';
                 const [filtersRes, lookupsRes] = await Promise.all([
-                    axios.get('/api/towers?distinct=filters'),
+                    axios.get(`/api/towers?distinct=filters${countryParam}`),
                     axios.get('/api/towers?distinct=lookups')
                 ]);
                 const typesData = lookupsRes.data.types || [];
@@ -130,7 +135,7 @@ function TowersPageContent() {
             }
         };
         loadFilterOptions();
-    }, []);
+    }, [globalCountry]);
 
     // Load towers function
     const loadTowers = useCallback(async () => {
@@ -142,6 +147,7 @@ function TowersPageContent() {
                 limit: rowsPerPage.toString()
             });
 
+            if (globalCountry) params.append('country', globalCountry);
             if (filters.city) params.append('city', filters.city);
             if (filters.county) params.append('county', filters.county);
             if (filters.state) params.append('state', filters.state);
@@ -177,7 +183,7 @@ function TowersPageContent() {
         } finally {
             setIsLoading(false);
         }
-    }, [page, rowsPerPage, filters]);
+    }, [page, rowsPerPage, filters, globalCountry]);
 
     // Load towers with pagination and filters
     useEffect(() => {
@@ -325,6 +331,8 @@ function TowersPageContent() {
                         }}
                         onCellEdit={handleCellEdit}
                         onNotesClick={handleNotesClick}
+                        onAddOwner={(tower) => setAddOwnerTower(tower)}
+                        country={globalCountry}
                     />
                 </Paper>
             </Box>
@@ -368,6 +376,14 @@ function TowersPageContent() {
                     </>
                 )}
             </Drawer>
+
+            {/* Add Owner Dialog */}
+            <AddOwnerDialog
+                open={!!addOwnerTower}
+                onClose={() => setAddOwnerTower(null)}
+                onSuccess={() => loadTowers()}
+                towerId={addOwnerTower?.id}
+            />
         </Box>
     );
 }

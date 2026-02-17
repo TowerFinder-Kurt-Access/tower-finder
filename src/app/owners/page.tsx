@@ -9,18 +9,24 @@ import MapIcon from '@mui/icons-material/Map';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
 import CircularProgress from '@mui/material/CircularProgress';
+import { useCountry } from '@/lib/country-context';
 
 interface OwnerRow {
-    id: string; // Unique ID for the row (e.g. Parcel ID + Owner Name hash)
+    id: string;
+    ownerId: number | null;
     ownerName: string;
+    ownerType: string;
+    ownerAddress: string;
     parcelId: string;
     address: string;
     city: string;
     county: string;
     state: string;
     zip: string;
-    towerCount: number; // How many towers on this land
-    towerIds: string; // Comma separated IDs
+    phones: string[];
+    emails: string[];
+    towerCount: number;
+    towerIds: string;
 }
 
 export default function OwnersPage() {
@@ -44,12 +50,14 @@ export default function OwnersPage() {
         zip?: string;
     }>({});
     const router = useRouter();
+    const { country: globalCountry } = useCountry();
 
-    // Load distinct filter values on mount
+    // Load distinct filter values (re-fetch when country changes)
     useEffect(() => {
         const loadFilterOptions = async () => {
             try {
-                const res = await axios.get('/api/owners?distinct=filters');
+                const countryParam = globalCountry ? `&country=${encodeURIComponent(globalCountry)}` : '';
+                const res = await axios.get(`/api/owners?distinct=filters${countryParam}`);
                 setFilterOptions({
                     cities: res.data.cities || [],
                     states: res.data.states || [],
@@ -61,7 +69,7 @@ export default function OwnersPage() {
             }
         };
         loadFilterOptions();
-    }, []);
+    }, [globalCountry]);
 
     useEffect(() => {
         const fetchOwners = async () => {
@@ -72,6 +80,7 @@ export default function OwnersPage() {
                     limit: paginationModel.pageSize.toString()
                 });
 
+                if (globalCountry) params.append('country', globalCountry);
                 if (filters.city) params.append('city', filters.city);
                 if (filters.county) params.append('county', filters.county);
                 if (filters.state) params.append('state', filters.state);
@@ -99,7 +108,7 @@ export default function OwnersPage() {
         };
 
         fetchOwners();
-    }, [paginationModel.page, paginationModel.pageSize, filters]);
+    }, [paginationModel.page, paginationModel.pageSize, filters, globalCountry]);
 
     const handleSeeInMap = (row: OwnerRow) => {
         // Build query params to center map
@@ -136,9 +145,38 @@ export default function OwnersPage() {
     };
 
     const columns: GridColDef[] = [
-        { field: 'ownerName', headerName: 'Owner Name', flex: 1, minWidth: 200 },
+        {
+            field: 'ownerName',
+            headerName: 'Owner Name',
+            flex: 1,
+            minWidth: 200,
+            renderCell: (params) => (
+                params.row.ownerId ? (
+                    <Box
+                        component="a"
+                        href={`/owners/${params.row.ownerId}`}
+                        sx={{ color: '#2196f3', textDecoration: 'none', '&:hover': { textDecoration: 'underline' }, cursor: 'pointer' }}
+                    >
+                        {params.value}
+                    </Box>
+                ) : params.value
+            )
+        },
+        { field: 'ownerType', headerName: 'Type', width: 100 },
         { field: 'parcelId', headerName: 'Parcel ID', width: 150 },
         { field: 'address', headerName: 'Property Address', flex: 1, minWidth: 200 },
+        {
+            field: 'phones',
+            headerName: 'Phones',
+            width: 150,
+            valueGetter: (value: any) => Array.isArray(value) ? value.join(', ') : ''
+        },
+        {
+            field: 'emails',
+            headerName: 'Emails',
+            width: 180,
+            valueGetter: (value: any) => Array.isArray(value) ? value.join(', ') : ''
+        },
         {
             field: 'city',
             headerName: 'City',
@@ -155,14 +193,14 @@ export default function OwnersPage() {
         },
         {
             field: 'state',
-            headerName: 'State',
+            headerName: globalCountry === 'USA' ? 'State' : 'Province',
             width: 80,
             type: 'singleSelect',
             valueOptions: filterOptions.states
         },
         {
             field: 'zip',
-            headerName: 'ZIP',
+            headerName: globalCountry === 'USA' ? 'ZIP' : 'Postal Code',
             width: 90,
             type: 'singleSelect',
             valueOptions: filterOptions.zips
