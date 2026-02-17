@@ -57,11 +57,19 @@ function HomeContent() {
   const [selectedTower, setSelectedTower] = useState<Tower | null>(null);
   const [selectedCity, setSelectedCity] = useState<string>('');
   const [selectedProvince, setSelectedProvince] = useState<string>('');
-  const { country: selectedCountry } = useCountry();
+  const { country: selectedCountry, setCountry } = useCountry();
   const [ownerData, setOwnerData] = useState<OwnerResult | null>(null);
   const [isOwnerLoading, setIsOwnerLoading] = useState<boolean>(false);
   const [mounted, setMounted] = useState(false);
   const [leadToPromote, setLeadToPromote] = useState<any>(null);
+
+  const isMounted = useRef(true);
+  useEffect(() => {
+    isMounted.current = true;
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
 
   // Additional filters state
   const [selectedType, setSelectedType] = useState<string>('');
@@ -77,35 +85,51 @@ function HomeContent() {
 
   // Effect to handle URL params for selecting a tower or centering map
   useEffect(() => {
-    const towerId = searchParams.get('towerId');
     const latParam = searchParams.get('lat');
     const lonParam = searchParams.get('lon');
     const zoomParam = searchParams.get('zoom');
     const cityParam = searchParams.get('city');
+    const countryParam = searchParams.get('country');
+
+    // 1. Sync Country Context from URL
+    if (countryParam && countryParam !== selectedCountry) {
+      setCountry(countryParam);
+      // Updating country will trigger the reset effect below
+    }
+
+    // 2. Center map and show leads if coordinates provided
     if (latParam && lonParam) {
       const lat = parseFloat(latParam);
       const lon = parseFloat(lonParam);
       if (!isNaN(lat) && !isNaN(lon)) {
         setMapCenter([lat, lon]);
-        setZoom(zoomParam ? parseInt(zoomParam) : 15); // Zoom in close if coordinates provided
+        if (zoomParam) setZoom(parseInt(zoomParam));
+
+        // If we are showing a specific lead/tower, we don't want to fit bounds to the whole region
+        setShouldFitBounds(false);
+        setShowLeads(true); // Automatically show leads if we are pointing to one
       }
     }
 
-    if (cityParam) setSelectedCity(cityParam);
-
-    if (towerId && !selectedTower) {
-      // Logic for URL-based tower selection could go here
+    if (cityParam && cityParam !== selectedCity) {
+      setSelectedCity(cityParam);
     }
-  }, [searchParams, selectedTower]);
+  }, [searchParams, selectedCountry, setCountry]);
 
   // Handle map bounds change
   const handleBoundsChange = useCallback((bounds: any) => {
-    setMapBounds(bounds);
+    if (isMounted.current) {
+      setMapBounds(bounds);
+      // Optional: track current zoom to prevent snapbacks if needed
+      // but flyTo with stable state should be fine.
+    }
   }, []);
 
   // Fetch Towers based on filters and map bounds
+  // ... (lines 114-162 unchanged but I'll include the relevant parts)
   useEffect(() => {
     const fetchTowers = async () => {
+      if (!isMounted.current) return;
       setIsLoading(true);
       try {
         const params: any = {};
@@ -120,33 +144,21 @@ function HomeContent() {
         if (selectedLicensee) params.licensee = selectedLicensee;
 
         // BBox (only if allowed / needed)
-        // Only use map bounds if we are NOT in the middle of a filter-triggered fit
-        // And if we haven't just changed filters (which triggers a "global" search for that region)
         if (mapBounds && !shouldFitBounds && !((selectedCity || selectedProvince) && towers.length === 0)) {
-          // Logic refinement: 
-          // If I have a city selected, I generally WANT to see all towers in that city,
-          // UNLESS I have zoomed in manually?
-          // But if I have a city filter, `api/towers` might return ALL towers in city if limit allows.
-          // If I send bbox, I restrict it.
-          // If `shouldFitBounds` is true, it means we recently changed filter, so we want the initial "full view" of the filter results.
-          // So we omit bbox.
-          // If `shouldFitBounds` is false, it means we are panning around.
-          const { _southWest, _northEast } = mapBounds;
-          params.bbox = `${_southWest.lng},${_southWest.lat},${_northEast.lng},${_northEast.lat}`;
+          const { north, south, east, west } = mapBounds;
+          params.bbox = `${west},${south},${east},${north}`;
         }
 
-        // Explicitly omit bbox if we are fitting bounds (refreshing data for new region)
         if (shouldFitBounds) {
           delete params.bbox;
         }
 
         const { data } = await axios.get('/api/towers', { params });
-        setTowers(data);
-
+        if (isMounted.current) setTowers(data);
       } catch (error) {
         console.error('Error fetching towers:', error);
       } finally {
-        setIsLoading(false);
+        if (isMounted.current) setIsLoading(false);
       }
     };
 
@@ -155,12 +167,17 @@ function HomeContent() {
     }, 500);
 
     return () => clearTimeout(timeoutId);
-  }, [mapBounds, selectedCountry, selectedProvince, selectedCity, selectedType, selectedCarrier, selectedLicensee, shouldFitBounds]);
+  }, [mapBounds, selectedCountry, selectedProvince, selectedCity, selectedType, selectedCarrier, selectedLicensee, shouldFitBounds, towers.length]);
 
-  // Fit bounds when towers change AND we have flagged to fit bounds
   // Fit bounds using Geocoding API when filter changes
   useEffect(() => {
     if (shouldFitBounds && (selectedCountry || selectedProvince || selectedCity)) {
+      // If URL has lat/lon, don't auto-fit bounds (let the explicit coordinates win)
+      if (searchParams.get('lat') && searchParams.get('lon')) {
+        setShouldFitBounds(false);
+        return;
+      }
+
       const fetchBounds = async () => {
         try {
           const params = new URLSearchParams();
@@ -170,64 +187,40 @@ function HomeContent() {
 
           const res = await fetch(`/api/geocode?${params.toString()}`);
           if (res.ok) {
-            const bounds = await res.json(); // { north, south, east, west }
-            // Convert to Leaflet bounds: [[south, west], [north, east]]
-            // Wait, Leaflet bounds are [[lat1, lon1], [lat2, lon2]] (corner 1, corner 2)
-            setBoundsToFit([[bounds.south, bounds.west], [bounds.north, bounds.east]]);
+            const bounds = await res.json();
+            if (isMounted.current) setBoundsToFit([[bounds.south, bounds.west], [bounds.north, bounds.east]]);
           }
         } catch (error) {
-          console.error('Geocoding failed, falling back to data bounds', error);
-          // Fallback to data bounds handled below? 
-          // If we fail here, we might want to let the "towers" effect handle it?
-          // But we setShouldFitBounds(false) only on success?
-          // If we don't set false, the other effect might run?
-          // Actually, let's keep the other effect as a backup, but modified.
+          console.error('Geocoding failed', error);
         } finally {
-          setShouldFitBounds(false);
+          if (isMounted.current) setShouldFitBounds(false);
         }
       };
       fetchBounds();
     }
-  }, [shouldFitBounds, selectedCountry, selectedProvince, selectedCity]);
-
-  // Backup: Fit bounds when towers change if geocoding didn't happen (or if we want strict data fit?)
-  // User prefers geocoding. So I'll disable this fallback for now or only use it if shouldFitBounds is STILL true (which implies geocoding failed/skipped).
-  // But purely relying on Geocoding is safer for "empty" regions.
-  /* 
-  useEffect(() => {
-    if (shouldFitBounds && towers.length > 0) {
-      // ... existing logic ...
-      setShouldFitBounds(false);
-    }
-  }, [towers, shouldFitBounds]); 
-  */
-
+  }, [shouldFitBounds, selectedCountry, selectedProvince, selectedCity, searchParams]);
 
   // Fetch Tower Leads
   useEffect(() => {
-    // Only fetch leads if "Show Leads" is toggled ON
     if (!showLeads) {
       setTowerLeads([]);
       return;
     }
 
     const fetchTowerLeads = async () => {
+      if (!isMounted.current) return;
       setIsLeadsLoading(true);
       try {
-        const params: any = {
-          limit: 500 // Reasonable limit for map display
-        };
-
-        // Filters
+        const params: any = { limit: 500 };
         if (selectedCountry) params.country = selectedCountry;
         if (selectedCity) params.city = selectedCity;
 
         const { data } = await axios.get('/api/tower-leads', { params });
-        setTowerLeads(data.data || []);
+        if (isMounted.current) setTowerLeads(data.data || []);
       } catch (error) {
         console.error('Error fetching tower leads:', error);
       } finally {
-        setIsLeadsLoading(false);
+        if (isMounted.current) setIsLeadsLoading(false);
       }
     };
 
@@ -251,7 +244,6 @@ function HomeContent() {
   };
 
   const handlePromoteSuccess = (leadId: number) => {
-    // Remove from local state
     setTowerLeads(prev => prev.filter(l => l.id !== leadId));
     setLeadToPromote(null);
   };
@@ -260,11 +252,17 @@ function HomeContent() {
   useEffect(() => {
     setSelectedProvince('');
     setSelectedCity('');
-    setShouldFitBounds(true);
+
+    // Only fit to country if we DON'T have a specific lead/tower targeted in URL
+    const hasCoordinates = searchParams.get('lat') && searchParams.get('lon');
+    if (!hasCoordinates) {
+      setShouldFitBounds(true);
+    }
+
     setShowLeads(false);
     setTowerLeads([]);
     setTowers([]);
-  }, [selectedCountry]);
+  }, [selectedCountry, searchParams]);
 
   const handleProvinceChange = (newProvince: string) => {
     setSelectedProvince(newProvince);
@@ -272,7 +270,7 @@ function HomeContent() {
     setShouldFitBounds(true);
     setShowLeads(false);
     setTowerLeads([]);
-    setTowers([]); // Clear current markers immediately
+    setTowers([]);
   };
 
   const handleCityChange = (newCity: string) => {
@@ -280,34 +278,29 @@ function HomeContent() {
     setShouldFitBounds(true);
     setShowLeads(false);
     setTowerLeads([]);
-    setTowers([]); // Clear current markers immediately
+    setTowers([]);
   };
 
   const handleLookupOwner = async (tower: Tower) => {
     setIsOwnerLoading(true);
     try {
       const res = await axios.get(`/api/towers/${tower.id}/owner`);
-      setOwnerData(res.data);
+      if (isMounted.current) setOwnerData(res.data);
     } catch (e) {
       console.error(e);
-      setOwnerData({ result: null });
+      if (isMounted.current) setOwnerData({ result: null });
     } finally {
-      setIsOwnerLoading(false);
+      if (isMounted.current) setIsOwnerLoading(false);
     }
-  }
+  };
 
   const handleFilterChange = (filters: FilterState) => {
     if (filters.city !== undefined && filters.city !== selectedCity) handleCityChange(filters.city);
-    // ^ Note: Sidebar calls onCitySelect separately, but triggerFilter also includes city.
-    // We should ensure we don't double trigger. 
-    // Sidebar logic: handleCityChange triggers triggerFilter AND onCitySelect.
-    // onFilterChange in Page updates state? 
-    // Let's rely on specific handlers for Location, and general handler for others.
-
     if (filters.type !== undefined) setSelectedType(filters.type);
     if (filters.carrier !== undefined) setSelectedCarrier(filters.carrier);
     if (filters.licensee !== undefined) setSelectedLicensee(filters.licensee);
-  }
+  };
+
 
   const toggleLeadsVisibility = () => {
     setShowLeads(!showLeads);

@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useCallback, Suspense } from 'react';
+import { useState, useEffect, useCallback, Suspense, useMemo, useRef } from 'react';
 import Link from 'next/link';
 import {
     Box, Typography, Tabs, Tab, Paper, Button, Select, MenuItem,
@@ -31,33 +31,28 @@ interface LeadSearch {
     updatedAt: string;
 }
 
-import { useLocationData } from '@/hooks/use-location-data';
-
-// ... imports remain the same ...
-
 function TowerLeadsContent() {
     const searchParams = useSearchParams();
     const router = useRouter();
     const pathname = usePathname();
     const { country: globalCountry } = useCountry();
 
-    // Initialize tab from URL or default to 0
-    const initialTab = parseInt(searchParams.get('tab') || '0', 10);
-    const [activeTab, setActiveTab] = useState(initialTab);
-
-    // Sync tab state with URL (handles back/forward navigation)
+    // Track mounted state to avoid updates on unmounted/discarded components
+    const isMounted = useRef(true);
     useEffect(() => {
-        const tabParam = searchParams.get('tab');
-        if (tabParam) {
-            setActiveTab(parseInt(tabParam, 10));
-        } else {
-            setActiveTab(0);
-        }
+        isMounted.current = true;
+        return () => {
+            isMounted.current = false;
+        };
+    }, []);
+
+    // Derive active tab from URL directly for stability
+    const activeTab = useMemo(() => {
+        const tab = searchParams.get('tab');
+        return tab ? parseInt(tab, 10) : 0;
     }, [searchParams]);
 
-
     const handleTabChange = (_: React.SyntheticEvent, newValue: number) => {
-        // Update URL to persist tab state
         const params = new URLSearchParams(searchParams.toString());
         params.set('tab', newValue.toString());
         router.push(`${pathname}?${params.toString()}`);
@@ -69,11 +64,11 @@ function TowerLeadsContent() {
     const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({ page: 0, pageSize: 25 });
     const [isLoading, setIsLoading] = useState(false);
 
-    // Filters for Tab 1 - use global country
+    // Filters for Tab 1
     const filterCountry = globalCountry || '';
     const [filterProvince, setFilterProvince] = useState('');
     const [filterCity, setFilterCity] = useState('');
-    const [filterPromoted, setFilterPromoted] = useState('all'); // all, true, false
+    const [filterPromoted, setFilterPromoted] = useState('all');
     const [leadToPromote, setLeadToPromote] = useState<any>(null);
     const [addOwnerForTowerId, setAddOwnerForTowerId] = useState<number | null>(null);
 
@@ -83,11 +78,10 @@ function TowerLeadsContent() {
         setFilterCity('');
     }, [globalCountry]);
 
-    // Dynamic provinces and cities from tower-leads DB
+    // Dynamic provinces and cities
     const [filterProvinces, setFilterProvinces] = useState<string[]>([]);
     const [filterCities, setFilterCities] = useState<string[]>([]);
 
-    // Load provinces dynamically when country changes
     useEffect(() => {
         if (!filterCountry) {
             setFilterProvinces([]);
@@ -96,13 +90,14 @@ function TowerLeadsContent() {
         const load = async () => {
             try {
                 const res = await axios.get(`/api/tower-leads?distinct=provinces&country=${encodeURIComponent(filterCountry)}`);
-                setFilterProvinces(res.data || []);
-            } catch { setFilterProvinces([]); }
+                if (isMounted.current) setFilterProvinces(res.data || []);
+            } catch {
+                if (isMounted.current) setFilterProvinces([]);
+            }
         };
         load();
     }, [filterCountry]);
 
-    // Load cities dynamically when country or province changes
     useEffect(() => {
         if (!filterCountry) {
             setFilterCities([]);
@@ -113,8 +108,10 @@ function TowerLeadsContent() {
                 const params = new URLSearchParams({ distinct: 'cities', country: filterCountry });
                 if (filterProvince) params.append('province', filterProvince);
                 const res = await axios.get(`/api/tower-leads?${params.toString()}`);
-                setFilterCities(res.data || []);
-            } catch { setFilterCities([]); }
+                if (isMounted.current) setFilterCities(res.data || []);
+            } catch {
+                if (isMounted.current) setFilterCities([]);
+            }
         };
         load();
     }, [filterCountry, filterProvince]);
@@ -127,22 +124,6 @@ function TowerLeadsContent() {
     const [searchHistory, setSearchHistory] = useState<LeadSearch[]>([]);
     const [isHistoryLoading, setIsHistoryLoading] = useState(false);
 
-    // Dynamic Data for Search Form
-    // Note: For "Search", we might want to use a static list if DB is empty (like for USA).
-    // But since we want to "match the map", using dynamic data ensures we filter existing things correctly.
-    // For *finding new leads*, if DB is empty, dynamic data is empty.
-    // We should probably rely on the static list fallback for "Search" if dynamic is empty?
-    // Or just let user type?
-    // For now, let's use the same Dynamic Hook for consistency with Map. 
-    // If user has no US data, they can't search US. They must import first? 
-    // Or I should keep the STATIC list for Tab 2 strictly?
-    // Creating a static fallback for Tab 2 seems wise if we want to allow bootstrapping.
-
-    // Let's use the hook for now. If it's empty, we might need a backup.
-    // Actually, I'll keep the static COUNTRY_CITIES for Tab 2 if useLocationData returns nothing?
-    // No, mixing is complex. I'll use the Hook for Tab 2 also, but I'll add a helper to "Allow Custom Input" or similar?
-    // Or just use the hook. The user explicitly asked to "match the map".
-    // Derived Static Data for Tab 2
     const searchProvinces = globalCountry ? Object.keys(STATIC_LOCATIONS[globalCountry] || {}) : [];
     const searchCities = (globalCountry && selectedProvince)
         ? STATIC_LOCATIONS[globalCountry][selectedProvince] || []
@@ -150,6 +131,7 @@ function TowerLeadsContent() {
 
     // Load tower leads for Tab 1
     const loadLeads = useCallback(async () => {
+        if (!isMounted.current) return;
         setIsLoading(true);
         try {
             const params = new URLSearchParams({
@@ -163,70 +145,74 @@ function TowerLeadsContent() {
             if (filterPromoted !== 'all') params.append('promoted', filterPromoted);
 
             const res = await axios.get(`/api/tower-leads?${params.toString()}`);
-            setLeads(res.data.data || []);
-            setTotalCount(res.data.totalCount || 0);
+            if (isMounted.current) {
+                setLeads(res.data.data || []);
+                setTotalCount(res.data.totalCount || 0);
+            }
         } catch (error) {
             console.error('Error loading tower leads:', error);
-            // Fallback for empty data
-            setLeads([]);
-            setTotalCount(0);
+            if (isMounted.current) {
+                setLeads([]);
+                setTotalCount(0);
+            }
         } finally {
-            setIsLoading(false);
+            if (isMounted.current) setIsLoading(false);
         }
     }, [paginationModel, filterCountry, filterProvince, filterCity, filterPromoted]);
 
     // Load search history for Tab 2
     const loadSearchHistory = useCallback(async () => {
+        if (!isMounted.current) return;
         setIsHistoryLoading(true);
         try {
             const res = await axios.get('/api/tower-leads/search');
-            setSearchHistory(res.data || []);
+            if (isMounted.current) setSearchHistory(res.data || []);
         } catch (error) {
             console.error('Error loading search history:', error);
         } finally {
-            setIsHistoryLoading(false);
+            if (isMounted.current) setIsHistoryLoading(false);
         }
     }, []);
 
     useEffect(() => {
-        if (activeTab === 0) {
-            loadLeads();
-        } else {
-            loadSearchHistory();
+        // Only load data if we are actually on the tower-leads page
+        if (pathname === '/tower-leads') {
+            if (activeTab === 0) loadLeads();
+            else loadSearchHistory();
         }
-    }, [activeTab, loadLeads, loadSearchHistory]);
+    }, [activeTab, loadLeads, loadSearchHistory, pathname]);
 
-    // Update handleFindLeads to include province
     const handleFindLeads = async () => {
-        if (!globalCountry) return; // City is optional now.
-
+        if (!globalCountry) return;
         setIsSubmitting(true);
         setSubmitMessage(null);
-
         try {
             const res = await axios.post('/api/tower-leads/search', {
                 country: globalCountry,
                 province: selectedProvince || undefined,
                 city: selectedCity,
             });
-            // ... same success handling ...
-            setSubmitMessage({
-                type: 'success',
-                text: res.data.message || `Search queued for ${selectedCity}, ${globalCountry}`,
-            });
-            loadSearchHistory();
+            if (isMounted.current) {
+                setSubmitMessage({
+                    type: 'success',
+                    text: res.data.message || `Search queued for ${selectedCity}, ${globalCountry}`,
+                });
+                loadSearchHistory();
+            }
         } catch (error: any) {
-            setSubmitMessage({
-                type: 'error',
-                text: error.response?.data?.error || 'Failed to queue lead search',
-            });
+            if (isMounted.current) {
+                setSubmitMessage({
+                    type: 'error',
+                    text: error.response?.data?.error || 'Failed to queue lead search',
+                });
+            }
         } finally {
-            setIsSubmitting(false);
+            if (isMounted.current) setIsSubmitting(false);
         }
     };
 
-    // DataGrid columns for tower leads
-    const leadColumns: GridColDef[] = [
+    // Memoized DataGrid columns to prevent unnecessary re-renders
+    const leadColumns: GridColDef[] = useMemo(() => [
         { field: 'id', headerName: 'ID', width: 70 },
         { field: 'lat', headerName: 'Latitude', width: 120 },
         { field: 'lon', headerName: 'Longitude', width: 120 },
@@ -311,10 +297,9 @@ function TowerLeadsContent() {
                 );
             }
         }
-    ];
+    ], []);
 
-    // DataGrid columns for search history
-    const searchColumns: GridColDef[] = [
+    const searchColumns: GridColDef[] = useMemo(() => [
         { field: 'id', headerName: 'ID', width: 60 },
         { field: 'country', headerName: 'Country', width: 120 },
         { field: 'province', headerName: 'Province', width: 120 },
@@ -348,7 +333,7 @@ function TowerLeadsContent() {
             width: 160,
             valueGetter: (value: any) => value ? new Date(value).toLocaleString() : '',
         },
-    ];
+    ], []);
 
     return (
         <Box sx={{ p: 3, height: '100vh', display: 'flex', flexDirection: 'column' }}>
@@ -363,7 +348,6 @@ function TowerLeadsContent() {
 
             {activeTab === 0 && (
                 <Paper sx={{ flex: 1, display: 'flex', flexDirection: 'column', p: 2 }}>
-                    {/* Filters */}
                     <Box sx={{ display: 'flex', gap: 2, mb: 2, flexWrap: 'wrap' }}>
                         <FormControl size="small" sx={{ minWidth: 150 }}>
                             <InputLabel>Province/State</InputLabel>
@@ -387,14 +371,13 @@ function TowerLeadsContent() {
                                 value={filterCity}
                                 label="City"
                                 onChange={(e) => setFilterCity(e.target.value)}
-                                disabled={!filterProvince && !filterCountry} // Allow selecting city if country selected? Yes.
+                                disabled={!filterProvince && !filterCountry}
                             >
                                 <MenuItem value="">All Cities</MenuItem>
                                 {filterCities.map(c => <MenuItem key={c} value={c}>{c}</MenuItem>)}
                             </Select>
                         </FormControl>
 
-                        {/* Status Filter ... */}
                         <FormControl size="small" sx={{ minWidth: 150 }}>
                             <InputLabel>Status</InputLabel>
                             <Select
@@ -409,7 +392,6 @@ function TowerLeadsContent() {
                         </FormControl>
                     </Box>
 
-                    {/* DataGrid ... */}
                     <DataGrid
                         rows={leads}
                         columns={leadColumns}
@@ -447,11 +429,9 @@ function TowerLeadsContent() {
                 </Paper>
             )}
 
-            {/* Tab 2: Find Tower Leads */}
             {activeTab === 1 && (
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                     <Paper sx={{ p: 3 }}>
-                        {/* Headers ... */}
                         <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-end', flexWrap: 'wrap' }}>
                             <FormControl sx={{ minWidth: 200 }}>
                                 <InputLabel>Province/State</InputLabel>
@@ -498,7 +478,6 @@ function TowerLeadsContent() {
                         )}
                     </Paper>
 
-                    {/* Search History */}
                     <Paper sx={{ flex: 1 }}>
                         <Typography variant="h6" sx={{ p: 2, pb: 0 }}>
                             Search History
@@ -526,8 +505,6 @@ function TowerLeadsContent() {
         </Box>
     );
 }
-
-// ... export default logic ...
 
 export default function TowerLeadsPage() {
     return (
