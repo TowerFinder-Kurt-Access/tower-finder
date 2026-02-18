@@ -9,17 +9,16 @@ interface CountryContextValue {
 
 const CountryContext = createContext<CountryContextValue>({
     country: '',
-    setCountry: () => {},
+    setCountry: () => { },
 });
 
 export function CountryProvider({ children }: { children: ReactNode }) {
-    const [country, setCountryState] = useState<string>('');
-
-    // Load from localStorage on mount
-    useEffect(() => {
-        const saved = localStorage.getItem('selectedCountry');
-        if (saved) setCountryState(saved);
-    }, []);
+    const [country, setCountryState] = useState<string>(() => {
+        if (typeof window !== 'undefined') {
+            return localStorage.getItem('selectedCountry') || '';
+        }
+        return '';
+    });
 
     const setCountry = (value: string) => {
         setCountryState(value);
