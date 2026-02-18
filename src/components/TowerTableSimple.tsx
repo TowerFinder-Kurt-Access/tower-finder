@@ -429,12 +429,12 @@ export default function TowerTableSimple({
                     </ListItemIcon>
                     <ListItemText>Open Satellite View</ListItemText>
                 </MenuItem>
-                <MenuItem onClick={handleGetOwner} disabled={isOwnerLoading}>
+                {/* <MenuItem onClick={handleGetOwner} disabled={isOwnerLoading}>
                     <ListItemIcon>
                         <BusinessIcon fontSize="small" />
                     </ListItemIcon>
                     <ListItemText>{isOwnerLoading ? 'Loading Owner...' : 'Lookup Owner'}</ListItemText>
-                </MenuItem>
+                </MenuItem> */}
                 <MenuItem onClick={handleOpenBingMaps}>
                     <ListItemIcon>
                         <TravelExploreIcon fontSize="small" />

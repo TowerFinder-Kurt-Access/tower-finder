@@ -13,6 +13,7 @@ const Map = dynamic(() => import('@/components/Map'), {
   ssr: false,
   loading: () => <p>Loading Map...</p>
 });
+import AddOwnerDialog from '@/components/AddOwnerDialog';
 import PromoteLeadDialog from '@/components/PromoteLeadDialog';
 
 interface Tower {
@@ -62,6 +63,7 @@ function HomeContent() {
   const [isOwnerLoading, setIsOwnerLoading] = useState<boolean>(false);
   const [mounted, setMounted] = useState(false);
   const [leadToPromote, setLeadToPromote] = useState<any>(null);
+  const [addOwnerTower, setAddOwnerTower] = useState<any>(null);
 
   const isMounted = useRef(true);
   useEffect(() => {
@@ -230,6 +232,8 @@ function HomeContent() {
   const handleTowerSelect = (tower: any) => {
     if (tower.action === 'promote') {
       handlePromoteClick(tower);
+    } else if (tower.action === 'addOwner') {
+      setAddOwnerTower(tower);
     } else {
       setSelectedTower(tower);
     }
@@ -309,7 +313,7 @@ function HomeContent() {
   if (!mounted) return null;
 
   return (
-    <Box sx={{ display: 'flex', height: '100vh', width: '100vw', overflow: 'hidden' }}>
+    <Box sx={{ display: 'flex', height: '100%', width: '100%', overflow: 'hidden' }}>
       <Sidebar
         results={towers}
         onSelectTower={handleTowerSelect}
@@ -386,6 +390,15 @@ function HomeContent() {
           onClose={handlePromoteClose}
           onSuccess={handlePromoteSuccess}
           lead={leadToPromote}
+        />
+
+        <AddOwnerDialog
+          open={!!addOwnerTower}
+          onClose={() => setAddOwnerTower(null)}
+          onSuccess={() => {
+            setAddOwnerTower(null);
+          }}
+          towerId={addOwnerTower?.id}
         />
       </Box>
     </Box>

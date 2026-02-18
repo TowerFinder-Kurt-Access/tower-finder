@@ -157,6 +157,42 @@ function TowerLeadsContent() {
         }
     }, [paginationModel, filterCountry, filterPromoted, filterModel]);
 
+    const [isFixingProvinces, setIsFixingProvinces] = useState(false);
+    const handleFixProvinces = async () => {
+        if (isFixingProvinces) return;
+        setIsFixingProvinces(true);
+        try {
+            let processed = 0;
+            let updated = 0;
+            // Process in chunks of 5 to avoid timeouts and provide feedback
+            // We loop until API says 0 remaining or we hit an error
+            while (true) {
+                if (!isMounted.current) break;
+
+                const res = await axios.post('/api/admin/fix-provinces?limit=5&mode=missing');
+                const data = res.data;
+
+                processed += data.processed;
+                updated += data.updated;
+
+                if (data.processed === 0 || data.remaining === 0) {
+                    break;
+                }
+
+                // Small delay to be polite to client UI as well
+                await new Promise(r => setTimeout(r, 500));
+            }
+            // Reload leads to show changes
+            loadLeads();
+            alert(`Fixed provinces for ${updated} leads.`);
+        } catch (error) {
+            console.error('Error fixing provinces:', error);
+            alert('Failed to fix provinces. Check console for details.');
+        } finally {
+            if (isMounted.current) setIsFixingProvinces(false);
+        }
+    };
+
     // Load search history for Tab 2
     const loadSearchHistory = useCallback(async () => {
         if (!isMounted.current) return;
@@ -363,7 +399,7 @@ function TowerLeadsContent() {
     ], []);
 
     return (
-        <Box sx={{ p: 3, height: '100vh', display: 'flex', flexDirection: 'column' }}>
+        <Box sx={{ p: 3, height: '100%', display: 'flex', flexDirection: 'column' }}>
             <Typography variant="h5" sx={{ mb: 2, fontWeight: 'bold' }}>
                 Tower Leads
             </Typography>
@@ -375,7 +411,7 @@ function TowerLeadsContent() {
 
             {activeTab === 0 && (
                 <Paper sx={{ flex: 1, display: 'flex', flexDirection: 'column', p: 2 }}>
-                    <Box sx={{ display: 'flex', gap: 2, mb: 2, flexWrap: 'wrap' }}>
+                    <Box sx={{ display: 'flex', gap: 2, mb: 2, flexWrap: 'wrap', alignItems: 'center' }}>
                         <FormControl size="small" sx={{ minWidth: 150 }}>
                             <InputLabel>Status</InputLabel>
                             <Select
@@ -388,6 +424,16 @@ function TowerLeadsContent() {
                                 <MenuItem value="true">Promoted</MenuItem>
                             </Select>
                         </FormControl>
+
+                        <Button
+                            variant="outlined"
+                            size="small"
+                            onClick={handleFixProvinces}
+                            disabled={isFixingProvinces}
+                            startIcon={isFixingProvinces ? <CircularProgress size={16} /> : null}
+                        >
+                            {isFixingProvinces ? 'Fixing Provinces...' : 'Fix Missing Provinces'}
+                        </Button>
                     </Box>
 
                     <DataGrid

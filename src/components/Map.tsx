@@ -172,30 +172,49 @@ export default function Map({ center, zoom, bounds, towers, towerLeads = [], onT
                     const fillColor = isSelected ? '#2196f3' : (isFromLead ? '#42A5F5' : '#f00');
 
                     return (
-                    <CircleMarker
-                        key={`tower-${tower.id}`}
-                        center={[tower.lat, tower.lon] as LatLngExpression}
-                        pathOptions={{
-                            color: markerColor,
-                            fillColor: fillColor,
-                            fillOpacity: isFromLead ? 0.7 : 0.5
-                        }}
-                        radius={10}
-                        eventHandlers={{
-                            click: () => onTowerSelect(tower)
-                        }}
-                    >
-                        <Popup>
-                            <div style={{ minWidth: '200px' }}>
-                                <strong>{typeof tower.type === 'object' ? tower.type?.name : (tower.type || 'Tower')}</strong><br />
-                                {tower.licensee && <><strong>Licensee:</strong> {typeof tower.licensee === 'object' ? tower.licensee?.name : tower.licensee}<br /></>}
-                                {tower.parcel?.address && <><strong>Address:</strong> {tower.parcel.address}<br /></>}
-                                <strong>Coordinates:</strong> {tower.lat.toFixed(6)}, {tower.lon.toFixed(6)}<br />
-                                <strong>Status:</strong> {tower.status || 'Unknown'}<br />
-                                <small style={{ color: '#666' }}>Source: {tower.source || 'Excel Import'}</small>
-                            </div>
-                        </Popup>
-                    </CircleMarker>
+                        <CircleMarker
+                            key={`tower-${tower.id}`}
+                            center={[tower.lat, tower.lon] as LatLngExpression}
+                            pathOptions={{
+                                color: markerColor,
+                                fillColor: fillColor,
+                                fillOpacity: isFromLead ? 0.7 : 0.5
+                            }}
+                            radius={10}
+                            eventHandlers={{
+                                click: () => onTowerSelect(tower)
+                            }}
+                        >
+                            <Popup>
+                                <div style={{ minWidth: '200px' }}>
+                                    <strong>{typeof tower.type === 'object' ? tower.type?.name : (tower.type || 'Tower')}</strong><br />
+                                    {tower.licensee && <><strong>Licensee:</strong> {typeof tower.licensee === 'object' ? tower.licensee?.name : tower.licensee}<br /></>}
+                                    {tower.parcel?.address && <><strong>Address:</strong> {tower.parcel.address}<br /></>}
+                                    <strong>Coordinates:</strong> {tower.lat.toFixed(6)}, {tower.lon.toFixed(6)}<br />
+                                    <strong>Status:</strong> {tower.status || 'Unknown'}<br />
+                                    <small style={{ color: '#666' }}>Source: {tower.source || 'Excel Import'}</small>
+                                    <br />
+                                    <button
+                                        style={{
+                                            backgroundColor: '#ff9800',
+                                            color: 'white',
+                                            border: 'none',
+                                            padding: '5px 10px',
+                                            borderRadius: '4px',
+                                            cursor: 'pointer',
+                                            width: '100%',
+                                            marginTop: '6px'
+                                        }}
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            onTowerSelect({ ...tower, action: 'addOwner' });
+                                        }}
+                                    >
+                                        👤 Add Owner
+                                    </button>
+                                </div>
+                            </Popup>
+                        </CircleMarker>
                     );
                 })}
             </MarkerClusterGroup>

@@ -346,7 +346,7 @@ export default function Sidebar({
                                 <Typography variant="body2" sx={{ mt: 1 }}><strong>Address:</strong> {selectedTower.parcel.address}</Typography>
                             )}
 
-                            <Button
+                            {/* <Button
                                 fullWidth
                                 variant="contained"
                                 size="small"
@@ -365,7 +365,7 @@ export default function Sidebar({
                                         {ownerData.result?.owner || 'No owner found'}
                                     </Typography>
                                 </Box>
-                            )}
+                            )} */}
                         </CardContent>
                     </Card>
                 ) : (
