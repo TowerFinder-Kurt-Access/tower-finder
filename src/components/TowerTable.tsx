@@ -13,7 +13,12 @@ const columns: GridColDef[] = [
     { field: 'id', headerName: 'ID', width: 70 },
     { field: 'licensee', headerName: 'Licensee', width: 250 },
     { field: 'type', headerName: 'Type', width: 130 },
-    { field: 'status', headerName: 'Status', width: 130 },
+    {
+        field: 'status',
+        headerName: 'Status',
+        width: 150,
+        valueGetter: (value, row) => row.status?.name || row.legacyStatus || ''
+    },
     {
         field: 'address',
         headerName: 'Address',

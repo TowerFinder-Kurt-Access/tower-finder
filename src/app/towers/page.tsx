@@ -65,12 +65,13 @@ function TowersPageContent() {
         carriers: string[];
         licensees: string[];
         statuses: string[];
-    }>({ cities: [], states: [], counties: [], zips: [], types: [], carriers: [], licensees: [], statuses: ['New', 'Unknown', 'In Progress', 'Contacted', 'Not Interested', 'Closed'] });
+    }>({ cities: [], states: [], counties: [], zips: [], types: [], carriers: [], licensees: [], statuses: [] });
     const [lookups, setLookups] = useState<{
         types: { id: number; name: string }[];
         carriers: { id: number; name: string }[];
         licensees: { id: number; name: string }[];
-    }>({ types: [], carriers: [], licensees: [] });
+        statuses: { id: number; name: string }[];
+    }>({ types: [], carriers: [], licensees: [], statuses: [] });
     const [filters, setFilters] = useState<{
         city?: string;
         state?: string;
@@ -119,7 +120,8 @@ function TowersPageContent() {
                 const typesData = lookupsRes.data.types || [];
                 const carriersData = lookupsRes.data.carriers || [];
                 const licenseesData = lookupsRes.data.licensees || [];
-                setLookups({ types: typesData, carriers: carriersData, licensees: licenseesData });
+                const statusesData = lookupsRes.data.statuses || [];
+                setLookups({ types: typesData, carriers: carriersData, licensees: licenseesData, statuses: statusesData });
                 setFilterOptions(prev => ({
                     ...prev,
                     cities: filtersRes.data.cities || [],
@@ -129,6 +131,7 @@ function TowersPageContent() {
                     types: typesData.map((t: any) => t.name),
                     carriers: carriersData.map((c: any) => c.name),
                     licensees: licenseesData.map((l: any) => l.name),
+                    statuses: statusesData.map((s: any) => s.name),
                 }));
             } catch (error) {
                 console.error("Failed to fetch filter options:", error);
@@ -164,6 +167,7 @@ function TowersPageContent() {
             const flattenedTowers = (res.data.data || []).map((tower: any) => ({
                 ...tower,
                 type: typeof tower.type === 'object' ? tower.type?.name : (tower.type || ''),
+                status: typeof tower.status === 'object' ? tower.status?.name : (tower.legacyStatus || ''),
                 licensee: typeof tower.licensee === 'object' ? tower.licensee?.name : (tower.licensee || ''),
                 carrier: typeof tower.carrier === 'object' ? tower.carrier?.name : (tower.carrier || ''),
                 address: tower.parcel?.address || '',
@@ -281,7 +285,8 @@ function TowersPageContent() {
             let patchData: any = {};
 
             if (field === 'status') {
-                patchData.status = value;
+                const found = lookups.statuses.find(s => s.name === value);
+                if (found) patchData.statusId = found.id;
             } else if (field === 'type') {
                 const found = lookups.types.find(t => t.name === value);
                 if (found) patchData.typeId = found.id;

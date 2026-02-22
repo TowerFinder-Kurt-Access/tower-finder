@@ -98,7 +98,17 @@ export class InformationService {
             // Ensure Tower exists
             const tower = await tx.tower.upsert({
                 where: { lat_lon: { lat, lon } },
-                create: { lat, lon, status: 'Researched' },
+                create: {
+                    lat,
+                    lon,
+                    status: {
+                        connectOrCreate: {
+                            where: { name: 'Researched' },
+                            create: { name: 'Researched' }
+                        }
+                    },
+                    legacyStatus: 'Researched'
+                },
                 update: {} // No update needed if exists
             });
 

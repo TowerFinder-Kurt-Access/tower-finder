@@ -147,15 +147,17 @@ export default function TowerDetailPage({ params }: PageProps) {
     const [types, setTypes] = useState<LookupItem[]>([]);
     const [carriers, setCarriers] = useState<LookupItem[]>([]);
     const [licensees, setLicensees] = useState<LookupItem[]>([]);
+    const [statuses, setStatuses] = useState<LookupItem[]>([]);
 
     // Selected lookup values (by ID)
     const [selectedTypeId, setSelectedTypeId] = useState<number | ''>('');
     const [selectedCarrierId, setSelectedCarrierId] = useState<number | ''>('');
     const [selectedLicenseeId, setSelectedLicenseeId] = useState<number | ''>('');
+    const [selectedStatusId, setSelectedStatusId] = useState<number | ''>('');
 
     // Add new lookup dialog
     const [addDialogOpen, setAddDialogOpen] = useState(false);
-    const [addDialogType, setAddDialogType] = useState<'type' | 'carrier' | 'licensee'>('type');
+    const [addDialogType, setAddDialogType] = useState<'type' | 'carrier' | 'licensee' | 'status'>('type');
     const [addDialogValue, setAddDialogValue] = useState('');
     const [addDialogSaving, setAddDialogSaving] = useState(false);
 
@@ -181,7 +183,7 @@ export default function TowerDetailPage({ params }: PageProps) {
 
     // Status change note dialog
     const [statusNoteDialogOpen, setStatusNoteDialogOpen] = useState(false);
-    const [pendingStatus, setPendingStatus] = useState('');
+    const [pendingStatusId, setPendingStatusId] = useState<number | null>(null);
     const [statusNote, setStatusNote] = useState('');
     const [statusNoteAuthor, setStatusNoteAuthor] = useState('');
 
@@ -209,7 +211,8 @@ export default function TowerDetailPage({ params }: PageProps) {
             const res = await axios.get(`/api/towers/${towerId}`);
             const t = res.data;
             setTower(t);
-            setStatus(t.status || '');
+            setStatus(t.status?.name || t.legacyStatus || '');
+            setSelectedStatusId(getId(t.status) || t.statusId || '');
             setNotes(t.notes || []);
             setStreetViewUrl(t.streetViewUrl || '');
             setSelectedTypeId(getId(t.type) || t.typeId || '');
@@ -255,6 +258,7 @@ export default function TowerDetailPage({ params }: PageProps) {
             setTypes(res.data.types || []);
             setCarriers(res.data.carriers || []);
             setLicensees(res.data.licensees || []);
+            setStatuses(res.data.statuses || []);
         } catch (error) {
             console.error('Failed to load lookups:', error);
         }
@@ -323,8 +327,14 @@ export default function TowerDetailPage({ params }: PageProps) {
     };
 
     const handleStatusChange = (event: SelectChangeEvent) => {
-        const newStatus = event.target.value;
-        setPendingStatus(newStatus);
+        const val = String(event.target.value);
+        if (val === ADD_NEW_VALUE) {
+            setAddDialogType('status');
+            setAddDialogValue('');
+            setAddDialogOpen(true);
+            return;
+        }
+        setPendingStatusId(Number(val));
         setStatusNote('');
         setStatusNoteDialogOpen(true);
     };
@@ -334,20 +344,22 @@ export default function TowerDetailPage({ params }: PageProps) {
 
         setSaving(true);
         try {
+            const statusName = statuses.find(s => s.id === pendingStatusId)?.name || 'Unknown';
             await axios.patch(`/api/towers/${tower.id}`, {
-                status: pendingStatus
+                statusId: pendingStatusId
             });
 
             if (addNote && statusNote.trim() && statusNoteAuthor.trim()) {
                 localStorage.setItem(AUTHOR_STORAGE_KEY, statusNoteAuthor.trim());
-                const noteContent = `[Status changed to "${getStatusLabel(pendingStatus)}"]\n${statusNote.trim()}`;
+                const noteContent = `[Status changed to "${statusName}"]\n${statusNote.trim()}`;
                 await axios.post(`/api/towers/${tower.id}/notes`, {
                     content: noteContent,
                     author: statusNoteAuthor.trim()
                 });
             }
 
-            setStatus(pendingStatus);
+            setSelectedStatusId(pendingStatusId as number);
+            setStatus(statusName);
             setStatusNoteDialogOpen(false);
             loadTower();
         } catch (error) {
@@ -407,6 +419,13 @@ export default function TowerDetailPage({ params }: PageProps) {
                 if (tower) {
                     await axios.patch(`/api/towers/${tower.id}`, { carrierId: newItem.id });
                     setSelectedCarrierId(newItem.id);
+                }
+            } else if (addDialogType === 'status') {
+                setStatuses(prev => [...prev, newItem].sort((a, b) => a.name.localeCompare(b.name)));
+                if (tower) {
+                    await axios.patch(`/api/towers/${tower.id}`, { statusId: newItem.id });
+                    setSelectedStatusId(newItem.id);
+                    setStatus(newItem.name);
                 }
             } else {
                 setLicensees(prev => [...prev, newItem].sort((a, b) => a.name.localeCompare(b.name)));
@@ -596,7 +615,7 @@ export default function TowerDetailPage({ params }: PageProps) {
                             <Box>
                                 {status && (
                                     <Chip
-                                        label={getStatusLabel(status)}
+                                        label={status}
                                         size="medium"
                                         color="primary"
                                         sx={{ fontSize: '1rem', fontWeight: 600 }}
@@ -717,21 +736,20 @@ export default function TowerDetailPage({ params }: PageProps) {
                         <FormControl fullWidth size="small">
                             <InputLabel>Status</InputLabel>
                             <Select
-                                value={status}
+                                value={String(selectedStatusId)}
                                 label="Status"
                                 onChange={handleStatusChange}
                                 disabled={saving}
                             >
-                                {TOWER_STATUS_OPTIONS.map((option) => (
-                                    <MenuItem key={option.value} value={option.value}>
-                                        {option.label}
+                                {statuses.map((option) => (
+                                    <MenuItem key={option.id} value={String(option.id)}>
+                                        {option.name}
                                     </MenuItem>
                                 ))}
-                                {status && !TOWER_STATUS_OPTIONS.find(o => o.value === status) && (
-                                    <MenuItem value={status}>
-                                        {getStatusLabel(status)} (Legacy)
-                                    </MenuItem>
-                                )}
+                                <Divider />
+                                <MenuItem value={ADD_NEW_VALUE}>
+                                    <AddIcon fontSize="small" sx={{ mr: 1 }} /> Add New Status
+                                </MenuItem>
                             </Select>
                         </FormControl>
 
@@ -1034,7 +1052,7 @@ export default function TowerDetailPage({ params }: PageProps) {
                 fullWidth
             >
                 <DialogTitle>
-                    Change Status to "{getStatusLabel(pendingStatus)}"
+                    Change Status to "{statuses.find(s => s.id === pendingStatusId)?.name || 'Unknown'}"
                 </DialogTitle>
                 <DialogContent>
                     <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>

@@ -22,7 +22,9 @@ model Tower {
   remarks      String?
   titleHolder  String?
   expiration   String?
-  status    String   @default("Unknown") // Workflow status
+  legacyStatus String? @map("status")
+  statusId  Int?
+  status    TowerStatus? @relation(fields: [statusId], references: [id])
 
   googleMapsUrl String?
   streetViewUrl String? // Custom street view URL once properly located
@@ -173,6 +175,12 @@ model Note {
 
 
 model TowerType {
+  id     Int     @id @default(autoincrement())
+  name   String  @unique
+  towers Tower[]
+}
+
+model TowerStatus {
   id     Int     @id @default(autoincrement())
   name   String  @unique
   towers Tower[]

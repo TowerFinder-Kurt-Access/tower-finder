@@ -70,7 +70,13 @@ export async function POST(
                 data: {
                     lat: lead.lat,
                     lon: lead.lon,
-                    status: 'New',
+                    status: {
+                        connectOrCreate: {
+                            where: { name: 'New' },
+                            create: { name: 'New' }
+                        }
+                    },
+                    legacyStatus: 'New',
                     source: `Tower Leads - ${lead.source}`,
                     googleMapsUrl: body.googleMapsUrl || null,
                 }

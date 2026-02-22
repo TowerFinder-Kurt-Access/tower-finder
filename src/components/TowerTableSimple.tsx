@@ -12,7 +12,6 @@ import TravelExploreIcon from '@mui/icons-material/TravelExplore';
 import InfoIcon from '@mui/icons-material/Info';
 import NotesIcon from '@mui/icons-material/Notes';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
-import { getStatusLabel } from '@/lib/constants';
 
 interface LookupItem {
     id: number;
@@ -257,9 +256,10 @@ export default function TowerTableSimple({
             type: 'singleSelect',
             editable: !!onCellEdit,
             valueOptions: filterOptions.statuses,
+            valueGetter: (value: any, row: any) => value?.name || row.legacyStatus || '',
             renderCell: (params: GridRenderCellParams) => (
                 <Chip
-                    label={getStatusLabel(params.value || 'Unknown')}
+                    label={params.value || 'Unknown'}
                     size="small"
                     color="primary"
                     variant="outlined"

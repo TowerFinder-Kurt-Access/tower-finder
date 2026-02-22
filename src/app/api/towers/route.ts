@@ -168,16 +168,18 @@ export async function GET(request: Request) {
 
 
         if (distinct === 'lookups') {
-            const [types, carriers, licensees] = await Promise.all([
+            const [types, carriers, licensees, statuses] = await Promise.all([
                 prisma.towerType.findMany({ orderBy: { name: 'asc' } }),
                 prisma.carrier.findMany({ orderBy: { name: 'asc' } }),
-                prisma.licensee.findMany({ orderBy: { name: 'asc' } })
+                prisma.licensee.findMany({ orderBy: { name: 'asc' } }),
+                prisma.towerStatus.findMany({ orderBy: { name: 'asc' } })
             ]);
 
             return NextResponse.json({
                 types,
                 carriers,
-                licensees
+                licensees,
+                statuses
             });
         }
 
@@ -323,7 +325,7 @@ export async function GET(request: Request) {
 
             if (statusFilter) {
                 andConditions.push({
-                    status: { equals: statusFilter, mode: 'insensitive' }
+                    status: { name: { equals: statusFilter, mode: 'insensitive' } }
                 });
             }
 
@@ -384,6 +386,7 @@ export async function GET(request: Request) {
                     type: true,
                     carrier: true,
                     licensee: true,
+                    status: true,
                     _count: {
                         select: { notes: true }
                     }
@@ -442,14 +445,16 @@ export async function POST(request: Request) {
             },
             update: {
                 // If it exists, we might want to update type if provided, or leave as is
-                type: type || undefined,
-                status: status || undefined
+                type: type ? { connectOrCreate: { where: { name: type }, create: { name: type } } } : undefined,
+                status: status ? { connectOrCreate: { where: { name: status }, create: { name: status } } } : undefined,
+                legacyStatus: status || undefined
             },
             create: {
                 lat: parseFloat(lat),
                 lon: parseFloat(lon),
-                // type: type || 'Unknown',  // TODO: Fix POST to use lookup inputs
-                status: status || 'New'
+                type: type ? { connectOrCreate: { where: { name: type }, create: { name: type } } } : undefined,
+                status: { connectOrCreate: { where: { name: status || 'New' }, create: { name: status || 'New' } } },
+                legacyStatus: status || 'New'
             }
         });
 

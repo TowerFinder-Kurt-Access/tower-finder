@@ -24,6 +24,7 @@ export async function GET(
                             include: {
                                 type: true,
                                 licensee: true,
+                                status: true,
                                 _count: { select: { notes: true } }
                             }
                         },
@@ -47,7 +48,7 @@ export async function GET(
                 lon: p.tower.lon,
                 type: p.tower.type?.name || '',
                 licensee: p.tower.licensee?.name || '',
-                status: p.tower.status,
+                status: p.tower.status?.name || p.tower.legacyStatus || 'Unknown',
                 source: p.tower.source,
                 address: p.address || '',
                 city: typeof p.city === 'object' && p.city ? p.city.name : (p.cityRaw || ''),

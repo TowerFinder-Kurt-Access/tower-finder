@@ -25,7 +25,6 @@ import CloseIcon from '@mui/icons-material/Close';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
 import PersonIcon from '@mui/icons-material/Person';
 import NotesPanel from './NotesPanel';
-import { TOWER_STATUS_OPTIONS, getStatusLabel } from '@/lib/constants';
 
 interface Note {
     id: number;
@@ -40,7 +39,8 @@ interface Tower {
     lat: number;
     lon: number;
     type?: { name: string } | string;
-    status?: string;
+    status?: { id: number; name: string };
+    legacyStatus?: string;
     licensee?: { name: string } | string;
     carrier?: { name: string };
     source?: string;
@@ -71,6 +71,11 @@ interface Tower {
     notes?: Note[];
 }
 
+interface LookupItem {
+    id: number;
+    name: string;
+}
+
 interface TowerDetailDrawerProps {
     open: boolean;
     tower: Tower | null;
@@ -86,21 +91,24 @@ export default function TowerDetailDrawer({
     onClose,
     onTowerUpdate
 }: TowerDetailDrawerProps) {
-    const [status, setStatus] = useState(tower?.status || '');
+    const [statusLabel, setStatusLabel] = useState(tower?.status?.name || tower?.legacyStatus || '');
+    const [selectedStatusId, setSelectedStatusId] = useState<number | ''>(tower?.status?.id || '');
     const [saving, setSaving] = useState(false);
     const [notes, setNotes] = useState<Note[]>(tower?.notes || []);
     const [loadingNotes, setLoadingNotes] = useState(false);
+    const [statuses, setStatuses] = useState<LookupItem[]>([]);
 
     // Status change note dialog
     const [statusNoteDialogOpen, setStatusNoteDialogOpen] = useState(false);
-    const [pendingStatus, setPendingStatus] = useState('');
+    const [pendingStatusId, setPendingStatusId] = useState<number | null>(null);
     const [statusNote, setStatusNote] = useState('');
     const [statusNoteAuthor, setStatusNoteAuthor] = useState('');
 
     // Sync status and notes when tower changes
     useEffect(() => {
         if (tower) {
-            setStatus(tower.status || '');
+            setStatusLabel(tower.status?.name || tower.legacyStatus || '');
+            setSelectedStatusId(tower.status?.id || '');
             setNotes(tower.notes || []);
         }
     }, [tower]);
@@ -111,7 +119,19 @@ export default function TowerDetailDrawer({
         if (savedAuthor) {
             setStatusNoteAuthor(savedAuthor);
         }
-    }, []);
+
+        // Fetch statuses if we haven't
+        if (open && statuses.length === 0) {
+            fetch('/api/towers?distinct=lookups')
+                .then(r => r.json())
+                .then(data => {
+                    if (data.statuses) {
+                        setStatuses(data.statuses);
+                    }
+                })
+                .catch(err => console.error(err));
+        }
+    }, [open]);
 
     const fetchNotes = async () => {
         if (!tower) return;
@@ -128,28 +148,29 @@ export default function TowerDetailDrawer({
     };
 
     const handleStatusChange = (event: SelectChangeEvent) => {
-        const newStatus = event.target.value;
-        setPendingStatus(newStatus);
+        const val = Number(event.target.value);
+        setPendingStatusId(val);
         setStatusNote('');
         setStatusNoteDialogOpen(true);
     };
 
     const handleStatusSave = async (addNote: boolean) => {
-        if (!tower) return;
+        if (!tower || !pendingStatusId) return;
 
         setSaving(true);
         try {
+            const statusName = statuses.find(s => s.id === pendingStatusId)?.name || 'Unknown';
             // Update status
             await fetch(`/api/towers/${tower.id}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ status: pendingStatus })
+                body: JSON.stringify({ statusId: pendingStatusId })
             });
 
             // Optionally add a note about the status change
             if (addNote && statusNote.trim() && statusNoteAuthor.trim()) {
                 localStorage.setItem(AUTHOR_STORAGE_KEY, statusNoteAuthor.trim());
-                const noteContent = `[Status changed to "${getStatusLabel(pendingStatus)}"]\n${statusNote.trim()}`;
+                const noteContent = `[Status changed to "${statusName}"]\n${statusNote.trim()}`;
                 await fetch(`/api/towers/${tower.id}/notes`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -160,7 +181,8 @@ export default function TowerDetailDrawer({
                 });
             }
 
-            setStatus(pendingStatus);
+            setSelectedStatusId(pendingStatusId);
+            setStatusLabel(statusName);
             setStatusNoteDialogOpen(false);
             onTowerUpdate();
             fetchNotes();
@@ -218,27 +240,21 @@ export default function TowerDetailDrawer({
                         <FormControl fullWidth size="small">
                             <InputLabel>Status</InputLabel>
                             <Select
-                                value={status}
+                                value={String(selectedStatusId)}
                                 label="Status"
                                 onChange={handleStatusChange}
                                 disabled={saving}
                             >
-                                {TOWER_STATUS_OPTIONS.map((option) => (
-                                    <MenuItem key={option.value} value={option.value}>
-                                        {option.label}
+                                {statuses.map((option) => (
+                                    <MenuItem key={option.id} value={String(option.id)}>
+                                        {option.name}
                                     </MenuItem>
                                 ))}
-                                {/* Show current status if it's a legacy value not in options */}
-                                {status && !TOWER_STATUS_OPTIONS.find(o => o.value === status) && (
-                                    <MenuItem value={status}>
-                                        {getStatusLabel(status)} (Legacy)
-                                    </MenuItem>
-                                )}
                             </Select>
                         </FormControl>
-                        {status && (
+                        {statusLabel && (
                             <Chip
-                                label={getStatusLabel(status)}
+                                label={statusLabel}
                                 size="small"
                                 color="primary"
                                 variant="outlined"
@@ -346,7 +362,7 @@ export default function TowerDetailDrawer({
                 fullWidth
             >
                 <DialogTitle>
-                    Change Status to "{getStatusLabel(pendingStatus)}"
+                    Change Status to "{statuses.find(s => s.id === pendingStatusId)?.name || 'Unknown'}"
                 </DialogTitle>
                 <DialogContent>
                     <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>

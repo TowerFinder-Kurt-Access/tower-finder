@@ -41,7 +41,13 @@ export class TowerService {
                         create: { name: typeName }
                     }
                 } : undefined,
-                status
+                status: status !== 'Unknown' ? {
+                    connectOrCreate: {
+                        where: { name: status },
+                        create: { name: status }
+                    }
+                } : undefined,
+                legacyStatus: status
             }
         });
     }

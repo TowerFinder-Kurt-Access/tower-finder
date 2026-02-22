@@ -37,6 +37,7 @@ export async function GET(request: Request, { params }: RouteParams) {
                 type: true,
                 carrier: true,
                 licensee: true,
+                status: true,
                 notes: {
                     orderBy: { createdAt: 'desc' }
                 }
@@ -68,12 +69,12 @@ export async function PATCH(request: Request, { params }: RouteParams) {
         }
 
         const body = await request.json();
-        const { status, parcelId, ownerName, ownerAddress, ownerType, streetViewUrl,
+        const { statusId, parcelId, ownerName, ownerAddress, ownerType, streetViewUrl,
             typeId, carrierId, licenseeId, parcelUpdate } = body;
 
         // Update Tower Basic Info
         let updateData: any = {};
-        if (status) updateData.status = status;
+        if (statusId !== undefined) updateData.statusId = statusId;
         if (streetViewUrl !== undefined) updateData.streetViewUrl = streetViewUrl;
         if (typeId !== undefined) updateData.typeId = typeId;
         if (carrierId !== undefined) updateData.carrierId = carrierId;
@@ -148,7 +149,8 @@ export async function PATCH(request: Request, { params }: RouteParams) {
                 },
                 type: true,
                 carrier: true,
-                licensee: true
+                licensee: true,
+                status: true
             }
         });
 
