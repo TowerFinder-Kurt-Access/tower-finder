@@ -63,6 +63,7 @@ function TowerLeadsContent() {
     const [totalCount, setTotalCount] = useState(0);
     const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({ page: 0, pageSize: 25 });
     const [filterModel, setFilterModel] = useState<GridFilterModel>({ items: [] });
+    const [externalFilters, setExternalFilters] = useState<{ province?: string; type?: string; source?: string }>({});
     const [isLoading, setIsLoading] = useState(false);
 
     // Filters for Tab 1
@@ -131,15 +132,21 @@ function TowerLeadsContent() {
             if (filterCountry) params.append('country', filterCountry);
             if (filterPromoted !== 'all') params.append('promoted', filterPromoted);
 
-            // Handle column filters (DataGrid)
+            // Handle column filters (DataGrid) + External
+            const effectiveFilters = { ...externalFilters };
             filterModel.items.forEach((item) => {
                 if (!item.value) return;
                 // Map DataGrid fields to API params
                 // Supported: city, province, source, type, country (if overridden)
                 if (['city', 'province', 'source', 'type', 'country'].includes(item.field)) {
-                    params.append(item.field, item.value);
+                    (effectiveFilters as any)[item.field] = item.value;
                 }
             });
+
+            if (effectiveFilters.province) params.append('province', effectiveFilters.province);
+            if (effectiveFilters.type) params.append('type', effectiveFilters.type);
+            if (effectiveFilters.source) params.append('source', effectiveFilters.source);
+            if ((effectiveFilters as any).city) params.append('city', (effectiveFilters as any).city);
 
             const res = await axios.get(`/api/tower-leads?${params.toString()}`);
             if (isMounted.current) {
@@ -155,7 +162,7 @@ function TowerLeadsContent() {
         } finally {
             if (isMounted.current) setIsLoading(false);
         }
-    }, [paginationModel, filterCountry, filterPromoted, filterModel]);
+    }, [paginationModel, filterCountry, filterPromoted, filterModel, externalFilters]);
 
     const [isFixingProvinces, setIsFixingProvinces] = useState(false);
     const handleFixProvinces = async () => {
@@ -400,9 +407,21 @@ function TowerLeadsContent() {
 
     return (
         <Box sx={{ p: 3, height: '100%', display: 'flex', flexDirection: 'column' }}>
-            <Typography variant="h5" sx={{ mb: 2, fontWeight: 'bold' }}>
-                Tower Leads
-            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+                <Button
+                    component={Link}
+                    href="/"
+                    variant="outlined"
+                    size="small"
+                    startIcon={<MapIcon />}
+                    sx={{ textTransform: 'none' }}
+                >
+                    Back to Map
+                </Button>
+                <Typography variant="h5" sx={{ fontWeight: 'bold' }}>
+                    Tower Leads
+                </Typography>
+            </Box>
 
             <Tabs value={activeTab} onChange={handleTabChange} sx={{ mb: 2 }}>
                 <Tab label="Tower Leads" />
@@ -424,6 +443,48 @@ function TowerLeadsContent() {
                                 <MenuItem value="true">Promoted</MenuItem>
                             </Select>
                         </FormControl>
+
+                        <FormControl size="small" sx={{ minWidth: 150 }}>
+                            <InputLabel>{globalCountry === 'USA' ? 'State' : 'Province'}</InputLabel>
+                            <Select
+                                value={externalFilters.province || ''}
+                                label={globalCountry === 'USA' ? 'State' : 'Province'}
+                                onChange={(e) => setExternalFilters(prev => ({ ...prev, province: e.target.value }))}
+                            >
+                                <MenuItem value=""><em>All</em></MenuItem>
+                                {filterProvinces.map(p => <MenuItem key={p} value={p}>{ABBR_TO_PROVINCE[p] || p}</MenuItem>)}
+                            </Select>
+                        </FormControl>
+
+                        <FormControl size="small" sx={{ minWidth: 150 }}>
+                            <InputLabel>Type</InputLabel>
+                            <Select
+                                value={externalFilters.type || ''}
+                                label="Type"
+                                onChange={(e) => setExternalFilters(prev => ({ ...prev, type: e.target.value }))}
+                            >
+                                <MenuItem value=""><em>All</em></MenuItem>
+                                {filterTypes.map(t => <MenuItem key={t} value={t}>{t}</MenuItem>)}
+                            </Select>
+                        </FormControl>
+
+                        <FormControl size="small" sx={{ minWidth: 150 }}>
+                            <InputLabel>Source</InputLabel>
+                            <Select
+                                value={externalFilters.source || ''}
+                                label="Source"
+                                onChange={(e) => setExternalFilters(prev => ({ ...prev, source: e.target.value }))}
+                            >
+                                <MenuItem value=""><em>All</em></MenuItem>
+                                {filterSources.map(s => <MenuItem key={s} value={s}>{s}</MenuItem>)}
+                            </Select>
+                        </FormControl>
+
+                        {Object.keys(externalFilters).some(k => (externalFilters as any)[k]) && (
+                            <Button size="small" onClick={() => setExternalFilters({})}>
+                                Clear Filters
+                            </Button>
+                        )}
 
                         <Button
                             variant="outlined"

@@ -226,9 +226,13 @@ export async function GET(request: Request) {
 
             // State filter - match on province-related fields only
             if (state) {
-                const mapped = PROVINCE_MAPPING[state];
-                const terms = [state];
-                if (mapped) terms.push(mapped);
+                const stateValues = state.split(',').filter(Boolean);
+                const terms: string[] = [];
+                stateValues.forEach(sv => {
+                    terms.push(sv);
+                    const mapped = PROVINCE_MAPPING[sv];
+                    if (mapped) terms.push(mapped);
+                });
 
                 andConditions.push({
                     OR: [
@@ -271,28 +275,31 @@ export async function GET(request: Request) {
             const parcelFilters: any = {};
 
             if (city) {
+                const cityValues = city.split(',').filter(Boolean);
                 // Search both raw cityRaw and normalized City relation
                 andConditions.push({
                     parcel: {
                         OR: [
-                            { cityRaw: { equals: city, mode: 'insensitive' } },
-                            { city: { name: { equals: city, mode: 'insensitive' } } }
+                            { cityRaw: { in: cityValues, mode: 'insensitive' } },
+                            { city: { name: { in: cityValues, mode: 'insensitive' } } }
                         ]
                     }
                 });
             }
 
             if (county) {
-                parcelFilters.county = { equals: county, mode: 'insensitive' };
+                const countyValues = county.split(',').filter(Boolean);
+                parcelFilters.county = { in: countyValues, mode: 'insensitive' };
             }
 
             if (zip) {
+                const zipValues = zip.split(',').filter(Boolean);
                 // Search both postalCode and zip to match display logic
                 andConditions.push({
                     parcel: {
                         OR: [
-                            { postalCode: { equals: zip, mode: 'insensitive' } },
-                            { zip: { equals: zip, mode: 'insensitive' } }
+                            { postalCode: { in: zipValues, mode: 'insensitive' } },
+                            { zip: { in: zipValues, mode: 'insensitive' } }
                         ]
                     }
                 });
@@ -300,32 +307,36 @@ export async function GET(request: Request) {
 
             // Relation filters
             if (typeFilter) {
+                const typeValues = typeFilter.split(',').filter(Boolean);
                 andConditions.push({
                     type: {
-                        name: { equals: typeFilter, mode: 'insensitive' }
+                        name: { in: typeValues, mode: 'insensitive' }
                     }
                 });
             }
 
             if (carrierFilter) {
+                const carrierValues = carrierFilter.split(',').filter(Boolean);
                 andConditions.push({
                     carrier: {
-                        name: { equals: carrierFilter, mode: 'insensitive' }
+                        name: { in: carrierValues, mode: 'insensitive' }
                     }
                 });
             }
 
             if (licenseeFilter) {
+                const licenseeValues = licenseeFilter.split(',').filter(Boolean);
                 andConditions.push({
                     licensee: {
-                        name: { equals: licenseeFilter, mode: 'insensitive' }
+                        name: { in: licenseeValues, mode: 'insensitive' }
                     }
                 });
             }
 
             if (statusFilter) {
+                const statusValues = statusFilter.split(',').filter(Boolean);
                 andConditions.push({
-                    status: { name: { equals: statusFilter, mode: 'insensitive' } }
+                    status: { name: { in: statusValues, mode: 'insensitive' } }
                 });
             }
 

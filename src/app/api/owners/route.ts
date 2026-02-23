@@ -95,39 +95,43 @@ export async function GET(request: Request) {
         }
 
         if (city) {
+            const cityValues = city.split(',').filter(Boolean);
             andConditions.push({
                 parcel: {
                     OR: [
-                        { cityRaw: { equals: city, mode: 'insensitive' } },
-                        { city: { name: { equals: city, mode: 'insensitive' } } }
+                        { cityRaw: { in: cityValues, mode: 'insensitive' } },
+                        { city: { name: { in: cityValues, mode: 'insensitive' } } }
                     ]
                 }
             });
         }
 
         if (county) {
+            const countyValues = county.split(',').filter(Boolean);
             andConditions.push({
-                parcel: { county: { equals: county, mode: 'insensitive' } }
+                parcel: { county: { in: countyValues, mode: 'insensitive' } }
             });
         }
 
         if (state) {
+            const stateValues = state.split(',').filter(Boolean);
             andConditions.push({
                 OR: [
-                    { parcel: { stateRaw: { equals: state, mode: 'insensitive' } } },
-                    { parcel: { provinceRaw: { equals: state, mode: 'insensitive' } } },
-                    { parcel: { province: { name: { equals: state, mode: 'insensitive' } } } },
-                    { parcel: { province: { code: { equals: state, mode: 'insensitive' } } } }
+                    { parcel: { stateRaw: { in: stateValues, mode: 'insensitive' } } },
+                    { parcel: { provinceRaw: { in: stateValues, mode: 'insensitive' } } },
+                    { parcel: { province: { name: { in: stateValues, mode: 'insensitive' } } } },
+                    { parcel: { province: { code: { in: stateValues, mode: 'insensitive' } } } }
                 ]
             });
         }
 
         if (zip) {
+            const zipValues = zip.split(',').filter(Boolean);
             andConditions.push({
                 parcel: {
                     OR: [
-                        { postalCode: { equals: zip, mode: 'insensitive' } },
-                        { zip: { equals: zip, mode: 'insensitive' } }
+                        { postalCode: { in: zipValues, mode: 'insensitive' } },
+                        { zip: { in: zipValues, mode: 'insensitive' } }
                     ]
                 }
             });

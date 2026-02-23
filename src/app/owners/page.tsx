@@ -8,7 +8,11 @@ import { DataGrid, GridColDef, GridToolbar, GridActionsCellItem } from '@mui/x-d
 import MapIcon from '@mui/icons-material/Map';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
-import CircularProgress from '@mui/material/CircularProgress';
+import { CircularProgress, TextField, MenuItem, Button, Autocomplete, Checkbox, Badge, Chip } from '@mui/material';
+import FilterListIcon from '@mui/icons-material/FilterList';
+import ClearIcon from '@mui/icons-material/Clear';
+import CheckBoxOutlineBlankIcon from '@mui/icons-material/CheckBoxOutlineBlank';
+import CheckBoxIcon from '@mui/icons-material/CheckBox';
 import { useCountry } from '@/lib/country-context';
 
 interface OwnerRow {
@@ -222,6 +226,116 @@ export default function OwnersPage() {
         },
     ];
 
+    const handleExternalFilterChange = (field: string, values: string[]) => {
+        const newFilters = { ...filters, [field]: values.join(',') };
+        if (!values.length) delete (newFilters as any)[field];
+        setFilters(newFilters);
+        setPaginationModel(prev => ({ ...prev, page: 0 }));
+    };
+
+    const removeFilterValue = (field: string, valueToRemove: string) => {
+        const current = ((filters as any)[field] || '').split(',').filter(Boolean);
+        const updated = current.filter((v: string) => v !== valueToRemove);
+        handleExternalFilterChange(field, updated);
+    };
+
+    const activeFilterCount = Object.values(filters).filter(v => v && v.length > 0).length;
+
+    const activeChips: { field: string; label: string; value: string }[] = [];
+    const fieldLabels: Record<string, string> = {
+        city: 'City', county: 'County',
+        state: globalCountry === 'USA' ? 'State' : 'Province',
+        zip: globalCountry === 'USA' ? 'ZIP' : 'Postal Code'
+    };
+    for (const [field, label] of Object.entries(fieldLabels)) {
+        const val = (filters as any)[field];
+        if (val) {
+            val.split(',').filter(Boolean).forEach((v: string) => {
+                activeChips.push({ field, label, value: v });
+            });
+        }
+    }
+
+    const FilterAutocomplete = ({ field, label, options }: { field: string; label: string; options: string[] }) => {
+        const selected = ((filters as any)[field] || '').split(',').filter(Boolean);
+        return (
+            <Autocomplete
+                multiple
+                size="small"
+                options={options}
+                disableCloseOnSelect
+                value={selected}
+                onChange={(_, newValue) => handleExternalFilterChange(field, newValue)}
+                renderOption={(props, option, { selected: sel }) => {
+                    const { key, ...otherProps } = props as any;
+                    return (
+                        <li key={key} {...otherProps}>
+                            <Checkbox icon={<CheckBoxOutlineBlankIcon fontSize="small" />} checkedIcon={<CheckBoxIcon fontSize="small" />} style={{ marginRight: 8 }} checked={sel} size="small" />
+                            {option}
+                        </li>
+                    );
+                }}
+                renderTags={() => null}
+                renderInput={(params) => (
+                    <TextField
+                        {...params}
+                        label={label}
+                        placeholder={selected.length ? `${selected.length} selected` : 'All'}
+                        sx={{
+                            minWidth: 140,
+                            '& .MuiInputLabel-root': {
+                                color: selected.length ? 'primary.main' : undefined,
+                                fontWeight: selected.length ? 600 : 400,
+                            }
+                        }}
+                    />
+                )}
+                sx={{ minWidth: 140 }}
+            />
+        );
+    };
+
+    const ExternalFiltersBar = () => (
+        <Box sx={{ borderBottom: '1px solid #e0e0e0', mb: 1 }}>
+            <Box sx={{ pb: 1, display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center' }}>
+                <Badge badgeContent={activeFilterCount} color="primary" sx={{ mr: 0.5 }}>
+                    <FilterListIcon color={activeFilterCount > 0 ? 'primary' : 'action'} />
+                </Badge>
+                <FilterAutocomplete field="city" label="City" options={filterOptions.cities} />
+                <FilterAutocomplete field="county" label="County" options={filterOptions.counties} />
+                <FilterAutocomplete field="state" label={globalCountry === 'USA' ? 'State' : 'Province'} options={filterOptions.states} />
+                <FilterAutocomplete field="zip" label={globalCountry === 'USA' ? 'ZIP' : 'Postal Code'} options={filterOptions.zips} />
+                {activeFilterCount > 0 && (
+                    <Button
+                        size="small"
+                        variant="outlined"
+                        color="error"
+                        startIcon={<ClearIcon />}
+                        onClick={() => { setFilters({}); setPaginationModel(prev => ({ ...prev, page: 0 })); }}
+                        sx={{ ml: 'auto', textTransform: 'none', fontWeight: 600 }}
+                    >
+                        Clear All ({activeFilterCount})
+                    </Button>
+                )}
+            </Box>
+            {activeChips.length > 0 && (
+                <Box sx={{ pb: 1, display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+                    {activeChips.map((chip, i) => (
+                        <Chip
+                            key={`${chip.field}-${chip.value}-${i}`}
+                            label={`${chip.label}: ${chip.value}`}
+                            size="small"
+                            color="primary"
+                            variant="outlined"
+                            onDelete={() => removeFilterValue(chip.field, chip.value)}
+                            sx={{ fontWeight: 500 }}
+                        />
+                    ))}
+                </Box>
+            )}
+        </Box>
+    );
+
     return (
         <Box sx={{ p: 4, height: '100%', display: 'flex', flexDirection: 'column' }}>
             <Typography variant="h4" gutterBottom fontWeight="bold">
@@ -230,7 +344,8 @@ export default function OwnersPage() {
             <Typography variant="subtitle1" color="text.secondary" gutterBottom>
                 Properties identified with cellular towers.
             </Typography>
-            <Paper sx={{ flex: 1, mt: 2, p: 2, width: '100%' }} elevation={2}>
+            <Paper sx={{ flex: 1, mt: 2, p: 2, width: '100%', display: 'flex', flexDirection: 'column' }} elevation={2}>
+                <ExternalFiltersBar />
                 {loading ? (
                     <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
                         <CircularProgress />
@@ -245,7 +360,18 @@ export default function OwnersPage() {
                         filterMode="server"
                         paginationModel={paginationModel}
                         onPaginationModelChange={setPaginationModel}
-                        onFilterModelChange={handleFilterModelChange}
+                        onFilterModelChange={(model) => {
+                            const newFilters = { ...filters };
+                            if (model.items && model.items.length > 0) {
+                                model.items.forEach((item: any) => {
+                                    if (item.value) {
+                                        (newFilters as any)[item.field] = item.value;
+                                    }
+                                });
+                            }
+                            setFilters(newFilters);
+                            setPaginationModel(prev => ({ ...prev, page: 0 }));
+                        }}
                         pageSizeOptions={[25, 50, 100]}
                         slots={{ toolbar: GridToolbar }}
                         slotProps={{
@@ -254,6 +380,7 @@ export default function OwnersPage() {
                             },
                         }}
                         checkboxSelection
+                        sx={{ flex: 1 }}
                     />
                 )}
             </Paper>

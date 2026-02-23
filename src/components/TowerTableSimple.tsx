@@ -1,7 +1,11 @@
 'use client';
 
 import * as React from 'react';
-import { Box, Button, Menu, MenuItem, ListItemIcon, ListItemText, Chip, Badge, TextField, Stack, Typography } from '@mui/material';
+import { Box, Button, Menu, MenuItem, ListItemIcon, ListItemText, Chip, Badge, TextField, Stack, Typography, Autocomplete, Checkbox, Tooltip, IconButton } from '@mui/material';
+import FilterListIcon from '@mui/icons-material/FilterList';
+import ClearIcon from '@mui/icons-material/Clear';
+import CheckBoxOutlineBlankIcon from '@mui/icons-material/CheckBoxOutlineBlank';
+import CheckBoxIcon from '@mui/icons-material/CheckBox';
 import { DataGrid, GridColDef, GridToolbar, GridRenderCellParams, GridCellEditStopReasons, GridFooterContainer, GridPagination, GridSlotsComponentsProps, GridColumnVisibilityModel } from '@mui/x-data-grid';
 import MapIcon from '@mui/icons-material/Map';
 import BusinessIcon from '@mui/icons-material/Business';
@@ -45,7 +49,8 @@ interface TowerTableSimpleProps {
         carriers: LookupItem[];
         licensees: LookupItem[];
     };
-    onFilterChange: (filters: { city?: string; state?: string; county?: string; zip?: string; type?: string; licensee?: string; status?: string; address?: string }) => void;
+    onFilterChange: (filters: { city?: string; state?: string; county?: string; zip?: string; type?: string; carrier?: string; licensee?: string; status?: string; address?: string }) => void;
+    filters?: { city?: string; state?: string; county?: string; zip?: string; type?: string; carrier?: string; licensee?: string; status?: string; address?: string };
     onCellEdit?: (towerId: number, field: string, value: string) => void;
     onNotesClick?: (tower: any) => void;
     onAddOwner?: (tower: any) => void;
@@ -67,6 +72,7 @@ export default function TowerTableSimple({
     filterOptions,
     lookups,
     onFilterChange,
+    filters = {},
     onCellEdit,
     onNotesClick,
     onAddOwner,
@@ -212,27 +218,151 @@ export default function TowerTableSimple({
 
     const handleFilterModelChange = (filterModel: any) => {
         // Extract all filter values from the DataGrid filter model
-        const filters: { city?: string; state?: string; county?: string; zip?: string; type?: string; licensee?: string; status?: string; address?: string } = {};
+        const newFilters: { city?: string; state?: string; county?: string; zip?: string; type?: string; licensee?: string; status?: string; address?: string } = { ...filters };
 
         if (filterModel.items && filterModel.items.length > 0) {
             filterModel.items.forEach((item: any) => {
                 if (item.value) {
                     switch (item.field) {
-                        case 'city': filters.city = item.value; break;
-                        case 'county': filters.county = item.value; break;
-                        case 'state': filters.state = item.value; break;
-                        case 'zip': filters.zip = item.value; break;
-                        case 'type': filters.type = item.value; break;
-                        case 'licensee': filters.licensee = item.value; break;
-                        case 'status': filters.status = item.value; break;
-                        case 'address': filters.address = item.value; break;
+                        case 'city': newFilters.city = item.value; break;
+                        case 'county': newFilters.county = item.value; break;
+                        case 'state': newFilters.state = item.value; break;
+                        case 'zip': newFilters.zip = item.value; break;
+                        case 'type': newFilters.type = item.value; break;
+                        case 'licensee': newFilters.licensee = item.value; break;
+                        case 'status': newFilters.status = item.value; break;
+                        case 'address': newFilters.address = item.value; break;
                     }
                 }
             });
         }
 
-        onFilterChange(filters);
+        onFilterChange(newFilters);
     };
+
+    // Helper: count how many filter keys have a truthy value
+    const activeFilterCount = Object.values(filters).filter(v => v && v.length > 0).length;
+
+    const handleExternalFilterChange = (field: string, values: string[]) => {
+        const newFilters = { ...filters, [field]: values.join(',') };
+        // Remove keys with empty value
+        if (!values.length) delete (newFilters as any)[field];
+        onFilterChange(newFilters);
+    };
+
+    const removeFilterValue = (field: string, valueToRemove: string) => {
+        const current = ((filters as any)[field] || '').split(',').filter(Boolean);
+        const updated = current.filter((v: string) => v !== valueToRemove);
+        handleExternalFilterChange(field, updated);
+    };
+
+    // Collect all active filter chips for display
+    const activeChips: { field: string; label: string; value: string }[] = [];
+    const fieldLabels: Record<string, string> = {
+        city: 'City', state: country === 'USA' ? 'State' : 'Province',
+        type: 'Type', status: 'Status', carrier: 'Carrier', licensee: 'Licensee'
+    };
+    for (const [field, label] of Object.entries(fieldLabels)) {
+        const val = (filters as any)[field];
+        if (val) {
+            val.split(',').filter(Boolean).forEach((v: string) => {
+                activeChips.push({ field, label, value: v });
+            });
+        }
+    }
+
+    const icon = <CheckBoxOutlineBlankIcon fontSize="small" />;
+    const checkedIcon = <CheckBoxIcon fontSize="small" />;
+
+    const FilterAutocomplete = ({ field, label, options }: { field: string; label: string; options: string[] }) => {
+        const selected = ((filters as any)[field] || '').split(',').filter(Boolean);
+        return (
+            <Autocomplete
+                multiple
+                size="small"
+                options={options}
+                disableCloseOnSelect
+                value={selected}
+                onChange={(_, newValue) => handleExternalFilterChange(field, newValue)}
+                renderOption={(props, option, { selected: sel }) => {
+                    const { key, ...otherProps } = props as any;
+                    return (
+                        <li key={key} {...otherProps}>
+                            <Checkbox icon={icon} checkedIcon={checkedIcon} style={{ marginRight: 8 }} checked={sel} size="small" />
+                            {option}
+                        </li>
+                    );
+                }}
+                renderTags={() => null}
+                renderInput={(params) => (
+                    <TextField
+                        {...params}
+                        label={label}
+                        placeholder={selected.length ? `${selected.length} selected` : 'All'}
+                        sx={{
+                            minWidth: 140,
+                            '& .MuiOutlinedInput-root': {
+                                bgcolor: selected.length ? 'primary.50' : 'transparent',
+                                borderColor: selected.length ? 'primary.main' : undefined,
+                            },
+                            '& .MuiInputLabel-root': {
+                                color: selected.length ? 'primary.main' : undefined,
+                                fontWeight: selected.length ? 600 : 400,
+                            }
+                        }}
+                    />
+                )}
+                sx={{ minWidth: 140 }}
+            />
+        );
+    };
+
+    const ExternalFiltersBar = () => (
+        <Box sx={{ borderBottom: '1px solid #e0e0e0', bgcolor: 'white' }}>
+            {/* Filter Dropdowns Row */}
+            <Box sx={{ p: 1, display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center' }}>
+                <Tooltip title="Filters">
+                    <Badge badgeContent={activeFilterCount} color="primary" sx={{ mr: 0.5 }}>
+                        <FilterListIcon color={activeFilterCount > 0 ? 'primary' : 'action'} />
+                    </Badge>
+                </Tooltip>
+                <FilterAutocomplete field="state" label={country === 'USA' ? 'State' : 'Province'} options={filterOptions.states} />
+                <FilterAutocomplete field="city" label="City" options={filterOptions.cities} />
+                <FilterAutocomplete field="type" label="Type" options={filterOptions.types} />
+                <FilterAutocomplete field="status" label="Status" options={filterOptions.statuses} />
+                <FilterAutocomplete field="carrier" label="Carrier" options={filterOptions.carriers} />
+                <FilterAutocomplete field="licensee" label="Licensee" options={filterOptions.licensees} />
+                {activeFilterCount > 0 && (
+                    <Button
+                        size="small"
+                        variant="outlined"
+                        color="error"
+                        startIcon={<ClearIcon />}
+                        onClick={() => onFilterChange({})}
+                        sx={{ ml: 'auto', textTransform: 'none', fontWeight: 600 }}
+                    >
+                        Clear All ({activeFilterCount})
+                    </Button>
+                )}
+            </Box>
+            {/* Active Filter Chips Row */}
+            {activeChips.length > 0 && (
+                <Box sx={{ px: 1, pb: 1, display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+                    {activeChips.map((chip, i) => (
+                        <Chip
+                            key={`${chip.field}-${chip.value}-${i}`}
+                            label={`${chip.label}: ${chip.value}`}
+                            size="small"
+                            color="primary"
+                            variant="outlined"
+                            onDelete={() => removeFilterValue(chip.field, chip.value)}
+                            sx={{ fontWeight: 500 }}
+                        />
+                    ))}
+                </Box>
+            )}
+        </Box>
+    );
 
     const columns: GridColDef[] = [
         {
@@ -353,7 +483,7 @@ export default function TowerTableSimple({
 
     return (
         <Box sx={{ height: '100%', width: '100%', display: 'flex', flexDirection: 'column' }}>
-            {/* Removed Top Bar */}
+            <ExternalFiltersBar />
             <DataGrid
                 rows={towers}
                 columns={columns}

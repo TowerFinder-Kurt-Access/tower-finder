@@ -98,9 +98,11 @@ interface Tower {
         parcelId?: string;
         dataSource?: string;
         owner?: {
+            id?: number;
             name?: string;
             address?: string;
             type?: string;
+            contacts?: { id: number; type: string; value: string; label: string; isValid: boolean }[];
         };
     };
     notes?: Note[];
@@ -1012,7 +1014,23 @@ export default function TowerDetailPage({ params }: PageProps) {
                                             </Box>
                                             <Box>
                                                 <Typography variant="body2" color="text.secondary">Owner Name</Typography>
-                                                <Typography variant="body1">{tower.parcel.owner.name || 'N/A'}</Typography>
+                                                <Typography variant="body1">
+                                                    {tower.parcel.owner.id ? (
+                                                        <Button
+                                                            size="small"
+                                                            sx={{ p: 0, minWidth: 'auto', textTransform: 'none', fontWeight: 'normal', fontSize: '1rem', color: 'primary.main', textAlign: 'left', display: 'flex', alignItems: 'center' }}
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                router.push(`/owners/${tower.parcel!.owner!.id}`);
+                                                            }}
+                                                            endIcon={<OpenInNewIcon fontSize="small" />}
+                                                        >
+                                                            {tower.parcel.owner.name || 'N/A'}
+                                                        </Button>
+                                                    ) : (
+                                                        tower.parcel.owner.name || 'N/A'
+                                                    )}
+                                                </Typography>
                                             </Box>
                                             <Box>
                                                 <Typography variant="body2" color="text.secondary">Owner Type</Typography>
@@ -1022,6 +1040,29 @@ export default function TowerDetailPage({ params }: PageProps) {
                                                 <Typography variant="body2" color="text.secondary">Owner Address</Typography>
                                                 <Typography variant="body1">{tower.parcel.owner.address || 'N/A'}</Typography>
                                             </Box>
+                                            {tower.parcel.owner.contacts && tower.parcel.owner.contacts.length > 0 && (
+                                                <Box sx={{ gridColumn: { xs: '1', md: '1 / -1' } }}>
+                                                    <Typography variant="body2" color="text.secondary">Contacts</Typography>
+                                                    <Box sx={{ mt: 0.5, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                                                        {tower.parcel.owner.contacts.map((contact) => (
+                                                            <Box key={contact.id} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                                <Chip size="small" label={contact.type} sx={{ borderRadius: 1 }} />
+                                                                <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                                                                    {contact.value}
+                                                                </Typography>
+                                                                {contact.label && (
+                                                                    <Typography variant="caption" color="text.secondary">
+                                                                        ({contact.label})
+                                                                    </Typography>
+                                                                )}
+                                                                {!contact.isValid && (
+                                                                    <Chip size="small" color="error" label="Invalid" sx={{ ml: 1, height: 20, fontSize: '0.65rem' }} />
+                                                                )}
+                                                            </Box>
+                                                        ))}
+                                                    </Box>
+                                                </Box>
+                                            )}
                                         </>
                                     )}
                                 </Box>

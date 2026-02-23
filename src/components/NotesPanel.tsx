@@ -55,8 +55,8 @@ export default function NotesPanel({ towerId, notes, onNotesChange }: NotesPanel
     const handleOpenDialog = (note?: Note) => {
         if (note) {
             setEditingNote(note);
-            setContent(note.content);
-            setAuthor(note.author);
+            setContent(note.content || '');
+            setAuthor(note.author || '');
         } else {
             setEditingNote(null);
             setContent('');
@@ -72,7 +72,7 @@ export default function NotesPanel({ towerId, notes, onNotesChange }: NotesPanel
     };
 
     const handleSave = async () => {
-        if (!content.trim() || !author.trim()) return;
+        if (!(content || '').trim() || !(author || '').trim()) return;
 
         setSaving(true);
         try {
@@ -84,14 +84,14 @@ export default function NotesPanel({ towerId, notes, onNotesChange }: NotesPanel
                 await fetch(`/api/towers/${towerId}/notes/${editingNote.id}`, {
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ content: content.trim(), author: author.trim() })
+                    body: JSON.stringify({ content: (content || '').trim(), author: (author || '').trim() })
                 });
             } else {
                 // Create new note
                 await fetch(`/api/towers/${towerId}/notes`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ content: content.trim(), author: author.trim() })
+                    body: JSON.stringify({ content: (content || '').trim(), author: (author || '').trim() })
                 });
             }
 
@@ -225,7 +225,7 @@ export default function NotesPanel({ towerId, notes, onNotesChange }: NotesPanel
                     <Button
                         onClick={handleSave}
                         variant="contained"
-                        disabled={saving || !content.trim() || !author.trim()}
+                        disabled={saving || !(content || '').trim() || !(author || '').trim()}
                     >
                         {saving ? <CircularProgress size={20} /> : 'Save'}
                     </Button>

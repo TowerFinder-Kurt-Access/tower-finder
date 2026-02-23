@@ -1,9 +1,11 @@
 'use client';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useState, useEffect, Suspense, useCallback } from 'react';
 import Box from '@mui/material/Box';
 import axios from 'axios';
-import { Paper, Typography, Drawer, IconButton } from '@mui/material';
+import Link from 'next/link';
+import { Paper, Typography, Drawer, IconButton, Button, Chip, Stack } from '@mui/material';
+import MapIcon from '@mui/icons-material/Map';
 import CloseIcon from '@mui/icons-material/Close';
 import TowerTableSimple from '@/components/TowerTableSimple';
 import NotesPanel from '@/components/NotesPanel';
@@ -44,6 +46,7 @@ interface OwnerResult {
 
 function TowersPageContent() {
     const router = useRouter();
+    const searchParams = useSearchParams();
     const { country: globalCountry } = useCountry();
 
     const [towers, setTowers] = useState<Tower[]>([]);
@@ -81,7 +84,18 @@ function TowersPageContent() {
         licensee?: string;
         status?: string;
         address?: string;
+        id?: string;
     }>({});
+
+    // Read ?id= param from URL and pre-set the ID filter
+    useEffect(() => {
+        const idParam = searchParams.get('id');
+        if (idParam) {
+            setFilters({ id: idParam });
+            setPage(0);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []); // only on mount
 
     // Load settings from local storage on mount
     useEffect(() => {
@@ -151,20 +165,24 @@ function TowersPageContent() {
             });
 
             if (globalCountry) params.append('country', globalCountry);
-            if (filters.city) params.append('city', filters.city);
-            if (filters.county) params.append('county', filters.county);
-            if (filters.state) params.append('state', filters.state);
-            if (filters.zip) params.append('zip', filters.zip);
-            if (filters.type) params.append('type', filters.type);
-            if (filters.licensee) params.append('licensee', filters.licensee);
-            if (filters.status) params.append('status', filters.status);
-            if (filters.address) params.append('address', filters.address);
+            if (filters.id) params.append('id', filters.id);
+            if (!filters.id) {
+                // Only apply other filters when not filtering by ID
+                if (filters.city) params.append('city', filters.city);
+                if (filters.county) params.append('county', filters.county);
+                if (filters.state) params.append('state', filters.state);
+                if (filters.zip) params.append('zip', filters.zip);
+                if (filters.type) params.append('type', filters.type);
+                if (filters.licensee) params.append('licensee', filters.licensee);
+                if (filters.status) params.append('status', filters.status);
+                if (filters.address) params.append('address', filters.address);
+            }
 
             const res = await axios.get(`/api/towers?${params.toString()}`);
 
-            // Flatten the data structure for better DataGrid filtering
-            // Relations (type, licensee, carrier, city, province) come as objects with .name
-            const flattenedTowers = (res.data.data || []).map((tower: any) => ({
+            // API returns plain array when filtering by id, paginated object otherwise
+            const rawData = Array.isArray(res.data) ? res.data : (res.data.data || []);
+            const flattenedTowers = rawData.map((tower: any) => ({
                 ...tower,
                 type: typeof tower.type === 'object' ? tower.type?.name : (tower.type || ''),
                 status: typeof tower.status === 'object' ? tower.status?.name : (tower.legacyStatus || ''),
@@ -181,7 +199,7 @@ function TowersPageContent() {
             }));
 
             setTowers(flattenedTowers);
-            setTotalCount(res.data.total || 0);
+            setTotalCount(Array.isArray(res.data) ? flattenedTowers.length : (res.data.total || 0));
         } catch (error) {
             console.error("Failed to fetch towers:", error);
         } finally {
@@ -312,7 +330,31 @@ function TowersPageContent() {
         <Box sx={{ display: 'flex', height: '100%', overflow: 'hidden', flexDirection: 'column' }}>
             <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', p: 2, backgroundColor: '#f5f5f5', overflow: 'hidden' }}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                    <Typography variant="h5" sx={{ fontWeight: 600 }}>Towers List</Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+                        <Button
+                            component={Link}
+                            href="/"
+                            variant="outlined"
+                            size="small"
+                            startIcon={<MapIcon />}
+                            sx={{ textTransform: 'none' }}
+                        >
+                            Back to Map
+                        </Button>
+                        <Typography variant="h5" sx={{ fontWeight: 600 }}>Towers List</Typography>
+                        {filters.id && (
+                            <Chip
+                                label={`Tower ID: ${filters.id}`}
+                                color="primary"
+                                size="small"
+                                onDelete={() => {
+                                    setFilters({});
+                                    setPage(0);
+                                    router.replace('/towers');
+                                }}
+                            />
+                        )}
+                    </Box>
                     {isLoading && <Typography variant="body2" color="text.secondary">Loading...</Typography>}
                 </Box>
                 <Paper sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
@@ -330,6 +372,7 @@ function TowersPageContent() {
                         isLoading={isLoading}
                         filterOptions={filterOptions}
                         lookups={lookups}
+                        filters={filters}
                         onFilterChange={(newFilters) => {
                             setFilters(newFilters);
                             setPage(0);

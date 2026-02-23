@@ -14,8 +14,13 @@ import IconButton from '@mui/material/IconButton';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import Tooltip from '@mui/material/Tooltip';
-import ViewListIcon from '@mui/icons-material/ViewList'; // For Towers view
+import ViewListIcon from '@mui/icons-material/ViewList';
 import MapIcon from '@mui/icons-material/Map';
+import ExploreIcon from '@mui/icons-material/Explore';
+import TableRowsIcon from '@mui/icons-material/TableRows';
+import Divider from '@mui/material/Divider';
+import Stack from '@mui/material/Stack';
+import Link from 'next/link';
 import FormControl from '@mui/material/FormControl';
 import InputLabel from '@mui/material/InputLabel';
 import Select, { SelectChangeEvent } from '@mui/material/Select';
@@ -33,6 +38,7 @@ interface Tower {
     carrier?: { name: string };
     status?: string;
     googleMapsUrl?: string;
+    isLead?: boolean;
     parcel?: {
         address?: string;
         cityRaw?: string;
@@ -346,26 +352,39 @@ export default function Sidebar({
                                 <Typography variant="body2" sx={{ mt: 1 }}><strong>Address:</strong> {selectedTower.parcel.address}</Typography>
                             )}
 
-                            {/* <Button
-                                fullWidth
-                                variant="contained"
-                                size="small"
-                                startIcon={<BusinessIcon />}
-                                onClick={() => onLookupOwner(selectedTower)}
-                                disabled={isOwnerLoading}
-                                sx={{ mt: 2 }}
-                            >
-                                {isOwnerLoading ? 'Loading...' : 'Get Owner'}
-                            </Button>
+                            <Divider sx={{ my: 1.5 }} />
 
-                            {ownerData && (
-                                <Box sx={{ mt: 2, p: 1, bgcolor: '#e3f2fd', borderRadius: 1 }}>
-                                    <Typography variant="caption" fontWeight="bold">Owner Data:</Typography>
-                                    <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
-                                        {ownerData.result?.owner || 'No owner found'}
-                                    </Typography>
-                                </Box>
-                            )} */}
+                            <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
+                                Navigate to:
+                            </Typography>
+                            <Stack spacing={1}>
+                                {!selectedTower.isLead && (
+                                    <Button
+                                        component={Link}
+                                        href={`/towers?id=${selectedTower.id}`}
+                                        variant="contained"
+                                        size="small"
+                                        fullWidth
+                                        startIcon={<TableRowsIcon />}
+                                        sx={{ textTransform: 'none', justifyContent: 'flex-start' }}
+                                    >
+                                        View in Towers
+                                    </Button>
+                                )}
+                                {selectedTower.isLead && (
+                                    <Button
+                                        component={Link}
+                                        href={`/tower-leads`}
+                                        variant="outlined"
+                                        size="small"
+                                        fullWidth
+                                        startIcon={<ExploreIcon />}
+                                        sx={{ textTransform: 'none', justifyContent: 'flex-start' }}
+                                    >
+                                        View Tower Leads
+                                    </Button>
+                                )}
+                            </Stack>
                         </CardContent>
                     </Card>
                 ) : (

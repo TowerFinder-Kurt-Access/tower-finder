@@ -14,6 +14,7 @@ import ExploreIcon from '@mui/icons-material/Explore';
 import LogoutIcon from '@mui/icons-material/Logout';
 import MenuIcon from '@mui/icons-material/Menu';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
+import SettingsIcon from '@mui/icons-material/Settings';
 import { IconButton, MenuItem, Select, FormControl, InputLabel, ListItemIcon, ListItemText, List, ListItemButton } from '@mui/material';
 import { Role } from '@prisma/client';
 import { useCountry } from '@/lib/country-context';
@@ -38,6 +39,7 @@ export default function NavRail() {
 
     const adminNavItems = [
         { label: 'Users', icon: <AdminPanelSettingsIcon />, path: '/admin/users' },
+        { label: 'Lookups', icon: <SettingsIcon />, path: '/admin/lookups' },
     ];
 
     let navItems = [...baseNavItems];
