@@ -319,6 +319,7 @@ function HomeContent() {
     setSelectedCity('');
     setShouldFitBounds(true);
     setShowLeads(false);
+    setIsViewingSpecificTower(false); // Unset explicit target
     setTowerLeads([]);
     setTowers([]);
   };
@@ -327,6 +328,7 @@ function HomeContent() {
     setSelectedCity(newCity);
     setShouldFitBounds(true);
     setShowLeads(false);
+    setIsViewingSpecificTower(false); // Unset explicit target
     setTowerLeads([]);
     setTowers([]);
   };
@@ -345,6 +347,7 @@ function HomeContent() {
   };
 
   const handleFilterChange = (filters: FilterState) => {
+    setIsViewingSpecificTower(false); // Unset explicit target
     if (filters.city !== undefined && filters.city !== selectedCity) handleCityChange(filters.city);
     if (filters.type !== undefined) setSelectedType(filters.type);
     if (filters.carrier !== undefined) setSelectedCarrier(filters.carrier);
