@@ -95,18 +95,28 @@ export class InformationService {
 
         // Transaction to ensure consistency
         const result = await prisma.$transaction(async (tx) => {
+            // Find or create 'Researched' status
+            let statusId: number;
+            const existingStatus = await tx.towerStatus.findFirst({
+                where: { name: 'Researched' }
+            });
+
+            if (existingStatus) {
+                statusId = existingStatus.id;
+            } else {
+                const newStatus = await tx.towerStatus.create({
+                    data: { name: 'Researched' }
+                });
+                statusId = newStatus.id;
+            }
+
             // Ensure Tower exists
             const tower = await tx.tower.upsert({
                 where: { lat_lon: { lat, lon } },
                 create: {
                     lat,
                     lon,
-                    status: {
-                        connectOrCreate: {
-                            where: { name: 'Researched' },
-                            create: { name: 'Researched' }
-                        }
-                    },
+                    statusId: statusId,
                     legacyStatus: 'Researched'
                 },
                 update: {} // No update needed if exists

@@ -66,16 +66,26 @@ export async function POST(
 
         // Create the tower and link the lead in a transaction
         const result = await prisma.$transaction(async (tx) => {
+            // Find or create 'New' status
+            let statusId: number;
+            const existingStatus = await tx.towerStatus.findFirst({
+                where: { name: 'New' }
+            });
+
+            if (existingStatus) {
+                statusId = existingStatus.id;
+            } else {
+                const newStatus = await tx.towerStatus.create({
+                    data: { name: 'New' }
+                });
+                statusId = newStatus.id;
+            }
+
             const tower = await tx.tower.create({
                 data: {
                     lat: lead.lat,
                     lon: lead.lon,
-                    status: {
-                        connectOrCreate: {
-                            where: { name: 'New' },
-                            create: { name: 'New' }
-                        }
-                    },
+                    statusId: statusId,
                     legacyStatus: 'New',
                     source: `Tower Leads - ${lead.source}`,
                     googleMapsUrl: body.googleMapsUrl || null,
