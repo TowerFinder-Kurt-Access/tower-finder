@@ -176,26 +176,26 @@ model Note {
 
 model TowerType {
   id     Int     @id @default(autoincrement())
-  name   String  @unique
+  name   String
   towers Tower[]
 }
 
 model TowerStatus {
   id     Int     @id @default(autoincrement())
-  name   String  @unique
+  name   String
   towers Tower[]
 }
 
 model Carrier {
   id        Int        @id @default(autoincrement())
-  name      String     @unique
+  name      String
   licensees Licensee[]
   towers    Tower[]
 }
 
 model Licensee {
   id        Int     @id @default(autoincrement())
-  name      String  @unique
+  name   String
   carrierId Int?
   carrier   Carrier? @relation(fields: [carrierId], references: [id])
   towers    Tower[]
@@ -204,7 +204,7 @@ model Licensee {
 model Province {
   id        Int      @id @default(autoincrement())
   code      String   @unique
-  name      String   @unique
+  name   String
   cities    City[]
   parcels   Parcel[]
 }

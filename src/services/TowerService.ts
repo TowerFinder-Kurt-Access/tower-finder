@@ -27,6 +27,28 @@ export class TowerService {
      * Finds or creates a tower by coordinates
      */
     static async createOrFindTower(lat: number, lon: number, typeName: string = 'Unknown', status: string = 'New') {
+        let typeId = undefined;
+        if (typeName !== 'Unknown') {
+            const existingType = await prisma.towerType.findFirst({ where: { name: typeName } });
+            if (existingType) {
+                typeId = existingType.id;
+            } else {
+                const newType = await prisma.towerType.create({ data: { name: typeName } });
+                typeId = newType.id;
+            }
+        }
+
+        let statusId = undefined;
+        if (status !== 'Unknown') {
+            const existingStatus = await prisma.towerStatus.findFirst({ where: { name: status } });
+            if (existingStatus) {
+                statusId = existingStatus.id;
+            } else {
+                const newStatus = await prisma.towerStatus.create({ data: { name: status } });
+                statusId = newStatus.id;
+            }
+        }
+
         return await prisma.tower.upsert({
             where: {
                 lat_lon: { lat, lon }
@@ -35,18 +57,8 @@ export class TowerService {
             create: {
                 lat,
                 lon,
-                type: typeName !== 'Unknown' ? {
-                    connectOrCreate: {
-                        where: { name: typeName },
-                        create: { name: typeName }
-                    }
-                } : undefined,
-                status: status !== 'Unknown' ? {
-                    connectOrCreate: {
-                        where: { name: status },
-                        create: { name: status }
-                    }
-                } : undefined,
+                typeId,
+                statusId,
                 legacyStatus: status
             }
         });

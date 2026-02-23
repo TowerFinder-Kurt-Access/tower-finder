@@ -42,9 +42,6 @@ export async function PUT(
         return NextResponse.json(result);
     } catch (error: any) {
         console.error('Error updating lookup:', error);
-        if (error.code === 'P2002') {
-            return NextResponse.json({ error: `Name already exists.` }, { status: 409 });
-        }
         return NextResponse.json({ error: 'Failed to update lookup' }, { status: 500 });
     }
 }

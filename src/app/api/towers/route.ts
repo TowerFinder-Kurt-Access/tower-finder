@@ -445,6 +445,28 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Latitude and Longitude are required' }, { status: 400 });
         }
 
+        // Manual findOrCreate for type and status since names are no longer unique
+        let typeId = undefined;
+        if (type) {
+            const existingType = await prisma.towerType.findFirst({ where: { name: type } });
+            if (existingType) {
+                typeId = existingType.id;
+            } else {
+                const newType = await prisma.towerType.create({ data: { name: type } });
+                typeId = newType.id;
+            }
+        }
+
+        let statusId = undefined;
+        const statusName = status || 'New';
+        const existingStatus = await prisma.towerStatus.findFirst({ where: { name: statusName } });
+        if (existingStatus) {
+            statusId = existingStatus.id;
+        } else {
+            const newStatus = await prisma.towerStatus.create({ data: { name: statusName } });
+            statusId = newStatus.id;
+        }
+
         // Upsert: Create if not found, or update if exists (though usually we just want to return existing)
         // Using upsert ensures we don't violate unique constraint
         const tower = await prisma.tower.upsert({
@@ -455,16 +477,15 @@ export async function POST(request: Request) {
                 }
             },
             update: {
-                // If it exists, we might want to update type if provided, or leave as is
-                type: type ? { connectOrCreate: { where: { name: type }, create: { name: type } } } : undefined,
-                status: status ? { connectOrCreate: { where: { name: status }, create: { name: status } } } : undefined,
+                typeId: typeId || undefined,
+                statusId: statusId,
                 legacyStatus: status || undefined
             },
             create: {
                 lat: parseFloat(lat),
                 lon: parseFloat(lon),
-                type: type ? { connectOrCreate: { where: { name: type }, create: { name: type } } } : undefined,
-                status: { connectOrCreate: { where: { name: status || 'New' }, create: { name: status || 'New' } } },
+                typeId: typeId || undefined,
+                statusId: statusId,
                 legacyStatus: status || 'New'
             }
         });

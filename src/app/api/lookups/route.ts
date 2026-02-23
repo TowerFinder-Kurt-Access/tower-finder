@@ -47,13 +47,6 @@ export async function POST(request: Request) {
 
         return NextResponse.json(result);
     } catch (error: any) {
-        // Handle unique constraint violations
-        if (error.code === 'P2002') {
-            return NextResponse.json(
-                { error: `A ${(await request.clone().json()).type} with that name already exists.` },
-                { status: 409 }
-            );
-        }
         console.error('Error creating lookup:', error);
         return NextResponse.json(
             { error: error.message || 'Failed to create lookup' },
