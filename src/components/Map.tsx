@@ -178,9 +178,10 @@ export default function Map({ center, zoom, bounds, towers, towerLeads = [], onT
                             pathOptions={{
                                 color: markerColor,
                                 fillColor: fillColor,
-                                fillOpacity: isFromLead ? 0.7 : 0.5
+                                fillOpacity: isSelected ? 0.9 : (isFromLead ? 0.7 : 0.5)
                             }}
-                            radius={10}
+                            radius={isSelected ? 14 : 10}
+                            className={isSelected ? 'selected-tower-pulse' : ''}
                             eventHandlers={{
                                 click: () => onTowerSelect(tower)
                             }}
@@ -210,7 +211,7 @@ export default function Map({ center, zoom, bounds, towers, towerLeads = [], onT
                                             onTowerSelect({ ...tower, action: 'addOwner' });
                                         }}
                                     >
-                                        👤 Add Owner
+                                        👤 Add Property Owner
                                     </button>
                                 </div>
                             </Popup>

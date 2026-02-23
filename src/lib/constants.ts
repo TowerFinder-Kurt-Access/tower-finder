@@ -13,11 +13,11 @@ export type TowerStatus = typeof TOWER_STATUSES[keyof typeof TOWER_STATUSES];
 
 // Human-readable labels for each status
 export const TOWER_STATUS_LABELS: Record<string, string> = {
-  [TOWER_STATUSES.DETERMINING_OWNER_CALLS]: 'Determining owner via calls',
-  [TOWER_STATUSES.COULDNT_FIND_OWNER_CALLS]: "Couldn't figure out owner via calls",
-  [TOWER_STATUSES.DETERMINING_OWNER_TITLE]: 'Determining owner via title deed purchase',
-  [TOWER_STATUSES.OWNER_FOUND]: 'Owner found',
-  [TOWER_STATUSES.CALLING_OWNER]: 'Calling owner',
+  [TOWER_STATUSES.DETERMINING_OWNER_CALLS]: 'Determining property owner via calls',
+  [TOWER_STATUSES.COULDNT_FIND_OWNER_CALLS]: "Couldn't figure out property owner via calls",
+  [TOWER_STATUSES.DETERMINING_OWNER_TITLE]: 'Determining property owner via title deed purchase',
+  [TOWER_STATUSES.OWNER_FOUND]: 'Property owner found',
+  [TOWER_STATUSES.CALLING_OWNER]: 'Calling property owner',
   [TOWER_STATUSES.RENEGOTIATION]: 'Renegotiation in process',
   [TOWER_STATUSES.CLOSED_WON]: 'Closed Won',
   // Legacy values for backwards compatibility
@@ -30,11 +30,11 @@ export const TOWER_STATUS_LABELS: Record<string, string> = {
 
 // Options for dropdown/select components
 export const TOWER_STATUS_OPTIONS = [
-  { value: TOWER_STATUSES.DETERMINING_OWNER_CALLS, label: 'Determining owner via calls' },
-  { value: TOWER_STATUSES.COULDNT_FIND_OWNER_CALLS, label: "Couldn't figure out owner via calls" },
-  { value: TOWER_STATUSES.DETERMINING_OWNER_TITLE, label: 'Determining owner via title deed purchase' },
-  { value: TOWER_STATUSES.OWNER_FOUND, label: 'Owner found' },
-  { value: TOWER_STATUSES.CALLING_OWNER, label: 'Calling owner' },
+  { value: TOWER_STATUSES.DETERMINING_OWNER_CALLS, label: 'Determining property owner via calls' },
+  { value: TOWER_STATUSES.COULDNT_FIND_OWNER_CALLS, label: "Couldn't figure out property owner via calls" },
+  { value: TOWER_STATUSES.DETERMINING_OWNER_TITLE, label: 'Determining property owner via title deed purchase' },
+  { value: TOWER_STATUSES.OWNER_FOUND, label: 'Property owner found' },
+  { value: TOWER_STATUSES.CALLING_OWNER, label: 'Calling property owner' },
   { value: TOWER_STATUSES.RENEGOTIATION, label: 'Renegotiation in process' },
   { value: TOWER_STATUSES.CLOSED_WON, label: 'Closed Won' },
 ];

@@ -75,6 +75,8 @@ function TowersPageContent() {
         licensees: { id: number; name: string }[];
         statuses: { id: number; name: string }[];
     }>({ types: [], carriers: [], licensees: [], statuses: [] });
+    // Initialize filters from URL ?id= param immediately so the first loadTowers already has it
+    const urlIdParam = searchParams.get('id');
     const [filters, setFilters] = useState<{
         city?: string;
         state?: string;
@@ -85,20 +87,12 @@ function TowersPageContent() {
         status?: string;
         address?: string;
         id?: string;
-    }>({});
+    }>(() => urlIdParam ? { id: urlIdParam } : {});
 
-    // Read ?id= param from URL and pre-set the ID filter
+    // Load settings from local storage on mount (skip if URL has ?id= param)
     useEffect(() => {
-        const idParam = searchParams.get('id');
-        if (idParam) {
-            setFilters({ id: idParam });
-            setPage(0);
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []); // only on mount
+        if (urlIdParam) return; // URL id param takes priority over saved settings
 
-    // Load settings from local storage on mount
-    useEffect(() => {
         const savedSettings = localStorage.getItem('towersPageSettings');
         if (savedSettings) {
             try {
@@ -252,9 +246,9 @@ function TowersPageContent() {
                 setTowers(prevTowers => prevTowers.map(t => t.id === tower.id ? updatedTower : t));
 
                 if (ownerName) {
-                    alert(`Owner found: ${ownerName}`);
+                    alert(`Property Owner found: ${ownerName}`);
                 } else {
-                    alert('Parcel found, but owner information is not available');
+                    alert('Parcel found, but property owner information is not available');
                 }
             } else {
                 alert("No parcel data found for this location.");

@@ -64,6 +64,7 @@ function HomeContent() {
   const [mounted, setMounted] = useState(false);
   const [leadToPromote, setLeadToPromote] = useState<any>(null);
   const [addOwnerTower, setAddOwnerTower] = useState<any>(null);
+  const [isViewingSpecificTower, setIsViewingSpecificTower] = useState<boolean>(false);
 
   const isMounted = useRef(true);
   useEffect(() => {
@@ -87,11 +88,48 @@ function HomeContent() {
 
   // Effect to handle URL params for selecting a tower or centering map
   useEffect(() => {
+    const selectTowerParam = searchParams.get('selectTower');
     const latParam = searchParams.get('lat');
     const lonParam = searchParams.get('lon');
     const zoomParam = searchParams.get('zoom');
     const cityParam = searchParams.get('city');
     const countryParam = searchParams.get('country');
+
+    // 0. Handle selectTower param — fetch tower and center map on it
+    if (selectTowerParam) {
+      setIsViewingSpecificTower(true);
+      const towerId = parseInt(selectTowerParam);
+      if (!isNaN(towerId)) {
+        axios.get(`/api/towers/${towerId}`).then(res => {
+          const t = res.data;
+          if (t && t.lat && t.lon) {
+            setMapCenter([t.lat, t.lon]);
+            setZoom(16);
+            setShouldFitBounds(false);
+            setSelectedTower(t);
+            // Pre-seed the map with this tower so it renders immediately
+            setTowers([t]);
+
+            // Update filters so sidebar reflects the tower's location
+            if (t.parcel) {
+              const prov = typeof t.parcel.province === 'object' ? t.parcel.province?.name : (t.parcel.provinceRaw || t.parcel.stateRaw);
+              if (prov) {
+                setSelectedProvince(prov);
+              }
+              const city = typeof t.parcel.city === 'object' ? t.parcel.city?.name : t.parcel.cityRaw;
+              if (city) {
+                setSelectedCity(city);
+              }
+            }
+          }
+        }).catch(err => {
+          console.error('Failed to fetch tower for selectTower param:', err);
+        });
+      }
+      return; // Don't process other params when selectTower is set
+    } else {
+      setIsViewingSpecificTower(false);
+    }
 
     // 1. Sync Country Context from URL
     if (countryParam && countryParam !== selectedCountry) {
@@ -131,7 +169,8 @@ function HomeContent() {
   // ... (lines 114-162 unchanged but I'll include the relevant parts)
   useEffect(() => {
     const fetchTowers = async () => {
-      if (!isMounted.current) return;
+      // Don't refetch all towers in the bounds if we explicitly targeted one tower from the URL redirect
+      if (!isMounted.current || isViewingSpecificTower) return;
       setIsLoading(true);
       try {
         const params: any = {};
@@ -169,7 +208,7 @@ function HomeContent() {
     }, 500);
 
     return () => clearTimeout(timeoutId);
-  }, [mapBounds, selectedCountry, selectedProvince, selectedCity, selectedType, selectedCarrier, selectedLicensee, shouldFitBounds, towers.length]);
+  }, [mapBounds, selectedCountry, selectedProvince, selectedCity, selectedType, selectedCarrier, selectedLicensee, shouldFitBounds, towers.length, isViewingSpecificTower]);
 
   // Fit bounds using Geocoding API when filter changes
   useEffect(() => {
@@ -236,6 +275,12 @@ function HomeContent() {
       setAddOwnerTower(tower);
     } else {
       setSelectedTower(tower);
+      setIsViewingSpecificTower(false); // They clicked a new tower or clicked space, so unlock fetching
+      // Pan to the newly selected tower if it has coordinates
+      if (tower.lat && tower.lon) {
+        setMapCenter([tower.lat, tower.lon]);
+        setShouldFitBounds(false); // Make sure bounds centering doesn't override it
+      }
     }
   };
 
@@ -259,7 +304,8 @@ function HomeContent() {
 
     // Only fit to country if we DON'T have a specific lead/tower targeted in URL
     const hasCoordinates = searchParams.get('lat') && searchParams.get('lon');
-    if (!hasCoordinates) {
+    const hasSelectTower = searchParams.get('selectTower');
+    if (!hasCoordinates && !hasSelectTower) {
       setShouldFitBounds(true);
     }
 

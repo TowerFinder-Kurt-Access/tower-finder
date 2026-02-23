@@ -151,7 +151,7 @@ export default function OwnersPage() {
     const columns: GridColDef[] = [
         {
             field: 'ownerName',
-            headerName: 'Owner Name',
+            headerName: 'Property Owner Name',
             flex: 1,
             minWidth: 200,
             renderCell: (params) => (
@@ -339,7 +339,7 @@ export default function OwnersPage() {
     return (
         <Box sx={{ p: 4, height: '100%', display: 'flex', flexDirection: 'column' }}>
             <Typography variant="h4" gutterBottom fontWeight="bold">
-                Land Owners
+                Property Owners
             </Typography>
             <Typography variant="subtitle1" color="text.secondary" gutterBottom>
                 Properties identified with cellular towers.

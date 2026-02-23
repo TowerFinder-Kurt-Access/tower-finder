@@ -345,7 +345,7 @@ function TowerLeadsContent() {
                         )}
 
                         {isPromoted && (
-                            <Tooltip title="Add Owner">
+                            <Tooltip title="Add Property Owner">
                                 <IconButton
                                     size="small"
                                     color="warning"

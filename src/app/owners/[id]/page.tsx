@@ -148,9 +148,9 @@ export default function OwnerDetailPage({ params }: PageProps) {
     if (!owner) {
         return (
             <Box sx={{ p: 3 }}>
-                <Typography variant="h6">Owner not found</Typography>
+                <Typography variant="h6">Property Owner not found</Typography>
                 <Button startIcon={<ArrowBackIcon />} onClick={() => router.push('/owners')} sx={{ mt: 2 }}>
-                    Back to Owners
+                    Back to Property Owners
                 </Button>
             </Box>
         );
@@ -200,7 +200,7 @@ export default function OwnerDetailPage({ params }: PageProps) {
 
                 {/* Owner Info */}
                 <Paper sx={{ p: 3, mb: 3 }}>
-                    <Typography variant="h6" sx={{ mb: 2 }}>Owner Information</Typography>
+                    <Typography variant="h6" sx={{ mb: 2 }}>Property Owner Information</Typography>
                     <Divider sx={{ mb: 2 }} />
 
                     {editing ? (
@@ -407,7 +407,7 @@ export default function OwnerDetailPage({ params }: PageProps) {
                         </Table>
                     ) : (
                         <Typography variant="body2" color="text.secondary" fontStyle="italic">
-                            No towers associated with this owner.
+                            No towers associated with this property owner.
                         </Typography>
                     )}
                 </Paper>

@@ -563,7 +563,7 @@ export default function TowerTableSimple({
                     <ListItemIcon>
                         <BusinessIcon fontSize="small" />
                     </ListItemIcon>
-                    <ListItemText>{isOwnerLoading ? 'Loading Owner...' : 'Lookup Owner'}</ListItemText>
+                    <ListItemText>{isOwnerLoading ? 'Loading Property Owner...' : 'Lookup Property Owner'}</ListItemText>
                 </MenuItem> */}
                 <MenuItem onClick={handleOpenBingMaps}>
                     <ListItemIcon>
@@ -581,7 +581,7 @@ export default function TowerTableSimple({
                         <ListItemIcon>
                             <PersonAddIcon fontSize="small" />
                         </ListItemIcon>
-                        <ListItemText>Add Owner</ListItemText>
+                        <ListItemText>Add Property Owner</ListItemText>
                     </MenuItem>
                 )}
             </Menu>

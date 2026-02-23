@@ -73,7 +73,7 @@ const columns: GridColDef[] = [
     },
     {
         field: 'ownerName',
-        headerName: 'Owner',
+        headerName: 'Property Owner',
         width: 200,
         valueGetter: (value, row) => row.parcel?.owner?.name || ''
     },

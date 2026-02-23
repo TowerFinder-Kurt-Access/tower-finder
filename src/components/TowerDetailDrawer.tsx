@@ -286,7 +286,7 @@ export default function TowerDetailDrawer({
                     <Box sx={{ mb: 3 }}>
                         <Typography variant="subtitle2" color="text.secondary" gutterBottom>
                             <PersonIcon fontSize="small" sx={{ verticalAlign: 'text-bottom', mr: 0.5 }} />
-                            PARCEL & OWNER
+                            PARCEL & PROPERTY OWNER
                         </Typography>
                         <Box sx={{ pl: 1 }}>
                             {tower.parcel ? (
@@ -318,20 +318,20 @@ export default function TowerDetailDrawer({
                                         <>
                                             <Divider sx={{ my: 1 }} />
                                             <Typography variant="body2">
-                                                <strong>Owner:</strong> {tower.parcel.owner.name || 'N/A'}
+                                                <strong>Property Owner:</strong> {tower.parcel.owner.name || 'N/A'}
                                             </Typography>
                                             <Typography variant="body2">
-                                                <strong>Owner Type:</strong> {tower.parcel.owner.type || 'N/A'}
+                                                <strong>Property Owner Type:</strong> {tower.parcel.owner.type || 'N/A'}
                                             </Typography>
                                             <Typography variant="body2">
-                                                <strong>Owner Address:</strong> {tower.parcel.owner.address || 'N/A'}
+                                                <strong>Property Owner Address:</strong> {tower.parcel.owner.address || 'N/A'}
                                             </Typography>
                                         </>
                                     )}
                                 </>
                             ) : (
                                 <Typography variant="body2" color="text.secondary" fontStyle="italic">
-                                    No parcel data. Use "Lookup Owner" to fetch parcel information.
+                                    No parcel data. Use "Lookup Property Owner" to fetch parcel information.
                                 </Typography>
                             )}
                         </Box>
@@ -376,7 +376,7 @@ export default function TowerDetailDrawer({
                         value={statusNote}
                         onChange={(e) => setStatusNote(e.target.value)}
                         sx={{ mb: 2 }}
-                        placeholder="e.g., Spoke with owner, they are interested..."
+                        placeholder="e.g., Spoke with property owner, they are interested..."
                     />
                     <TextField
                         label="Your Name"

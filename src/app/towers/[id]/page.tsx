@@ -313,9 +313,9 @@ export default function TowerDetailPage({ params }: PageProps) {
                 setTower({ ...tower, parcel: parcelData });
 
                 if (ownerName) {
-                    alert(`Owner found: ${ownerName}`);
+                    alert(`Property Owner found: ${ownerName}`);
                 } else {
-                    alert('Parcel found, but owner information is not available');
+                    alert('Parcel found, but property owner information is not available');
                 }
             } else {
                 alert("No parcel data found for this location.");
@@ -594,13 +594,13 @@ export default function TowerDetailPage({ params }: PageProps) {
                         disabled={isOwnerLoading}
                         size="small"
                     >
-                        {isOwnerLoading ? 'Loading...' : 'Lookup Owner'}
+                        {isOwnerLoading ? 'Loading...' : 'Lookup Property Owner'}
                     </Button>
                     <Button startIcon={<TravelExploreIcon />} onClick={handleOpenBingMaps} size="small">
                         Search Nearby
                     </Button>
                     <Button startIcon={<PersonAddIcon />} onClick={() => setAddOwnerOpen(true)} size="small" color="warning">
-                        Add Owner
+                        Add Property Owner
                     </Button>
                 </Toolbar>
             </AppBar>
@@ -861,7 +861,7 @@ export default function TowerDetailPage({ params }: PageProps) {
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
                             <Typography variant="h6">
                                 <PersonIcon fontSize="small" sx={{ verticalAlign: 'text-bottom', mr: 0.5 }} />
-                                Parcel & Owner Information
+                                Parcel & Property Owner Information
                             </Typography>
                             {tower.parcel && !editingAddress && (
                                 <Button
@@ -1013,7 +1013,7 @@ export default function TowerDetailPage({ params }: PageProps) {
                                                 <Divider sx={{ my: 1 }} />
                                             </Box>
                                             <Box>
-                                                <Typography variant="body2" color="text.secondary">Owner Name</Typography>
+                                                <Typography variant="body2" color="text.secondary">Property Owner Name</Typography>
                                                 <Typography variant="body1">
                                                     {tower.parcel.owner.id ? (
                                                         <Button
@@ -1033,11 +1033,11 @@ export default function TowerDetailPage({ params }: PageProps) {
                                                 </Typography>
                                             </Box>
                                             <Box>
-                                                <Typography variant="body2" color="text.secondary">Owner Type</Typography>
+                                                <Typography variant="body2" color="text.secondary">Property Owner Type</Typography>
                                                 <Typography variant="body1">{tower.parcel.owner.type || 'N/A'}</Typography>
                                             </Box>
                                             <Box sx={{ gridColumn: { xs: '1', md: '1 / -1' } }}>
-                                                <Typography variant="body2" color="text.secondary">Owner Address</Typography>
+                                                <Typography variant="body2" color="text.secondary">Property Owner Address</Typography>
                                                 <Typography variant="body1">{tower.parcel.owner.address || 'N/A'}</Typography>
                                             </Box>
                                             {tower.parcel.owner.contacts && tower.parcel.owner.contacts.length > 0 && (
@@ -1069,7 +1069,7 @@ export default function TowerDetailPage({ params }: PageProps) {
                             )
                         ) : (
                             <Typography variant="body2" color="text.secondary" fontStyle="italic">
-                                No parcel data. Use "Lookup Owner" to fetch parcel information.
+                                No parcel data. Use "Lookup Property Owner" to fetch parcel information.
                             </Typography>
                         )}
                     </Paper>
@@ -1107,7 +1107,7 @@ export default function TowerDetailPage({ params }: PageProps) {
                         value={statusNote}
                         onChange={(e) => setStatusNote(e.target.value)}
                         sx={{ mb: 2 }}
-                        placeholder="e.g., Spoke with owner, they are interested..."
+                        placeholder="e.g., Spoke with property owner, they are interested..."
                     />
                     <TextField
                         label="Your Name"

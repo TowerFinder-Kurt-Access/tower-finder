@@ -34,7 +34,7 @@ export default function NavRail() {
         { label: 'Map', icon: <MapIcon />, path: '/' },
         { label: 'Tower Leads', icon: <ExploreIcon />, path: '/tower-leads' },
         { label: 'Towers', icon: <TableRowsIcon />, path: '/towers' },
-        { label: 'Owners', icon: <GroupIcon />, path: '/owners' },
+        { label: 'Property Owners', icon: <GroupIcon />, path: '/owners' },
     ];
 
     const adminNavItems = [

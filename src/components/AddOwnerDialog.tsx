@@ -47,7 +47,7 @@ export default function AddOwnerDialog({ open, onClose, onSuccess, towerId }: Ad
 
     const handleSave = async () => {
         if (!name.trim()) {
-            setError('Owner name is required');
+            setError('Property Owner name is required');
             return;
         }
 
@@ -67,7 +67,7 @@ export default function AddOwnerDialog({ open, onClose, onSuccess, towerId }: Ad
             onSuccess(res.data);
             handleClose();
         } catch (err: any) {
-            setError(err.response?.data?.error || 'Failed to create owner');
+            setError(err.response?.data?.error || 'Failed to create property owner');
         } finally {
             setSaving(false);
         }
@@ -84,11 +84,11 @@ export default function AddOwnerDialog({ open, onClose, onSuccess, towerId }: Ad
 
     return (
         <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
-            <DialogTitle>Add Owner{towerId ? ` for Tower #${towerId}` : ''}</DialogTitle>
+            <DialogTitle>Add Property Owner{towerId ? ` for Tower #${towerId}` : ''}</DialogTitle>
             <DialogContent>
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
                     <TextField
-                        label="Owner Name"
+                        label="Property Owner Name"
                         value={name}
                         onChange={(e) => setName(e.target.value)}
                         required
@@ -97,10 +97,10 @@ export default function AddOwnerDialog({ open, onClose, onSuccess, towerId }: Ad
                     />
 
                     <FormControl fullWidth>
-                        <InputLabel>Owner Type</InputLabel>
+                        <InputLabel>Property Owner Type</InputLabel>
                         <Select
                             value={type}
-                            label="Owner Type"
+                            label="Property Owner Type"
                             onChange={(e) => setType(e.target.value)}
                         >
                             <MenuItem value="">None</MenuItem>
@@ -171,7 +171,7 @@ export default function AddOwnerDialog({ open, onClose, onSuccess, towerId }: Ad
             <DialogActions>
                 <Button onClick={handleClose}>Cancel</Button>
                 <Button onClick={handleSave} variant="contained" disabled={saving}>
-                    {saving ? 'Saving...' : 'Save Owner'}
+                    {saving ? 'Saving...' : 'Save Property Owner'}
                 </Button>
             </DialogActions>
         </Dialog>
