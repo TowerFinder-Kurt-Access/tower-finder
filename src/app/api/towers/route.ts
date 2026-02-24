@@ -27,6 +27,7 @@ export async function GET(request: Request) {
         const statusFilter = searchParams.get('status');
         const address = searchParams.get('address');
         const owner = searchParams.get('owner');
+        const search = searchParams.get('search'); // Global search across text fields
 
         // Default limit to prevent sending too many towers at once (performance optimization)
         // Use 1000 as default limit if not specified, unless fetching by ID
@@ -389,6 +390,34 @@ export async function GET(request: Request) {
             if (Object.keys(parcelFilters).length > 0) {
                 andConditions.push({
                     parcel: parcelFilters
+                });
+            }
+
+            // Global search filter
+            if (search) {
+                const searchTerms = search.split(/\s+/).filter(Boolean);
+
+                // For each term, it must match at least one field (AND of ORs)
+                searchTerms.forEach(term => {
+                    const searchTermStr = term;
+                    andConditions.push({
+                        OR: [
+                            { parcel: { address: { contains: searchTermStr, mode: 'insensitive' } } },
+                            { parcel: { cityRaw: { contains: searchTermStr, mode: 'insensitive' } } },
+                            { parcel: { city: { name: { contains: searchTermStr, mode: 'insensitive' } } } },
+                            { parcel: { county: { contains: searchTermStr, mode: 'insensitive' } } },
+                            { parcel: { stateRaw: { contains: searchTermStr, mode: 'insensitive' } } },
+                            { parcel: { provinceRaw: { contains: searchTermStr, mode: 'insensitive' } } },
+                            { parcel: { province: { name: { contains: searchTermStr, mode: 'insensitive' } } } },
+                            { parcel: { postalCode: { contains: searchTermStr, mode: 'insensitive' } } },
+                            { parcel: { zip: { contains: searchTermStr, mode: 'insensitive' } } },
+                            { parcel: { owner: { name: { contains: searchTermStr, mode: 'insensitive' } } } },
+                            { legacyStatus: { contains: searchTermStr, mode: 'insensitive' } },
+                            { status: { name: { contains: searchTermStr, mode: 'insensitive' } } },
+                            { type: { name: { contains: searchTermStr, mode: 'insensitive' } } },
+                            { carrier: { name: { contains: searchTermStr, mode: 'insensitive' } } }
+                        ]
+                    });
                 });
             }
 

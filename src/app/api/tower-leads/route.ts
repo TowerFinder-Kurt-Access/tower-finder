@@ -88,6 +88,7 @@ export async function GET(request: Request) {
         const city = searchParams.get('city');
         const source = searchParams.get('source');
         const type = searchParams.get('type');
+        const search = searchParams.get('search'); // Global search across text fields
 
         // Build where clause
         const where: any = {};
@@ -125,6 +126,26 @@ export async function GET(request: Request) {
             where.promotedToTowerId = { not: null };
         } else if (promoted === 'false') {
             where.promotedToTowerId = null;
+        }
+
+        if (search) {
+            const searchTerms = search.split(/\s+/).filter(Boolean);
+            const andConditions = where.AND || [];
+
+            searchTerms.forEach(term => {
+                const searchTermStr = term;
+                andConditions.push({
+                    OR: [
+                        { city: { contains: searchTermStr, mode: 'insensitive' } },
+                        { province: { contains: searchTermStr, mode: 'insensitive' } },
+                        { source: { contains: searchTermStr, mode: 'insensitive' } },
+                        { type: { contains: searchTermStr, mode: 'insensitive' } },
+                        { country: { contains: searchTermStr, mode: 'insensitive' } }
+                    ]
+                });
+            });
+
+            where.AND = andConditions;
         }
 
         const [leads, totalCount] = await Promise.all([

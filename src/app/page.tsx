@@ -77,6 +77,7 @@ function HomeContent() {
   // Additional filters state
   const [selectedType, setSelectedType] = useState<string>('');
   const [selectedCarrier, setSelectedCarrier] = useState<string>('');
+  const [searchQuery, setSearchQuery] = useState<string>('');
 
   // Ensure component is mounted (client-side only)
   useEffect(() => {
@@ -184,6 +185,7 @@ function HomeContent() {
 
         if (selectedType) params.type = selectedType;
         if (selectedCarrier) params.carrier = selectedCarrier;
+        if (searchQuery) params.search = searchQuery;
 
         // BBox (only if allowed / needed)
         if (mapBounds && !shouldFitBounds && !((selectedCity || selectedProvince) && towers.length === 0)) {
@@ -209,7 +211,7 @@ function HomeContent() {
     }, 500);
 
     return () => clearTimeout(timeoutId);
-  }, [mapBounds, selectedCountry, selectedProvince, selectedCity, selectedZip, selectedType, selectedCarrier, shouldFitBounds, towers.length, isViewingSpecificTower]);
+  }, [mapBounds, selectedCountry, selectedProvince, selectedCity, selectedZip, selectedType, selectedCarrier, searchQuery, shouldFitBounds, towers.length, isViewingSpecificTower]);
 
   // Fit bounds using Geocoding API when filter changes
   useEffect(() => {
@@ -257,6 +259,7 @@ function HomeContent() {
         const params: any = { limit: 500 };
         if (selectedCountry) params.country = selectedCountry;
         if (selectedCity) params.city = selectedCity;
+        if (searchQuery) params.search = searchQuery;
 
         const { data } = await axios.get('/api/tower-leads', { params });
         if (isMounted.current) setTowerLeads(data.data || []);
@@ -268,7 +271,7 @@ function HomeContent() {
     };
 
     fetchTowerLeads();
-  }, [showLeads, selectedCity, selectedCountry]);
+  }, [showLeads, selectedCity, selectedCountry, searchQuery]);
 
   const handleTowerSelect = (tower: any) => {
     if (tower.action === 'promote') {
@@ -367,6 +370,7 @@ function HomeContent() {
     if (filters.zip !== undefined && filters.zip !== selectedZip) handleZipChange(filters.zip);
     if (filters.type !== undefined) setSelectedType(filters.type);
     if (filters.carrier !== undefined) setSelectedCarrier(filters.carrier);
+    if (filters.query !== undefined) setSearchQuery(filters.query);
   };
 
 

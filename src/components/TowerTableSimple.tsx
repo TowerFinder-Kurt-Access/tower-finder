@@ -47,8 +47,8 @@ interface TowerTableSimpleProps {
         types: LookupItem[];
         carriers: LookupItem[];
     };
-    onFilterChange: (filters: { city?: string; state?: string; county?: string; zip?: string; type?: string; carrier?: string; status?: string; address?: string }) => void;
-    filters?: { city?: string; state?: string; county?: string; zip?: string; type?: string; carrier?: string; status?: string; address?: string };
+    onFilterChange: (filters: { city?: string; state?: string; county?: string; zip?: string; type?: string; carrier?: string; status?: string; address?: string; search?: string }) => void;
+    filters?: { city?: string; state?: string; county?: string; zip?: string; type?: string; carrier?: string; status?: string; address?: string; search?: string };
     onCellEdit?: (towerId: number, field: string, value: string) => void;
     onNotesClick?: (tower: any) => void;
     onAddOwner?: (tower: any) => void;
@@ -79,6 +79,16 @@ export default function TowerTableSimple({
     const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
     const [selectedTower, setSelectedTower] = React.useState<any>(null);
     const [jumpPage, setJumpPage] = React.useState<string>('');
+    const [localSearch, setLocalSearch] = React.useState(filters.search || '');
+
+    React.useEffect(() => {
+        setLocalSearch(filters.search || '');
+    }, [filters.search]);
+
+    const handleSearchSubmit = (e?: React.FormEvent) => {
+        if (e) e.preventDefault();
+        onFilterChange({ ...filters, search: localSearch.trim() || undefined });
+    };
 
     // Default column visibility (lat/lon hidden by default)
     const defaultVisibility: GridColumnVisibilityModel = {
@@ -215,7 +225,7 @@ export default function TowerTableSimple({
     };
 
     const handleFilterModelChange = (filterModel: any) => {
-        const newFilters: { city?: string; state?: string; county?: string; zip?: string; type?: string; status?: string; address?: string } = { ...filters };
+        const newFilters: { city?: string; state?: string; county?: string; zip?: string; type?: string; status?: string; address?: string; search?: string } = { ...filters };
 
         if (filterModel.items && filterModel.items.length > 0) {
             filterModel.items.forEach((item: any) => {
@@ -270,7 +280,7 @@ export default function TowerTableSimple({
     const icon = <CheckBoxOutlineBlankIcon fontSize="small" />;
     const checkedIcon = <CheckBoxIcon fontSize="small" />;
 
-    const FilterAutocomplete = ({ field, label, options }: { field: string; label: string; options: string[] }) => {
+    const renderFilterAutocomplete = (field: string, label: string, options: string[]) => {
         const selected = ((filters as any)[field] || '').split(',').filter(Boolean);
         return (
             <Autocomplete
@@ -313,8 +323,26 @@ export default function TowerTableSimple({
         );
     };
 
-    const ExternalFiltersBar = () => (
+    const externalFiltersBar = (
         <Box sx={{ borderBottom: '1px solid #e0e0e0', bgcolor: 'white' }}>
+            {/* Search Bar Row */}
+            <Box sx={{ p: 2, pb: 0, display: 'flex', gap: 1 }}>
+                <form onSubmit={handleSearchSubmit} style={{ display: 'flex', flex: 1, gap: 8 }}>
+                    <TextField
+                        fullWidth
+                        variant="outlined"
+                        size="small"
+                        placeholder="Search across all fields..."
+                        value={localSearch}
+                        onChange={(e) => setLocalSearch(e.target.value)}
+                        sx={{ bgcolor: 'white' }}
+                    />
+                    <Button type="submit" variant="contained" color="primary" sx={{ minWidth: '100px' }}>
+                        Search
+                    </Button>
+                </form>
+            </Box>
+
             {/* Filter Dropdowns Row */}
             <Box sx={{ p: 1, display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center' }}>
                 <Tooltip title="Filters">
@@ -322,12 +350,12 @@ export default function TowerTableSimple({
                         <FilterListIcon color={activeFilterCount > 0 ? 'primary' : 'action'} />
                     </Badge>
                 </Tooltip>
-                <FilterAutocomplete field="state" label={country === 'USA' ? 'State' : 'Province'} options={filterOptions.states} />
-                <FilterAutocomplete field="city" label="City" options={filterOptions.cities} />
-                <FilterAutocomplete field="zip" label={country === 'USA' ? 'ZIP' : 'Postal Code'} options={filterOptions.zips} />
-                <FilterAutocomplete field="type" label="Type" options={filterOptions.types} />
-                <FilterAutocomplete field="status" label="Status" options={filterOptions.statuses} />
-                <FilterAutocomplete field="carrier" label="Carrier" options={filterOptions.carriers} />
+                {renderFilterAutocomplete('state', country === 'USA' ? 'State' : 'Province', filterOptions.states)}
+                {renderFilterAutocomplete('city', 'City', filterOptions.cities)}
+                {renderFilterAutocomplete('zip', country === 'USA' ? 'ZIP' : 'Postal Code', filterOptions.zips)}
+                {renderFilterAutocomplete('type', 'Type', filterOptions.types)}
+                {renderFilterAutocomplete('status', 'Status', filterOptions.statuses)}
+                {renderFilterAutocomplete('carrier', 'Carrier', filterOptions.carriers)}
                 {activeFilterCount > 0 && (
                     <Button
                         size="small"
@@ -476,7 +504,7 @@ export default function TowerTableSimple({
 
     return (
         <Box sx={{ height: '100%', width: '100%', display: 'flex', flexDirection: 'column' }}>
-            <ExternalFiltersBar />
+            {externalFiltersBar}
             <DataGrid
                 rows={towers}
                 columns={columns}
@@ -514,7 +542,7 @@ export default function TowerTableSimple({
                 }}
                 slotProps={{
                     toolbar: {
-                        showQuickFilter: true,
+                        showQuickFilter: false,
                     },
                 }}
                 disableRowSelectionOnClick

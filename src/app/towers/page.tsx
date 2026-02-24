@@ -83,6 +83,7 @@ function TowersPageContent() {
         status?: string;
         address?: string;
         id?: string;
+        search?: string;
     }>(() => urlIdParam ? { id: urlIdParam } : {});
 
     // Load settings from local storage on mount (skip if URL has ?id= param)
@@ -163,6 +164,7 @@ function TowersPageContent() {
                 if (filters.type) params.append('type', filters.type);
                 if (filters.status) params.append('status', filters.status);
                 if (filters.address) params.append('address', filters.address);
+                if (filters.search) params.append('search', filters.search);
             }
 
             const res = await axios.get(`/api/towers?${params.toString()}`);

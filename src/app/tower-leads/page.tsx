@@ -63,8 +63,16 @@ function TowerLeadsContent() {
     const [totalCount, setTotalCount] = useState(0);
     const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({ page: 0, pageSize: 25 });
     const [filterModel, setFilterModel] = useState<GridFilterModel>({ items: [] });
-    const [externalFilters, setExternalFilters] = useState<{ province?: string; type?: string; source?: string }>({});
+    const [externalFilters, setExternalFilters] = useState<{ province?: string; type?: string; source?: string; search?: string }>({});
     const [isLoading, setIsLoading] = useState(false);
+
+    const [localSearch, setLocalSearch] = useState('');
+
+    const handleSearchSubmit = (e?: React.FormEvent) => {
+        if (e) e.preventDefault();
+        setExternalFilters(prev => ({ ...prev, search: localSearch.trim() || undefined }));
+        setPaginationModel(prev => ({ ...prev, page: 0 }));
+    };
 
     // Filters for Tab 1
     const filterCountry = globalCountry || '';
@@ -147,6 +155,7 @@ function TowerLeadsContent() {
             if (effectiveFilters.type) params.append('type', effectiveFilters.type);
             if (effectiveFilters.source) params.append('source', effectiveFilters.source);
             if ((effectiveFilters as any).city) params.append('city', (effectiveFilters as any).city);
+            if (effectiveFilters.search) params.append('search', effectiveFilters.search);
 
             const res = await axios.get(`/api/tower-leads?${params.toString()}`);
             if (isMounted.current) {
@@ -430,6 +439,24 @@ function TowerLeadsContent() {
 
             {activeTab === 0 && (
                 <Paper sx={{ flex: 1, display: 'flex', flexDirection: 'column', p: 2 }}>
+                    {/* Search Bar Row */}
+                    <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
+                        <form onSubmit={handleSearchSubmit} style={{ display: 'flex', flex: 1, gap: 8 }}>
+                            <TextField
+                                fullWidth
+                                variant="outlined"
+                                size="small"
+                                placeholder="Search across all fields..."
+                                value={localSearch}
+                                onChange={(e) => setLocalSearch(e.target.value)}
+                                sx={{ bgcolor: 'white' }}
+                            />
+                            <Button type="submit" variant="contained" color="primary" sx={{ minWidth: '100px' }}>
+                                Search
+                            </Button>
+                        </form>
+                    </Box>
+
                     <Box sx={{ display: 'flex', gap: 2, mb: 2, flexWrap: 'wrap', alignItems: 'center' }}>
                         <FormControl size="small" sx={{ minWidth: 150 }}>
                             <InputLabel>Status</InputLabel>
@@ -513,7 +540,7 @@ function TowerLeadsContent() {
                         slots={{ toolbar: GridToolbar }}
                         slotProps={{
                             toolbar: {
-                                showQuickFilter: true,
+                                showQuickFilter: false,
                             },
                         }}
                         sx={{
