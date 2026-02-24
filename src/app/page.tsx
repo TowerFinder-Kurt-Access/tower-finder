@@ -104,6 +104,7 @@ function HomeContent() {
             setMapCenter([t.lat, t.lon]);
             setZoom(16);
             setShouldFitBounds(false);
+            setBoundsToFit(undefined);
             setSelectedTower(t);
             // Pre-seed the map with this tower so it renders immediately
             setTowers([t]);
@@ -145,6 +146,7 @@ function HomeContent() {
 
         // If we are showing a specific lead/tower, we don't want to fit bounds to the whole region
         setShouldFitBounds(false);
+        setBoundsToFit(undefined);
         setShowLeads(true); // Automatically show leads if we are pointing to one
       }
     }
@@ -277,6 +279,7 @@ function HomeContent() {
       if (tower.lat && tower.lon) {
         setMapCenter([tower.lat, tower.lon]);
         setShouldFitBounds(false); // Make sure bounds centering doesn't override it
+        setBoundsToFit(undefined);
       }
     }
   };
