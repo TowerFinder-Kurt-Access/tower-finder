@@ -26,7 +26,6 @@ interface Tower {
     subType?: string;
     lat: number;
     lon: number;
-    licensee?: { name: string } | string;
     carrier?: { name: string } | string;
     status?: string;
     source?: string;
@@ -189,10 +188,10 @@ export default function Map({ center, zoom, bounds, towers, towerLeads = [], onT
                             <Popup>
                                 <div style={{ minWidth: '200px' }}>
                                     <strong>{typeof tower.type === 'object' ? tower.type?.name : (tower.type || 'Tower')}</strong><br />
-                                    {tower.licensee && <><strong>Licensee:</strong> {typeof tower.licensee === 'object' ? tower.licensee?.name : tower.licensee}<br /></>}
+
                                     {tower.parcel?.address && <><strong>Address:</strong> {tower.parcel.address}<br /></>}
                                     <strong>Coordinates:</strong> {tower.lat.toFixed(6)}, {tower.lon.toFixed(6)}<br />
-                                    <strong>Status:</strong> {tower.status || 'Unknown'}<br />
+                                    <strong>Status:</strong> {typeof tower.status === 'object' ? (tower.status as any)?.name : (tower.status || 'Unknown')}<br />
                                     <small style={{ color: '#666' }}>Source: {tower.source || 'Excel Import'}</small>
                                     <br />
                                     <button

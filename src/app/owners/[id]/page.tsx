@@ -33,9 +33,8 @@ interface OwnerTower {
     id: number;
     lat: number;
     lon: number;
-    type: string;
-    licensee: string;
-    status: string;
+    type: any;
+    status: any;
     source: string;
     address: string;
     city: string;
@@ -363,7 +362,6 @@ export default function OwnerDetailPage({ params }: PageProps) {
                                 <TableRow>
                                     <TableCell>ID</TableCell>
                                     <TableCell>Type</TableCell>
-                                    <TableCell>Licensee</TableCell>
                                     <TableCell>Status</TableCell>
                                     <TableCell>Address</TableCell>
                                     <TableCell>City</TableCell>
@@ -375,10 +373,9 @@ export default function OwnerDetailPage({ params }: PageProps) {
                                 {owner.towers.map((tower) => (
                                     <TableRow key={tower.id} hover>
                                         <TableCell>{tower.id}</TableCell>
-                                        <TableCell>{tower.type}</TableCell>
-                                        <TableCell>{tower.licensee}</TableCell>
+                                        <TableCell>{typeof tower.type === 'object' ? (tower.type as any)?.name : tower.type}</TableCell>
                                         <TableCell>
-                                            <Chip label={tower.status} size="small" variant="outlined" />
+                                            <Chip label={typeof tower.status === 'object' ? (tower.status as any)?.name : tower.status} size="small" variant="outlined" />
                                         </TableCell>
                                         <TableCell>{tower.address}</TableCell>
                                         <TableCell>{tower.city}</TableCell>
