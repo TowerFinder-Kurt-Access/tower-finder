@@ -17,6 +17,7 @@
     "@mui/material-nextjs": "^7.3.7",
     "@mui/x-data-grid": "^8.27.0",
     "@prisma/client": "^6.19.2",
+    "@prisma/extension-accelerate": "^3.0.1",
     "@sentry/nextjs": "^10.40.0",
     "axios": "^1.13.4",
     "bcryptjs": "^3.0.3",

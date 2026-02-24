@@ -3,150 +3,116 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url = env("POSTGRES_URL")
+  provider  = "postgresql"
+  url       = env("PRISMA_DATABASE_URL")
+  directUrl = env("POSTGRES_URL")
 }
 
 model Tower {
-  id        Int      @id @default(autoincrement())
-  lat       Float
-  lon       Float
-  typeId    Int?
-  type      TowerType? @relation(fields: [typeId], references: [id])
-  carrierId Int?
-  carrier   Carrier? @relation(fields: [carrierId], references: [id]) // Denormalized for convenience
-  
-  businessName String?
-  remarks      String?
-  titleHolder  String?
-  expiration   String?
-  legacyStatus String? @map("status")
-  statusId  Int?
-  status    TowerStatus? @relation(fields: [statusId], references: [id])
-
+  id            Int               @id @default(autoincrement())
+  lat           Float
+  lon           Float
+  typeId        Int?
+  carrierId     Int?
+  licenseeId    Int?
+  businessName  String?
+  remarks       String?
+  titleHolder   String?
+  expiration    String?
+  legacyStatus  String?           @map("status")
   googleMapsUrl String?
-  streetViewUrl String? // Custom street view URL once properly located
-  source    String   @default("Excel Import") // "Excel Import" or "Tower Finder"
+  streetViewUrl String?
+  source        String            @default("Excel Import")
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  statusId      Int?
+  notes         Note[]
+  parcel        Parcel?
+  carrier       Carrier?          @relation(fields: [carrierId], references: [id])
+  Licensee      Licensee?         @relation(fields: [licenseeId], references: [id])
+  status        TowerStatus?      @relation(fields: [statusId], references: [id])
+  type          TowerType?        @relation(fields: [typeId], references: [id])
+  assignments   TowerAssignment[]
+  leadSource    TowerLead?
 
-  // A tower sits on a specific parcel of land
-  parcel    Parcel?
-
-  // Notes for tracking progress and communications
-  notes     Note[]
-
-  // User assignments (many-to-many)
-  assignments TowerAssignment[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Reverse relation from TowerLead when promoted
-  leadSource TowerLead?
-
-  // Coordinate uniqueness to ensure we don't duplicate towers
   @@unique([lat, lon])
 }
 
 model Parcel {
-  id          Int      @id @default(autoincrement())
-  parcelId    String?  // The official county/city parcel ID
-  address     String?  // Original full address string
-  
-  // Decomposed Address Fields (ODA compatible)
+  id           Int       @id @default(autoincrement())
+  parcelId     String?
+  address      String?
   streetNumber String?
   streetName   String?
   streetType   String?
   streetDir    String?
   unit         String?
   postalCode   String?
-  
-  cityRaw     String?  // Raw city name
-  county      String?  // County/Region
-  stateRaw    String?  // Raw State/Province
-  provinceRaw String?  // Raw Province (Canadian)
-  zip         String?  // Legacy or duplication for easy access reference
-  country     String?  // Country code (US, CA, etc.)
-  rawData     Json?    // Store raw API response for debugging
-  dataSource  String?  // Track which API provided this data (e.g., "ReportAll", "Regrid", etc.)
-  geometry    Json?    // Store parcel boundary geometry (GeoJSON)
-
-  // Relation to Tower (One Parcel can have a tower)
-  towerId     Int      @unique
-  tower       Tower    @relation(fields: [towerId], references: [id])
-
-  // Relation to Owner
-  ownerId     Int?
-  owner       Owner?   @relation(fields: [ownerId], references: [id])
-
-  // Normalized Location Relations
-  cityId      Int?
-  city        City?       @relation(fields: [cityId], references: [id])
-  provinceId  Int?
-  province    Province?   @relation(fields: [provinceId], references: [id])
+  cityRaw      String?
+  county       String?
+  stateRaw     String?
+  provinceRaw  String?
+  zip          String?
+  country      String?
+  rawData      Json?
+  dataSource   String?
+  geometry     Json?
+  towerId      Int       @unique
+  ownerId      Int?
+  cityId       Int?
+  provinceId   Int?
+  city         City?     @relation(fields: [cityId], references: [id])
+  owner        Owner?    @relation(fields: [ownerId], references: [id])
+  province     Province? @relation(fields: [provinceId], references: [id])
+  tower        Tower     @relation(fields: [towerId], references: [id])
 }
 
 model Owner {
-  id        Int      @id @default(autoincrement())
+  id        Int       @id @default(autoincrement())
   name      String
-  type      String?  // "Individual", "LLC", "Trust", "Corp"
-  address   String?  // Mailing address of the owner (often different from parcel address)
-  
-  parcels   Parcel[]
+  type      String?
+  address   String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
   contacts  Contact[]
-  
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  parcels   Parcel[]
 }
 
 model Contact {
-  id        Int      @id @default(autoincrement())
-  type      String   // "Phone", "Email"
-  value     String
-  label     String?  // "Mobile", "Office", "Home", "Attorney"
-  isValid   Boolean  @default(true) // For marking bad numbers/emails
-
-  ownerId   Int
-  owner     Owner    @relation(fields: [ownerId], references: [id])
-}
-
-enum Role {
-  ADMIN
-  CALLER
+  id      Int     @id @default(autoincrement())
+  type    String
+  value   String
+  label   String?
+  isValid Boolean @default(true)
+  ownerId Int
+  owner   Owner   @relation(fields: [ownerId], references: [id])
 }
 
 model User {
-  id        Int      @id @default(autoincrement())
-  email     String   @unique
-  name      String
-  password  String   // Hashed with bcrypt
-  role      Role     @default(CALLER)
-  isActive  Boolean  @default(true)
-
-  // Tower assignments (many-to-many)
+  id               Int               @id @default(autoincrement())
+  email            String            @unique
+  name             String
+  password         String
+  role             Role              @default(CALLER)
+  isActive         Boolean           @default(true)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  lastLogin        DateTime?
+  notes            Note[]
   towerAssignments TowerAssignment[]
-
-  // Notes authored by this user
-  notes     Note[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  lastLogin DateTime?
 
   @@index([email])
   @@index([role])
 }
 
 model TowerAssignment {
-  id        Int      @id @default(autoincrement())
-
-  userId    Int
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  towerId   Int
-  tower     Tower    @relation(fields: [towerId], references: [id], onDelete: Cascade)
-
+  id         Int      @id @default(autoincrement())
+  userId     Int
+  towerId    Int
   assignedAt DateTime @default(now())
-  assignedBy Int?     // Admin who made the assignment
+  assignedBy Int?
+  tower      Tower    @relation(fields: [towerId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, towerId])
   @@index([userId])
@@ -156,21 +122,15 @@ model TowerAssignment {
 model Note {
   id        Int      @id @default(autoincrement())
   content   String
-
-  // Migrated from string to User relation
-  authorId  Int?     // Nullable for backward compatibility with old notes
-  author    User?    @relation(fields: [authorId], references: [id], onDelete: SetNull)
-
+  authorId  Int?
   towerId   Int
-  tower     Tower    @relation(fields: [towerId], references: [id], onDelete: Cascade)
-
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  author    User?    @relation(fields: [authorId], references: [id])
+  tower     Tower    @relation(fields: [towerId], references: [id], onDelete: Cascade)
 
   @@index([authorId])
 }
-
-
 
 model TowerType {
   id     Int     @id @default(autoincrement())
@@ -185,19 +145,18 @@ model TowerStatus {
 }
 
 model Carrier {
-  id        Int      @id @default(autoincrement())
-  name      String
-  towers    Tower[]
+  id       Int        @id @default(autoincrement())
+  name     String
+  Licensee Licensee[]
+  towers   Tower[]
 }
 
-
-
 model Province {
-  id        Int      @id @default(autoincrement())
-  code      String   @unique
-  name   String
-  cities    City[]
-  parcels   Parcel[]
+  id      Int      @id @default(autoincrement())
+  code    String   @unique
+  name    String
+  cities  City[]
+  parcels Parcel[]
 }
 
 model City {
@@ -210,26 +169,22 @@ model City {
   @@unique([name, provinceId])
 }
 
-
 model TowerLead {
-  id        Int      @id @default(autoincrement())
-  lat       Float
-  lon       Float
-  source    String   // e.g. "OpenStreetMap", "Google Maps", "Manual"
-  sourceId  String?  // External ID from the source (e.g. OSM node ID)
-  type      String?  // e.g. "tower", "mast"
-  tags      Json?    // Raw metadata from the source
-  country   String?  // e.g. "Canada", "USA"
-  city      String?  // e.g. "Moncton", "Toronto"
-  province  String?  // Province/state for quick filtering
-
-  // When promoted to a Tower, link to it
+  id                Int       @id @default(autoincrement())
+  lat               Float
+  lon               Float
+  source            String
+  sourceId          String?
+  type              String?
+  tags              Json?
+  province          String?
   promotedToTowerId Int?      @unique
-  promotedToTower   Tower?    @relation(fields: [promotedToTowerId], references: [id])
   promotedAt        DateTime?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  city              String?
+  country           String?
+  promotedToTower   Tower?    @relation(fields: [promotedToTowerId], references: [id])
 
   @@unique([lat, lon, source])
   @@index([country, city])
@@ -240,37 +195,46 @@ model TowerLead {
 model LeadSearch {
   id          Int      @id @default(autoincrement())
   country     String
-  province    String?
-  city        String?  // Made optional filter? Or keep mandatory? User wants "province OR state".
+  city        String?
   source      String   @default("OpenStreetMap")
-  status      String   @default("pending") // pending | processing | completed | failed
+  status      String   @default("pending")
   resultCount Int?
   error       String?
-
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  province    String?
 
   @@unique([country, province, city, source])
 }
 
 model JobQueue {
-  id          Int      @id @default(autoincrement())
-  jobType     String   // e.g. "process_open_street_map_leads"
-  status      String   @default("pending") // pending | processing | completed | failed
-  params      Json     // Input parameters
-  result      Json?    // Output data
+  id          Int       @id @default(autoincrement())
+  jobType     String
+  status      String    @default("pending")
+  params      Json
+  result      Json?
   error       String?
-  attempts    Int      @default(0)
-  maxAttempts Int      @default(3)
-
-  // Scheduling
-  runAfter    DateTime @default(now())
+  attempts    Int       @default(0)
+  maxAttempts Int       @default(3)
+  runAfter    DateTime  @default(now())
   startedAt   DateTime?
   completedAt DateTime?
-
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   @@index([status, runAfter])
   @@index([jobType])
+}
+
+model Licensee {
+  id        Int      @id @default(autoincrement())
+  name      String
+  carrierId Int?
+  Carrier   Carrier? @relation(fields: [carrierId], references: [id])
+  Tower     Tower[]
+}
+
+enum Role {
+  ADMIN
+  CALLER
 }
