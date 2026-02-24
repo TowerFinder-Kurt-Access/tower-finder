@@ -25,6 +25,7 @@ import FormControl from '@mui/material/FormControl';
 import InputLabel from '@mui/material/InputLabel';
 import Select, { SelectChangeEvent } from '@mui/material/Select';
 import MenuItem from '@mui/material/MenuItem';
+import Autocomplete from '@mui/material/Autocomplete';
 import { STATIC_LOCATIONS } from '@/lib/locations';
 import { useCountry } from '@/lib/country-context';
 
@@ -57,6 +58,7 @@ interface Tower {
 export interface FilterState {
     query: string;
     city: string;
+    zip: string;
     type: string;
     carrier: string;
 }
@@ -69,6 +71,9 @@ interface SidebarProps {
     // Selection handlers
     onCitySelect: (city: string) => void;
     selectedCity: string;
+
+    onZipSelect?: (zip: string) => void;
+    selectedZip?: string;
 
     onProvinceSelect: (province: string) => void;
     selectedProvince: string;
@@ -89,6 +94,8 @@ export default function Sidebar({
     onSearch,
     onCitySelect,
     selectedCity,
+    onZipSelect,
+    selectedZip,
     onProvinceSelect,
     selectedProvince,
     onFilterChange,
@@ -114,6 +121,7 @@ export default function Sidebar({
 
     // Dynamic Filter Options
     const [availableCities, setAvailableCities] = useState<string[]>([]);
+    const [availableZips, setAvailableZips] = useState<string[]>([]);
 
     // Fetch initial lookups
     useEffect(() => {
@@ -131,19 +139,28 @@ export default function Sidebar({
         ? (STATIC_LOCATIONS[selectedCountry] ? Object.keys(STATIC_LOCATIONS[selectedCountry]) : [])
         : [];
 
-    // Fetch Cities when Country or Province changes
+    // Fetch Cities and Zips when Country or Province changes
     useEffect(() => {
         if (selectedCountry) {
-            let url = `/api/towers?distinct=cities&country=${encodeURIComponent(selectedCountry)}`;
+            let cityUrl = `/api/towers?distinct=cities&country=${encodeURIComponent(selectedCountry)}`;
+            let zipUrl = `/api/towers?distinct=zips&country=${encodeURIComponent(selectedCountry)}`;
             if (selectedProvince) {
-                url += `&state=${encodeURIComponent(selectedProvince)}`;
+                const sp = `&state=${encodeURIComponent(selectedProvince)}`;
+                cityUrl += sp;
+                zipUrl += sp;
             }
-            fetch(url)
-                .then(res => res.json())
-                .then(data => setAvailableCities(data))
-                .catch(err => console.error('Failed to fetch cities', err));
+            Promise.all([
+                fetch(cityUrl).then(res => res.json()),
+                fetch(zipUrl).then(res => res.json())
+            ])
+                .then(([citiesData, zipsData]) => {
+                    setAvailableCities(citiesData);
+                    setAvailableZips(zipsData);
+                })
+                .catch(err => console.error('Failed to fetch cities/zips', err));
         } else {
             setAvailableCities([]);
+            setAvailableZips([]);
         }
     }, [selectedCountry, selectedProvince]);
 
@@ -151,6 +168,7 @@ export default function Sidebar({
         onFilterChange({
             query: newFilters.query !== undefined ? newFilters.query : query,
             city: newFilters.city !== undefined ? newFilters.city : selectedCity,
+            zip: newFilters.zip !== undefined ? newFilters.zip : (selectedZip || ''),
             type: newFilters.type !== undefined ? newFilters.type : selectedType,
             carrier: newFilters.carrier !== undefined ? newFilters.carrier : selectedCarrier
         });
@@ -166,23 +184,31 @@ export default function Sidebar({
         setCollapsed(!collapsed);
     };
 
-    const handleProvinceChange = (event: SelectChangeEvent) => {
-        const val = event.target.value as string;
+    const handleProvinceChange = (event: React.SyntheticEvent, newValue: string | null) => {
+        const val = newValue || '';
         if (onProvinceSelect) {
             onProvinceSelect(val);
         }
     };
 
-    const handleCityChange = (event: SelectChangeEvent) => {
-        const val = event.target.value as string;
+    const handleCityChange = (event: React.SyntheticEvent, newValue: string | null) => {
+        const val = newValue || '';
         if (onCitySelect) {
             onCitySelect(val);
         }
         triggerFilter({ city: val });
     };
 
-    const handleFilterSelect = (field: 'type' | 'carrier') => (event: SelectChangeEvent) => {
-        const val = event.target.value as string;
+    const handleZipChange = (event: React.SyntheticEvent, newValue: string | null) => {
+        const val = newValue || '';
+        if (onZipSelect) {
+            onZipSelect(val);
+        }
+        triggerFilter({ zip: val });
+    };
+
+    const handleFilterSelect = (field: 'type' | 'carrier') => (event: React.SyntheticEvent, newValue: string | null) => {
+        const val = newValue || '';
         if (field === 'type') setSelectedType(val);
         if (field === 'carrier') setSelectedCarrier(val);
 
@@ -217,7 +243,7 @@ export default function Sidebar({
 
     return (
         <Box sx={{
-            width: 350,
+            width: 450,
             height: '100%',
             bgcolor: 'background.paper',
             borderRight: '1px solid #ddd',
@@ -250,51 +276,58 @@ export default function Sidebar({
                 {/* City/Country/Province Filter - Only show on map view */}
                 {currentView === 'map' && (
                     <>
-                        <FormControl fullWidth size="small" sx={{ mb: 2 }} disabled={!selectedCountry}>
-                            <InputLabel id="province-select-label">Province / State</InputLabel>
-                            <Select
-                                labelId="province-select-label"
-                                value={selectedProvince}
-                                label="Province / State"
-                                onChange={handleProvinceChange}
-                            >
-                                <MenuItem value=""><em>All Regions</em></MenuItem>
-                                {availableProvinces.map((p) => (
-                                    <MenuItem key={p} value={p}>{p}</MenuItem>
-                                ))}
-                            </Select>
-                        </FormControl>
+                        <Autocomplete
+                            fullWidth
+                            size="small"
+                            sx={{ mb: 2 }}
+                            disabled={!selectedCountry}
+                            options={availableProvinces}
+                            value={selectedProvince || null}
+                            onChange={handleProvinceChange}
+                            renderInput={(params) => <TextField {...params} label="Province / State" />}
+                        />
 
-                        <FormControl fullWidth size="small" sx={{ mb: 2 }} disabled={!selectedCountry}>
-                            <InputLabel id="city-select-label">City</InputLabel>
-                            <Select
-                                labelId="city-select-label"
-                                value={selectedCity}
-                                label="City"
-                                onChange={handleCityChange}
-                            >
-                                <MenuItem value=""><em>All Cities</em></MenuItem>
-                                {availableCities.map((city) => (
-                                    <MenuItem key={city} value={city}>{city}</MenuItem>
-                                ))}
-                            </Select>
-                        </FormControl>
+                        <Autocomplete
+                            fullWidth
+                            size="small"
+                            sx={{ mb: 2 }}
+                            disabled={!selectedCountry}
+                            options={availableCities}
+                            value={selectedCity || null}
+                            onChange={handleCityChange}
+                            renderInput={(params) => <TextField {...params} label="City" />}
+                        />
 
-                        <FormControl fullWidth size="small" sx={{ mb: 1 }}>
-                            <InputLabel>Type</InputLabel>
-                            <Select value={selectedType} label="Type" onChange={handleFilterSelect('type')}>
-                                <MenuItem value=""><em>All</em></MenuItem>
-                                {types.map(t => <MenuItem key={t.id} value={t.name}>{t.name}</MenuItem>)}
-                            </Select>
-                        </FormControl>
+                        <Autocomplete
+                            fullWidth
+                            size="small"
+                            sx={{ mb: 2 }}
+                            disabled={!selectedCountry}
+                            options={availableZips}
+                            value={selectedZip || null}
+                            onChange={handleZipChange}
+                            renderInput={(params) => <TextField {...params} label="Postal Code" />}
+                        />
 
-                        <FormControl fullWidth size="small" sx={{ mb: 1 }}>
-                            <InputLabel>Carrier</InputLabel>
-                            <Select value={selectedCarrier} label="Carrier" onChange={handleFilterSelect('carrier')}>
-                                <MenuItem value=""><em>All</em></MenuItem>
-                                {carriers.map(c => <MenuItem key={c.id} value={c.name}>{c.name}</MenuItem>)}
-                            </Select>
-                        </FormControl>
+                        <Autocomplete
+                            fullWidth
+                            size="small"
+                            sx={{ mb: 1 }}
+                            options={types.map(t => t.name)}
+                            value={selectedType || null}
+                            onChange={handleFilterSelect('type')}
+                            renderInput={(params) => <TextField {...params} label="Type" />}
+                        />
+
+                        <Autocomplete
+                            fullWidth
+                            size="small"
+                            sx={{ mb: 1 }}
+                            options={carriers.map(c => c.name)}
+                            value={selectedCarrier || null}
+                            onChange={handleFilterSelect('carrier')}
+                            renderInput={(params) => <TextField {...params} label="Carrier" />}
+                        />
                     </>
                 )}
 

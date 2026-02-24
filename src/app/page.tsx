@@ -56,6 +56,7 @@ function HomeContent() {
   const [isLeadsLoading, setIsLeadsLoading] = useState<boolean>(false);
   const [selectedTower, setSelectedTower] = useState<Tower | null>(null);
   const [selectedCity, setSelectedCity] = useState<string>('');
+  const [selectedZip, setSelectedZip] = useState<string>('');
   const [selectedProvince, setSelectedProvince] = useState<string>('');
   const { country: selectedCountry, setCountry } = useCountry();
   const [ownerData, setOwnerData] = useState<OwnerResult | null>(null);
@@ -179,6 +180,7 @@ function HomeContent() {
         if (selectedCountry) params.country = selectedCountry;
         if (selectedProvince) params.state = selectedProvince;
         if (selectedCity) params.city = selectedCity;
+        if (selectedZip) params.zip = selectedZip;
 
         if (selectedType) params.type = selectedType;
         if (selectedCarrier) params.carrier = selectedCarrier;
@@ -207,7 +209,7 @@ function HomeContent() {
     }, 500);
 
     return () => clearTimeout(timeoutId);
-  }, [mapBounds, selectedCountry, selectedProvince, selectedCity, selectedType, selectedCarrier, shouldFitBounds, towers.length, isViewingSpecificTower]);
+  }, [mapBounds, selectedCountry, selectedProvince, selectedCity, selectedZip, selectedType, selectedCarrier, shouldFitBounds, towers.length, isViewingSpecificTower]);
 
   // Fit bounds using Geocoding API when filter changes
   useEffect(() => {
@@ -224,6 +226,7 @@ function HomeContent() {
           if (selectedCountry) params.set('country', selectedCountry);
           if (selectedProvince) params.set('province', selectedProvince);
           if (selectedCity) params.set('city', selectedCity);
+          if (selectedZip) params.set('zip', selectedZip);
 
           const res = await fetch(`/api/geocode?${params.toString()}`);
           if (res.ok) {
@@ -238,7 +241,7 @@ function HomeContent() {
       };
       fetchBounds();
     }
-  }, [shouldFitBounds, selectedCountry, selectedProvince, selectedCity, searchParams]);
+  }, [shouldFitBounds, selectedCountry, selectedProvince, selectedCity, selectedZip, searchParams]);
 
   // Fetch Tower Leads
   useEffect(() => {
@@ -301,6 +304,7 @@ function HomeContent() {
   useEffect(() => {
     setSelectedProvince('');
     setSelectedCity('');
+    setSelectedZip('');
 
     // Only fit to country if we DON'T have a specific lead/tower targeted in URL
     const hasCoordinates = searchParams.get('lat') && searchParams.get('lon');
@@ -317,6 +321,7 @@ function HomeContent() {
   const handleProvinceChange = (newProvince: string) => {
     setSelectedProvince(newProvince);
     setSelectedCity('');
+    setSelectedZip('');
     setShouldFitBounds(true);
     setShowLeads(false);
     setIsViewingSpecificTower(false); // Unset explicit target
@@ -326,6 +331,16 @@ function HomeContent() {
 
   const handleCityChange = (newCity: string) => {
     setSelectedCity(newCity);
+    setSelectedZip('');
+    setShouldFitBounds(true);
+    setShowLeads(false);
+    setIsViewingSpecificTower(false); // Unset explicit target
+    setTowerLeads([]);
+    setTowers([]);
+  };
+
+  const handleZipChange = (newZip: string) => {
+    setSelectedZip(newZip);
     setShouldFitBounds(true);
     setShowLeads(false);
     setIsViewingSpecificTower(false); // Unset explicit target
@@ -349,6 +364,7 @@ function HomeContent() {
   const handleFilterChange = (filters: FilterState) => {
     setIsViewingSpecificTower(false); // Unset explicit target
     if (filters.city !== undefined && filters.city !== selectedCity) handleCityChange(filters.city);
+    if (filters.zip !== undefined && filters.zip !== selectedZip) handleZipChange(filters.zip);
     if (filters.type !== undefined) setSelectedType(filters.type);
     if (filters.carrier !== undefined) setSelectedCarrier(filters.carrier);
   };
@@ -370,6 +386,9 @@ function HomeContent() {
 
         selectedCity={selectedCity}
         onCitySelect={handleCityChange}
+
+        selectedZip={selectedZip}
+        onZipSelect={handleZipChange}
 
         selectedProvince={selectedProvince}
         onProvinceSelect={handleProvinceChange}

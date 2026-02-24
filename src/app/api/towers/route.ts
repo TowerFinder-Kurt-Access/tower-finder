@@ -105,6 +105,33 @@ export async function GET(request: Request) {
             return NextResponse.json(result.map(r => r.city));
         }
 
+        if (distinct === 'zips') {
+            const countryFilter = country ? Prisma.sql`AND p.country = ${country}` : Prisma.sql``;
+            let stateFilter = Prisma.sql``;
+            if (state) {
+                stateFilter = Prisma.sql`AND (
+                    p."stateRaw" = ${state} OR 
+                    p."provinceRaw" = ${state} OR 
+                    EXISTS (SELECT 1 FROM "Province" pr WHERE pr.id = p."provinceId" AND pr.name = ${state})
+                 )`;
+            }
+
+            const result = await prisma.$queryRaw<{ zip: string }[]>`
+                SELECT DISTINCT name as zip FROM (
+                    SELECT p."postalCode" as name FROM "Parcel" p
+                    WHERE p."postalCode" IS NOT NULL AND p."postalCode" != ''
+                    ${countryFilter} ${stateFilter}
+                    UNION
+                    SELECT p.zip as name FROM "Parcel" p
+                    WHERE p.zip IS NOT NULL AND p.zip != ''
+                    ${countryFilter} ${stateFilter}
+                ) combined
+                WHERE name IS NOT NULL AND name != ''
+                ORDER BY name
+            `;
+            return NextResponse.json(result.map(r => r.zip));
+        }
+
         if (distinct === 'filters') {
             const countryFilter = country ? Prisma.sql`AND p.country = ${country}` : Prisma.sql``;
 

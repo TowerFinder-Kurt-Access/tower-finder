@@ -296,7 +296,7 @@ export default function TowerTableSimple({
                         label={label}
                         placeholder={selected.length ? `${selected.length} selected` : 'All'}
                         sx={{
-                            minWidth: 140,
+                            minWidth: 200,
                             '& .MuiOutlinedInput-root': {
                                 bgcolor: selected.length ? 'primary.50' : 'transparent',
                                 borderColor: selected.length ? 'primary.main' : undefined,
@@ -308,7 +308,7 @@ export default function TowerTableSimple({
                         }}
                     />
                 )}
-                sx={{ minWidth: 140 }}
+                sx={{ minWidth: 200, flex: 1, flexBasis: 200, maxWidth: 300 }}
             />
         );
     };
@@ -324,6 +324,7 @@ export default function TowerTableSimple({
                 </Tooltip>
                 <FilterAutocomplete field="state" label={country === 'USA' ? 'State' : 'Province'} options={filterOptions.states} />
                 <FilterAutocomplete field="city" label="City" options={filterOptions.cities} />
+                <FilterAutocomplete field="zip" label={country === 'USA' ? 'ZIP' : 'Postal Code'} options={filterOptions.zips} />
                 <FilterAutocomplete field="type" label="Type" options={filterOptions.types} />
                 <FilterAutocomplete field="status" label="Status" options={filterOptions.statuses} />
                 <FilterAutocomplete field="carrier" label="Carrier" options={filterOptions.carriers} />
@@ -517,6 +518,7 @@ export default function TowerTableSimple({
                     },
                 }}
                 disableRowSelectionOnClick
+                disableColumnFilter
                 loading={isLoading}
                 columnVisibilityModel={columnVisibilityModel}
                 onColumnVisibilityModelChange={handleColumnVisibilityChange}
