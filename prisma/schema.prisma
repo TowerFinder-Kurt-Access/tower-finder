@@ -15,8 +15,6 @@ model Tower {
   type      TowerType? @relation(fields: [typeId], references: [id])
   carrierId Int?
   carrier   Carrier? @relation(fields: [carrierId], references: [id]) // Denormalized for convenience
-  licenseeId Int?
-  licensee   Licensee? @relation(fields: [licenseeId], references: [id])
   
   businessName String?
   remarks      String?
@@ -187,19 +185,12 @@ model TowerStatus {
 }
 
 model Carrier {
-  id        Int        @id @default(autoincrement())
+  id        Int      @id @default(autoincrement())
   name      String
-  licensees Licensee[]
   towers    Tower[]
 }
 
-model Licensee {
-  id        Int     @id @default(autoincrement())
-  name   String
-  carrierId Int?
-  carrier   Carrier? @relation(fields: [carrierId], references: [id])
-  towers    Tower[]
-}
+
 
 model Province {
   id        Int      @id @default(autoincrement())

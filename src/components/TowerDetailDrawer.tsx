@@ -41,7 +41,6 @@ interface Tower {
     type?: { name: string } | string;
     status?: { id: number; name: string };
     legacyStatus?: string;
-    licensee?: { name: string } | string;
     carrier?: { name: string };
     source?: string;
     parcel?: {
@@ -273,7 +272,7 @@ export default function TowerDetailDrawer({
                         </Typography>
                         <Box sx={{ pl: 1 }}>
                             <Typography variant="body2"><strong>Type:</strong> {(typeof tower.type === 'object' ? tower.type?.name : tower.type) || 'Unknown'}</Typography>
-                            <Typography variant="body2"><strong>Licensee:</strong> {(typeof tower.licensee === 'object' ? tower.licensee?.name : tower.licensee) || 'N/A'}</Typography>
+
                             {tower.carrier && <Typography variant="body2"><strong>Carrier:</strong> {typeof tower.carrier === 'object' ? tower.carrier?.name : tower.carrier}</Typography>}
                             <Typography variant="body2"><strong>Coordinates:</strong> {tower.lat.toFixed(6)}, {tower.lon.toFixed(6)}</Typography>
                             <Typography variant="body2"><strong>Source:</strong> {tower.source || 'N/A'}</Typography>

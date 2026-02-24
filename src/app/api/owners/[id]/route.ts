@@ -23,7 +23,6 @@ export async function GET(
                         tower: {
                             include: {
                                 type: true,
-                                licensee: true,
                                 status: true,
                                 _count: { select: { notes: true } }
                             }
@@ -47,7 +46,6 @@ export async function GET(
                 lat: p.tower.lat,
                 lon: p.tower.lon,
                 type: p.tower.type?.name || '',
-                licensee: p.tower.licensee?.name || '',
                 status: p.tower.status?.name || p.tower.legacyStatus || 'Unknown',
                 source: p.tower.source,
                 address: p.address || '',

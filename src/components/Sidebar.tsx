@@ -34,7 +34,6 @@ interface Tower {
     subType?: string;
     lat: number;
     lon: number;
-    licensee?: { name: string } | string;
     carrier?: { name: string };
     status?: string;
     googleMapsUrl?: string;
@@ -60,7 +59,6 @@ export interface FilterState {
     city: string;
     type: string;
     carrier: string;
-    licensee: string;
 }
 
 
@@ -108,13 +106,11 @@ export default function Sidebar({
     const [collapsed, setCollapsed] = useState(false);
     const [selectedType, setSelectedType] = useState('');
     const [selectedCarrier, setSelectedCarrier] = useState('');
-    const [selectedLicensee, setSelectedLicensee] = useState('');
 
     const { country: selectedCountry } = useCountry();
 
     const [types, setTypes] = useState<{ id: number, name: string }[]>([]);
     const [carriers, setCarriers] = useState<{ id: number, name: string }[]>([]);
-    const [licensees, setLicensees] = useState<{ id: number, name: string }[]>([]);
 
     // Dynamic Filter Options
     const [availableCities, setAvailableCities] = useState<string[]>([]);
@@ -127,7 +123,6 @@ export default function Sidebar({
             .then(data => {
                 setTypes(data.types || []);
                 setCarriers(data.carriers || []);
-                setLicensees(data.licensees || []);
             })
             .catch(err => console.error('Failed to fetch lookups', err));
     }, []);
@@ -157,8 +152,7 @@ export default function Sidebar({
             query: newFilters.query !== undefined ? newFilters.query : query,
             city: newFilters.city !== undefined ? newFilters.city : selectedCity,
             type: newFilters.type !== undefined ? newFilters.type : selectedType,
-            carrier: newFilters.carrier !== undefined ? newFilters.carrier : selectedCarrier,
-            licensee: newFilters.licensee !== undefined ? newFilters.licensee : selectedLicensee
+            carrier: newFilters.carrier !== undefined ? newFilters.carrier : selectedCarrier
         });
     };
 
@@ -187,11 +181,10 @@ export default function Sidebar({
         triggerFilter({ city: val });
     };
 
-    const handleFilterSelect = (field: 'type' | 'carrier' | 'licensee') => (event: SelectChangeEvent) => {
+    const handleFilterSelect = (field: 'type' | 'carrier') => (event: SelectChangeEvent) => {
         const val = event.target.value as string;
         if (field === 'type') setSelectedType(val);
         if (field === 'carrier') setSelectedCarrier(val);
-        if (field === 'licensee') setSelectedLicensee(val);
 
         triggerFilter({ [field]: val });
     };
@@ -300,14 +293,6 @@ export default function Sidebar({
                             <Select value={selectedCarrier} label="Carrier" onChange={handleFilterSelect('carrier')}>
                                 <MenuItem value=""><em>All</em></MenuItem>
                                 {carriers.map(c => <MenuItem key={c.id} value={c.name}>{c.name}</MenuItem>)}
-                            </Select>
-                        </FormControl>
-
-                        <FormControl fullWidth size="small" sx={{ mb: 2 }}>
-                            <InputLabel>Licensee</InputLabel>
-                            <Select value={selectedLicensee} label="Licensee" onChange={handleFilterSelect('licensee')}>
-                                <MenuItem value=""><em>All</em></MenuItem>
-                                {licensees.map(l => <MenuItem key={l.id} value={l.name}>{l.name}</MenuItem>)}
                             </Select>
                         </FormControl>
                     </>

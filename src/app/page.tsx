@@ -24,7 +24,6 @@ interface Tower {
   lon: number;
   details?: any;
   parcel?: any;
-  licensee?: { name: string } | string;
   carrier?: { name: string };
   status?: string;
   source?: string;
@@ -77,7 +76,6 @@ function HomeContent() {
   // Additional filters state
   const [selectedType, setSelectedType] = useState<string>('');
   const [selectedCarrier, setSelectedCarrier] = useState<string>('');
-  const [selectedLicensee, setSelectedLicensee] = useState<string>('');
 
   // Ensure component is mounted (client-side only)
   useEffect(() => {
@@ -182,7 +180,6 @@ function HomeContent() {
 
         if (selectedType) params.type = selectedType;
         if (selectedCarrier) params.carrier = selectedCarrier;
-        if (selectedLicensee) params.licensee = selectedLicensee;
 
         // BBox (only if allowed / needed)
         if (mapBounds && !shouldFitBounds && !((selectedCity || selectedProvince) && towers.length === 0)) {
@@ -208,7 +205,7 @@ function HomeContent() {
     }, 500);
 
     return () => clearTimeout(timeoutId);
-  }, [mapBounds, selectedCountry, selectedProvince, selectedCity, selectedType, selectedCarrier, selectedLicensee, shouldFitBounds, towers.length, isViewingSpecificTower]);
+  }, [mapBounds, selectedCountry, selectedProvince, selectedCity, selectedType, selectedCarrier, shouldFitBounds, towers.length, isViewingSpecificTower]);
 
   // Fit bounds using Geocoding API when filter changes
   useEffect(() => {
@@ -351,7 +348,6 @@ function HomeContent() {
     if (filters.city !== undefined && filters.city !== selectedCity) handleCityChange(filters.city);
     if (filters.type !== undefined) setSelectedType(filters.type);
     if (filters.carrier !== undefined) setSelectedCarrier(filters.carrier);
-    if (filters.licensee !== undefined) setSelectedLicensee(filters.licensee);
   };
 
 

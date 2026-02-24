@@ -28,11 +28,6 @@ export async function POST(request: Request) {
                     data: { name: name.trim() }
                 });
                 break;
-            case 'licensee':
-                result = await prisma.licensee.create({
-                    data: { name: name.trim() }
-                });
-                break;
             case 'status':
                 result = await prisma.towerStatus.create({
                     data: { name: name.trim() }
@@ -40,7 +35,7 @@ export async function POST(request: Request) {
                 break;
             default:
                 return NextResponse.json(
-                    { error: `Invalid type: ${type}. Must be 'type', 'carrier', 'licensee', or 'status'.` },
+                    { error: `Invalid type: ${type}. Must be 'type', 'carrier', or 'status'.` },
                     { status: 400 }
                 );
         }

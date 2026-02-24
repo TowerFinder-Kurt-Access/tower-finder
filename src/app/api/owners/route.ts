@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
+import { ABBR_TO_PROVINCE } from '@/lib/locations';
 
 // GET /api/owners - List all owners grouped by parcel
 export async function GET(request: Request) {
@@ -76,9 +77,15 @@ export async function GET(request: Request) {
                 `
             ]);
 
+            const statesSet = new Set<string>();
+            statesResult.forEach(r => {
+                const fullName = ABBR_TO_PROVINCE[r.state] || r.state;
+                statesSet.add(fullName);
+            });
+
             return NextResponse.json({
                 cities: citiesResult.map(r => r.city),
-                states: statesResult.map(r => r.state),
+                states: Array.from(statesSet).sort(),
                 counties: countiesResult.map(r => r.county),
                 zips: zipsResult.map(r => r.zip)
             });

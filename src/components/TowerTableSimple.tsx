@@ -41,16 +41,14 @@ interface TowerTableSimpleProps {
         zips: string[];
         types: string[];
         carriers: string[];
-        licensees: string[];
         statuses: string[];
     };
     lookups?: {
         types: LookupItem[];
         carriers: LookupItem[];
-        licensees: LookupItem[];
     };
-    onFilterChange: (filters: { city?: string; state?: string; county?: string; zip?: string; type?: string; carrier?: string; licensee?: string; status?: string; address?: string }) => void;
-    filters?: { city?: string; state?: string; county?: string; zip?: string; type?: string; carrier?: string; licensee?: string; status?: string; address?: string };
+    onFilterChange: (filters: { city?: string; state?: string; county?: string; zip?: string; type?: string; carrier?: string; status?: string; address?: string }) => void;
+    filters?: { city?: string; state?: string; county?: string; zip?: string; type?: string; carrier?: string; status?: string; address?: string };
     onCellEdit?: (towerId: number, field: string, value: string) => void;
     onNotesClick?: (tower: any) => void;
     onAddOwner?: (tower: any) => void;
@@ -217,8 +215,7 @@ export default function TowerTableSimple({
     };
 
     const handleFilterModelChange = (filterModel: any) => {
-        // Extract all filter values from the DataGrid filter model
-        const newFilters: { city?: string; state?: string; county?: string; zip?: string; type?: string; licensee?: string; status?: string; address?: string } = { ...filters };
+        const newFilters: { city?: string; state?: string; county?: string; zip?: string; type?: string; status?: string; address?: string } = { ...filters };
 
         if (filterModel.items && filterModel.items.length > 0) {
             filterModel.items.forEach((item: any) => {
@@ -229,7 +226,6 @@ export default function TowerTableSimple({
                         case 'state': newFilters.state = item.value; break;
                         case 'zip': newFilters.zip = item.value; break;
                         case 'type': newFilters.type = item.value; break;
-                        case 'licensee': newFilters.licensee = item.value; break;
                         case 'status': newFilters.status = item.value; break;
                         case 'address': newFilters.address = item.value; break;
                     }
@@ -260,7 +256,7 @@ export default function TowerTableSimple({
     const activeChips: { field: string; label: string; value: string }[] = [];
     const fieldLabels: Record<string, string> = {
         city: 'City', state: country === 'USA' ? 'State' : 'Province',
-        type: 'Type', status: 'Status', carrier: 'Carrier', licensee: 'Licensee'
+        type: 'Type', status: 'Status', carrier: 'Carrier'
     };
     for (const [field, label] of Object.entries(fieldLabels)) {
         const val = (filters as any)[field];
@@ -331,7 +327,6 @@ export default function TowerTableSimple({
                 <FilterAutocomplete field="type" label="Type" options={filterOptions.types} />
                 <FilterAutocomplete field="status" label="Status" options={filterOptions.statuses} />
                 <FilterAutocomplete field="carrier" label="Carrier" options={filterOptions.carriers} />
-                <FilterAutocomplete field="licensee" label="Licensee" options={filterOptions.licensees} />
                 {activeFilterCount > 0 && (
                     <Button
                         size="small"
@@ -366,13 +361,6 @@ export default function TowerTableSimple({
 
     const columns: GridColDef[] = [
         {
-            field: 'licensee', headerName: 'Licensee', width: 150,
-            type: 'singleSelect',
-            editable: !!onCellEdit,
-            valueOptions: filterOptions.licensees,
-            valueGetter: (value: any) => typeof value === 'object' ? value?.name : (value || '')
-        },
-        {
             field: 'type', headerName: 'Type', width: 120,
             type: 'singleSelect',
             editable: !!onCellEdit,
@@ -386,7 +374,11 @@ export default function TowerTableSimple({
             type: 'singleSelect',
             editable: !!onCellEdit,
             valueOptions: filterOptions.statuses,
-            valueGetter: (value: any, row: any) => value?.name || row.legacyStatus || '',
+            valueGetter: (value: any, row: any) => {
+                if (typeof value === 'object') return value?.name || '';
+                if (value === undefined || value === null) return row.legacyStatus || '';
+                return value;
+            },
             renderCell: (params: GridRenderCellParams) => (
                 <Chip
                     label={params.value || 'Unknown'}
@@ -503,7 +495,7 @@ export default function TowerTableSimple({
                 onFilterModelChange={handleFilterModelChange}
                 processRowUpdate={(newRow, oldRow) => {
                     // Find which field changed
-                    const editableFields = ['type', 'licensee', 'carrier', 'status'];
+                    const editableFields = ['type', 'carrier', 'status'];
                     for (const field of editableFields) {
                         if (newRow[field] !== oldRow[field] && onCellEdit) {
                             onCellEdit(newRow.id, field, newRow[field]);

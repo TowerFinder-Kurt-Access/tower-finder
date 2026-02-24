@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
 import { getAuthUser, requireAdmin } from '@/lib/auth-helpers';
 import { buildTowerAccessFilter } from '@/lib/tower-access';
+import { ABBR_TO_PROVINCE } from '@/lib/locations';
 
 // GET /api/towers - List all towers
 export async function GET(request: Request) {
@@ -23,7 +24,6 @@ export async function GET(request: Request) {
         const zip = searchParams.get('zip'); // Filter by zip
         const typeFilter = searchParams.get('type');
         const carrierFilter = searchParams.get('carrier');
-        const licenseeFilter = searchParams.get('licensee');
         const statusFilter = searchParams.get('status');
         const address = searchParams.get('address');
         const owner = searchParams.get('owner');
@@ -68,7 +68,12 @@ export async function GET(request: Request) {
                 WHERE name IS NOT NULL AND name != ''
                 ORDER BY name
             `;
-            return NextResponse.json(result.map(r => r.state));
+            const provinces = new Set<string>();
+            result.forEach(r => {
+                const fullName = ABBR_TO_PROVINCE[r.state] || r.state;
+                provinces.add(fullName);
+            });
+            return NextResponse.json(Array.from(provinces).sort());
         }
 
         if (distinct === 'cities') {
@@ -156,9 +161,15 @@ export async function GET(request: Request) {
                 `
             ]);
 
+            const statesSet = new Set<string>();
+            statesResult.forEach(r => {
+                const fullName = ABBR_TO_PROVINCE[r.state] || r.state;
+                statesSet.add(fullName);
+            });
+
             return NextResponse.json({
                 cities: citiesResult.map(r => r.city),
-                states: statesResult.map(r => r.state),
+                states: Array.from(statesSet).sort(),
                 counties: countiesResult.map(r => r.county),
                 zips: zipsResult.map(r => r.zip)
             });
@@ -168,17 +179,15 @@ export async function GET(request: Request) {
 
 
         if (distinct === 'lookups') {
-            const [types, carriers, licensees, statuses] = await Promise.all([
+            const [types, carriers, statuses] = await Promise.all([
                 prisma.towerType.findMany({ orderBy: { name: 'asc' } }),
                 prisma.carrier.findMany({ orderBy: { name: 'asc' } }),
-                prisma.licensee.findMany({ orderBy: { name: 'asc' } }),
                 prisma.towerStatus.findMany({ orderBy: { name: 'asc' } })
             ]);
 
             return NextResponse.json({
                 types,
                 carriers,
-                licensees,
                 statuses
             });
         }
@@ -324,15 +333,6 @@ export async function GET(request: Request) {
                 });
             }
 
-            if (licenseeFilter) {
-                const licenseeValues = licenseeFilter.split(',').filter(Boolean);
-                andConditions.push({
-                    licensee: {
-                        name: { in: licenseeValues, mode: 'insensitive' }
-                    }
-                });
-            }
-
             if (statusFilter) {
                 const statusValues = statusFilter.split(',').filter(Boolean);
                 andConditions.push({
@@ -396,7 +396,6 @@ export async function GET(request: Request) {
                     },
                     type: true,
                     carrier: true,
-                    licensee: true,
                     status: true,
                     _count: {
                         select: { notes: true }

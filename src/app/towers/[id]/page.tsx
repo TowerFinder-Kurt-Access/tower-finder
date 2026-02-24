@@ -73,8 +73,6 @@ interface Tower {
     type?: { id: number; name: string } | string;
     typeId?: number;
     status?: string;
-    licensee?: { id: number; name: string } | string;
-    licenseeId?: number;
     carrier?: { id: number; name: string } | string;
     carrierId?: number;
     source?: string;
@@ -148,18 +146,16 @@ export default function TowerDetailPage({ params }: PageProps) {
     // Lookups
     const [types, setTypes] = useState<LookupItem[]>([]);
     const [carriers, setCarriers] = useState<LookupItem[]>([]);
-    const [licensees, setLicensees] = useState<LookupItem[]>([]);
     const [statuses, setStatuses] = useState<LookupItem[]>([]);
 
     // Selected lookup values (by ID)
     const [selectedTypeId, setSelectedTypeId] = useState<number | ''>('');
     const [selectedCarrierId, setSelectedCarrierId] = useState<number | ''>('');
-    const [selectedLicenseeId, setSelectedLicenseeId] = useState<number | ''>('');
     const [selectedStatusId, setSelectedStatusId] = useState<number | ''>('');
 
     // Add new lookup dialog
     const [addDialogOpen, setAddDialogOpen] = useState(false);
-    const [addDialogType, setAddDialogType] = useState<'type' | 'carrier' | 'licensee' | 'status'>('type');
+    const [addDialogType, setAddDialogType] = useState<'type' | 'carrier' | 'status'>('type');
     const [addDialogValue, setAddDialogValue] = useState('');
     const [addDialogSaving, setAddDialogSaving] = useState(false);
 
@@ -219,7 +215,6 @@ export default function TowerDetailPage({ params }: PageProps) {
             setStreetViewUrl(t.streetViewUrl || '');
             setSelectedTypeId(getId(t.type) || t.typeId || '');
             setSelectedCarrierId(getId(t.carrier) || t.carrierId || '');
-            setSelectedLicenseeId(getId(t.licensee) || t.licenseeId || '');
             // Populate address fields
             if (t.parcel) {
                 setAddressFields({
@@ -259,7 +254,6 @@ export default function TowerDetailPage({ params }: PageProps) {
             const res = await axios.get('/api/towers?distinct=lookups');
             setTypes(res.data.types || []);
             setCarriers(res.data.carriers || []);
-            setLicensees(res.data.licensees || []);
             setStatuses(res.data.statuses || []);
         } catch (error) {
             console.error('Failed to load lookups:', error);
@@ -371,10 +365,10 @@ export default function TowerDetailPage({ params }: PageProps) {
         }
     };
 
-    const handleLookupChange = async (field: 'typeId' | 'carrierId' | 'licenseeId', value: number | string) => {
+    const handleLookupChange = async (field: 'typeId' | 'carrierId', value: number | string) => {
         if (value === ADD_NEW_VALUE) {
             // Open add dialog
-            const dialogType = field === 'typeId' ? 'type' : field === 'carrierId' ? 'carrier' : 'licensee';
+            const dialogType = field === 'typeId' ? 'type' : 'carrier';
             setAddDialogType(dialogType);
             setAddDialogValue('');
             setAddDialogOpen(true);
@@ -428,12 +422,6 @@ export default function TowerDetailPage({ params }: PageProps) {
                     await axios.patch(`/api/towers/${tower.id}`, { statusId: newItem.id });
                     setSelectedStatusId(newItem.id);
                     setStatus(newItem.name);
-                }
-            } else {
-                setLicensees(prev => [...prev, newItem].sort((a, b) => a.name.localeCompare(b.name)));
-                if (tower) {
-                    await axios.patch(`/api/towers/${tower.id}`, { licenseeId: newItem.id });
-                    setSelectedLicenseeId(newItem.id);
                 }
             }
 
@@ -522,7 +510,6 @@ export default function TowerDetailPage({ params }: PageProps) {
 
     // Extract display values
     const typeName = getName(tower.type);
-    const licenseeName = getName(tower.licensee);
     const carrierName = getName(tower.carrier);
     const cityName = getName(tower.parcel?.city) || tower.parcel?.cityRaw || '';
     const provinceName = getName(tower.parcel?.province) || tower.parcel?.provinceRaw || tower.parcel?.stateRaw || tower.parcel?.state || '';
@@ -640,7 +627,7 @@ export default function TowerDetailPage({ params }: PageProps) {
                             </Typography>
                         </Box>
 
-                        {/* Key Details Grid - Dropdowns for Type/Licensee/Carrier */}
+                        {/* Key Details Grid - Dropdowns for Type/Carrier */}
                         <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2, mb: 2 }}>
                             {/* Type Dropdown */}
                             <FormControl fullWidth size="small">
@@ -669,32 +656,7 @@ export default function TowerDetailPage({ params }: PageProps) {
                                 </Select>
                             </FormControl>
 
-                            {/* Licensee Dropdown */}
-                            <FormControl fullWidth size="small">
-                                <InputLabel>Licensee</InputLabel>
-                                <Select
-                                    value={selectedLicenseeId}
-                                    label="Licensee"
-                                    onChange={(e) => {
-                                        const val = String(e.target.value);
-                                        if (val === ADD_NEW_VALUE) {
-                                            handleLookupChange('licenseeId', ADD_NEW_VALUE);
-                                        } else {
-                                            setSelectedLicenseeId(Number(val));
-                                            handleLookupChange('licenseeId', Number(val));
-                                        }
-                                    }}
-                                    disabled={saving}
-                                >
-                                    {licensees.map(l => (
-                                        <MenuItem key={l.id} value={l.id}>{l.name}</MenuItem>
-                                    ))}
-                                    <Divider />
-                                    <MenuItem value={ADD_NEW_VALUE}>
-                                        <AddIcon fontSize="small" sx={{ mr: 1 }} /> Add New Licensee
-                                    </MenuItem>
-                                </Select>
-                            </FormControl>
+
 
                             {/* Carrier Dropdown */}
                             <FormControl fullWidth size="small">
@@ -1152,7 +1114,7 @@ export default function TowerDetailPage({ params }: PageProps) {
                 fullWidth
             >
                 <DialogTitle>
-                    Add New {addDialogType === 'type' ? 'Tower Type' : addDialogType === 'carrier' ? 'Carrier' : 'Licensee'}
+                    Add New {addDialogType === 'type' ? 'Tower Type' : addDialogType === 'carrier' ? 'Carrier' : 'Status'}
                 </DialogTitle>
                 <DialogContent>
                     <TextField

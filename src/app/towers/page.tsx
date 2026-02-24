@@ -20,7 +20,6 @@ interface Tower {
     lon: number;
     details?: any;
     parcel?: any;
-    licensee?: string;
     status?: string;
     source?: string;
     // Flattened fields for DataGrid
@@ -66,15 +65,13 @@ function TowersPageContent() {
         zips: string[];
         types: string[];
         carriers: string[];
-        licensees: string[];
         statuses: string[];
-    }>({ cities: [], states: [], counties: [], zips: [], types: [], carriers: [], licensees: [], statuses: [] });
+    }>({ cities: [], states: [], counties: [], zips: [], types: [], carriers: [], statuses: [] });
     const [lookups, setLookups] = useState<{
         types: { id: number; name: string }[];
         carriers: { id: number; name: string }[];
-        licensees: { id: number; name: string }[];
         statuses: { id: number; name: string }[];
-    }>({ types: [], carriers: [], licensees: [], statuses: [] });
+    }>({ types: [], carriers: [], statuses: [] });
     // Initialize filters from URL ?id= param immediately so the first loadTowers already has it
     const urlIdParam = searchParams.get('id');
     const [filters, setFilters] = useState<{
@@ -83,7 +80,6 @@ function TowersPageContent() {
         county?: string;
         zip?: string;
         type?: string;
-        licensee?: string;
         status?: string;
         address?: string;
         id?: string;
@@ -127,9 +123,8 @@ function TowersPageContent() {
                 ]);
                 const typesData = lookupsRes.data.types || [];
                 const carriersData = lookupsRes.data.carriers || [];
-                const licenseesData = lookupsRes.data.licensees || [];
                 const statusesData = lookupsRes.data.statuses || [];
-                setLookups({ types: typesData, carriers: carriersData, licensees: licenseesData, statuses: statusesData });
+                setLookups({ types: typesData, carriers: carriersData, statuses: statusesData });
                 setFilterOptions(prev => ({
                     ...prev,
                     cities: filtersRes.data.cities || [],
@@ -138,7 +133,6 @@ function TowersPageContent() {
                     zips: filtersRes.data.zips || [],
                     types: typesData.map((t: any) => t.name),
                     carriers: carriersData.map((c: any) => c.name),
-                    licensees: licenseesData.map((l: any) => l.name),
                     statuses: statusesData.map((s: any) => s.name),
                 }));
             } catch (error) {
@@ -167,7 +161,6 @@ function TowersPageContent() {
                 if (filters.state) params.append('state', filters.state);
                 if (filters.zip) params.append('zip', filters.zip);
                 if (filters.type) params.append('type', filters.type);
-                if (filters.licensee) params.append('licensee', filters.licensee);
                 if (filters.status) params.append('status', filters.status);
                 if (filters.address) params.append('address', filters.address);
             }
@@ -180,7 +173,6 @@ function TowersPageContent() {
                 ...tower,
                 type: typeof tower.type === 'object' ? tower.type?.name : (tower.type || ''),
                 status: typeof tower.status === 'object' ? tower.status?.name : (tower.legacyStatus || ''),
-                licensee: typeof tower.licensee === 'object' ? tower.licensee?.name : (tower.licensee || ''),
                 carrier: typeof tower.carrier === 'object' ? tower.carrier?.name : (tower.carrier || ''),
                 address: tower.parcel?.address || '',
                 city: typeof tower.parcel?.city === 'object' ? tower.parcel?.city?.name : (tower.parcel?.cityRaw || ''),
@@ -297,21 +289,37 @@ function TowersPageContent() {
             let patchData: any = {};
 
             if (field === 'status') {
-                const found = lookups.statuses.find(s => s.name === value);
-                if (found) patchData.statusId = found.id;
+                if (!value) {
+                    patchData.statusId = null;
+                } else {
+                    const found = lookups.statuses.find(s => s.name === value);
+                    if (found) patchData.statusId = found.id;
+                }
             } else if (field === 'type') {
-                const found = lookups.types.find(t => t.name === value);
-                if (found) patchData.typeId = found.id;
-            } else if (field === 'licensee') {
-                const found = lookups.licensees.find(l => l.name === value);
-                if (found) patchData.licenseeId = found.id;
+                if (!value) {
+                    patchData.typeId = null;
+                } else {
+                    const found = lookups.types.find(t => t.name === value);
+                    if (found) patchData.typeId = found.id;
+                }
             } else if (field === 'carrier') {
-                const found = lookups.carriers.find(c => c.name === value);
-                if (found) patchData.carrierId = found.id;
+                if (!value) {
+                    patchData.carrierId = null;
+                } else {
+                    const found = lookups.carriers.find(c => c.name === value);
+                    if (found) patchData.carrierId = found.id;
+                }
             }
 
-            if (Object.keys(patchData).length > 0) {
+            if ('statusId' in patchData || 'typeId' in patchData || 'carrierId' in patchData) {
                 await axios.patch(`/api/towers/${towerId}`, patchData);
+                // Also update local state so the table doesn't revert if filters/pages change without a full reload
+                setTowers(prevTowers => prevTowers.map(t => {
+                    if (t.id === towerId) {
+                        return { ...t, [field]: value || '' };
+                    }
+                    return t;
+                }));
             }
         } catch (error) {
             console.error('Error updating tower:', error);

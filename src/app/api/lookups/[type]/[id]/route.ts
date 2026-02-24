@@ -29,9 +29,6 @@ export async function PUT(
             case 'carrier':
                 result = await prisma.carrier.update({ where: { id: numericId }, data });
                 break;
-            case 'licensee':
-                result = await prisma.licensee.update({ where: { id: numericId }, data });
-                break;
             case 'status':
                 result = await prisma.towerStatus.update({ where: { id: numericId }, data });
                 break;
@@ -64,9 +61,6 @@ export async function DELETE(
                 break;
             case 'carrier':
                 result = await prisma.carrier.delete({ where: { id: numericId } });
-                break;
-            case 'licensee':
-                result = await prisma.licensee.delete({ where: { id: numericId } });
                 break;
             case 'status':
                 result = await prisma.towerStatus.delete({ where: { id: numericId } });

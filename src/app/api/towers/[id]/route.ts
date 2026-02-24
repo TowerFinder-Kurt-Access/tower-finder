@@ -36,7 +36,6 @@ export async function GET(request: Request, { params }: RouteParams) {
                 },
                 type: true,
                 carrier: true,
-                licensee: true,
                 status: true,
                 notes: {
                     orderBy: { createdAt: 'desc' }
@@ -70,7 +69,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
 
         const body = await request.json();
         const { statusId, parcelId, ownerName, ownerAddress, ownerType, streetViewUrl,
-            typeId, carrierId, licenseeId, parcelUpdate } = body;
+            typeId, carrierId, parcelUpdate } = body;
 
         // Update Tower Basic Info
         let updateData: any = {};
@@ -78,7 +77,6 @@ export async function PATCH(request: Request, { params }: RouteParams) {
         if (streetViewUrl !== undefined) updateData.streetViewUrl = streetViewUrl;
         if (typeId !== undefined) updateData.typeId = typeId;
         if (carrierId !== undefined) updateData.carrierId = carrierId;
-        if (licenseeId !== undefined) updateData.licenseeId = licenseeId;
 
         // Handle parcel address field updates
         if (parcelUpdate) {
@@ -149,7 +147,6 @@ export async function PATCH(request: Request, { params }: RouteParams) {
                 },
                 type: true,
                 carrier: true,
-                licensee: true,
                 status: true
             }
         });
