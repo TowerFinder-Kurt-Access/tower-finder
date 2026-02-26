@@ -19,6 +19,8 @@ import { IconButton, MenuItem, Select, FormControl, InputLabel, ListItemIcon, Li
 import { Role } from '@prisma/client';
 import { useCountry } from '@/lib/country-context';
 
+import AutorenewIcon from '@mui/icons-material/Autorenew';
+
 const COUNTRIES = [
     { code: 'Canada', flag: '\ud83c\udde8\ud83c\udde6', short: 'CA' },
     { code: 'USA', flag: '\ud83c\uddfa\ud83c\uddf8', short: 'US' },
@@ -39,6 +41,7 @@ export default function NavRail() {
 
     const adminNavItems = [
         { label: 'Users', icon: <AdminPanelSettingsIcon />, path: '/admin/users' },
+        { label: 'Background Jobs', icon: <AutorenewIcon />, path: '/admin/jobs' },
         { label: 'Lookups', icon: <SettingsIcon />, path: '/admin/lookups' },
     ];
 
