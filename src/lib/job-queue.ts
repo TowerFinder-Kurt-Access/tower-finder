@@ -6,12 +6,13 @@ import { prisma } from '@/lib/prisma';
  */
 
 /** Enqueue a new job */
-export async function enqueueJob(jobType: string, params: Record<string, any>) {
+export async function enqueueJob(jobType: string, params: Record<string, any>, runAfter?: Date) {
     return prisma.jobQueue.create({
         data: {
             jobType,
             status: 'pending',
             params,
+            runAfter: runAfter ?? undefined,
         },
     });
 }
@@ -79,14 +80,14 @@ export async function markCompleted(jobId: number, result?: Record<string, any>)
 }
 
 /** Mark a job as failed. If retries remain, reset to pending with a delay. */
-export async function markFailed(jobId: number, error: string) {
+export async function markFailed(jobId: number, error: string, runAfterOverride?: Date) {
     const job = await prisma.jobQueue.findUnique({ where: { id: jobId } });
     if (!job) return;
 
-    if (job.attempts < job.maxAttempts) {
-        // Retry: set back to pending with exponential backoff
+    if (job.attempts < job.maxAttempts || runAfterOverride) {
+        // Retry: set back to pending with exponential backoff or custom delay
         const delayMs = Math.pow(2, job.attempts) * 30_000; // 30s, 60s, 120s, ...
-        const runAfter = new Date(Date.now() + delayMs);
+        const runAfter = runAfterOverride ?? new Date(Date.now() + delayMs);
 
         return prisma.jobQueue.update({
             where: { id: jobId },

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { pickNextJob, markCompleted, markFailed } from '@/lib/job-queue';
 import { JOB_HANDLERS } from '@/lib/job-handlers';
+import { GeoapifyQuotaError } from '@/services/GeoapifyService';
 
 /**
  * GET /api/cron/process-jobs
@@ -59,6 +60,21 @@ export async function GET(request: Request) {
                 : 'Unknown handler error';
 
             console.error(`[Cron] Job ${job.id} failed:`, errorMessage);
+
+            // Special handling for quota errors: reschedule for 24 hours later
+            if (handlerError instanceof GeoapifyQuotaError) {
+                const runAfter = new Date(Date.now() + 24 * 60 * 60 * 1000);
+                await markFailed(job.id, errorMessage, runAfter);
+                console.log(`[Cron] Quota error detected. Rescheduled job ${job.id} for ${runAfter.toISOString()}`);
+
+                return NextResponse.json({
+                    message: 'Job rescheduled due to quota',
+                    jobId: job.id,
+                    jobType: job.jobType,
+                    rescheduledFor: runAfter.toISOString(),
+                    processed: 0,
+                });
+            }
 
             await markFailed(job.id, errorMessage);
 

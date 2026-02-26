@@ -39,6 +39,9 @@ export async function GET(request: Request, { params }: RouteParams) {
                 status: true,
                 notes: {
                     orderBy: { createdAt: 'desc' }
+                },
+                businessesNearby: {
+                    orderBy: { distance: 'asc' }
                 }
             }
         });

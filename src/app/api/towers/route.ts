@@ -457,7 +457,13 @@ export async function GET(request: Request) {
                         select: { notes: true }
                     }
                 },
-                orderBy: { id: 'asc' }, // Consistent ordering for pagination
+                orderBy: (() => {
+                    const sort = searchParams.get('sort');
+                    const order = (searchParams.get('order') || 'asc') as Prisma.SortOrder;
+                    if (sort === 'businessCount') return { businessCount: order };
+                    if (sort === 'avgBusinessDistance') return { avgBusinessDistance: order };
+                    return { id: 'asc' as Prisma.SortOrder };
+                })(),
                 skip,
                 take
             }),

@@ -25,18 +25,37 @@ model Tower {
   source        String            @default("Excel Import")
   createdAt     DateTime          @default(now())
   updatedAt     DateTime          @updatedAt
-  statusId      Int?
-  notes         Note[]
-  parcel        Parcel?
-  carrier       Carrier?          @relation(fields: [carrierId], references: [id])
-  Licensee      Licensee?         @relation(fields: [licenseeId], references: [id])
-  status        TowerStatus?      @relation(fields: [statusId], references: [id])
-  type          TowerType?        @relation(fields: [typeId], references: [id])
-  assignments   TowerAssignment[]
-  leadSource    TowerLead?
+  statusId            Int?
+  businessCount        Int?
+  avgBusinessDistance Float?
+  placesProcessedAt    DateTime?
+  notes               Note[]
+  businessesNearby    BusinessNearby[]
+  parcel              Parcel?
+  carrier             Carrier?          @relation(fields: [carrierId], references: [id])
+  Licensee            Licensee?         @relation(fields: [licenseeId], references: [id])
+  status              TowerStatus?      @relation(fields: [statusId], references: [id])
+  type                TowerType?        @relation(fields: [typeId], references: [id])
+  assignments         TowerAssignment[]
+  leadSource          TowerLead?
 
   @@unique([lat, lon])
 }
+
+model BusinessNearby {
+  id        Int      @id @default(autoincrement())
+  name      String
+  phone     String?
+  distance  Float
+  rawData   Json?
+  towerId   Int
+  tower     Tower    @relation(fields: [towerId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([towerId])
+}
+
 
 model Parcel {
   id           Int       @id @default(autoincrement())

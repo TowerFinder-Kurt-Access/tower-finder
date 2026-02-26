@@ -1,5 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { TowerSearchService } from '@/services/TowerSearchService';
+import { GeoapifyService } from '@/services/GeoapifyService';
+import { enqueueJob } from '@/lib/job-queue';
 
 /**
  * Registry of job type → handler function.
@@ -8,6 +10,8 @@ import { TowerSearchService } from '@/services/TowerSearchService';
  */
 export const JOB_HANDLERS: Record<string, (params: any) => Promise<any>> = {
     'process_open_street_map_leads': processOSMLeads,
+    'submit_geoapify_batch': submitGeoapifyBatch,
+    'poll_geoapify_batch': pollGeoapifyBatch,
 };
 
 /**
@@ -98,4 +102,91 @@ async function processOSMLeads(params: { country: string; province?: string; cit
     });
 
     return { importedCount, skippedCount, total: osmResults.length };
+}
+
+/**
+ * Find towers that haven't been processed and submit a batch to Geoapify.
+ */
+async function submitGeoapifyBatch(): Promise<any> {
+    const towers = await prisma.tower.findMany({
+        where: { placesProcessedAt: null },
+        take: 100, // Process 100 at a time to stay safe within batch limits and timeouts
+        select: { id: true, lat: true, lon: true }
+    });
+
+    if (towers.length === 0) {
+        return { message: 'No towers to process' };
+    }
+
+    const batchId = await GeoapifyService.submitPlacesBatch(towers);
+
+    // Schedule a poll job in 5 minutes
+    await enqueueJob(
+        'poll_geoapify_batch',
+        { batchId, towerIds: towers.map(t => t.id) },
+        new Date(Date.now() + 5 * 60 * 1000)
+    );
+
+    return { batchId, towerCount: towers.length };
+}
+
+/**
+ * Poll for batch completion and process results.
+ */
+async function pollGeoapifyBatch(params: { batchId: string, towerIds: number[] }): Promise<any> {
+    const { batchId, towerIds } = params;
+
+    const statusResult = await GeoapifyService.getBatchResult(batchId);
+
+    if (statusResult.status === 'pending') {
+        throw new Error('Batch job still pending, will retry');
+    }
+
+    const results = statusResult.results;
+    let totalBusinesses = 0;
+
+    for (let i = 0; i < towerIds.length; i++) {
+        const towerId = towerIds[i];
+        const towerResult = results[i];
+
+        if (!towerResult || towerResult.error) {
+            console.error(`[Geoapify Job] Error for tower ${towerId}:`, towerResult?.error);
+            continue;
+        }
+
+        const places = towerResult.results || [];
+        const businesses = places.map((place: any) => ({
+            name: place.properties?.name || 'Unknown Business',
+            phone: place.properties?.contact?.phone || null,
+            distance: place.properties?.distance || 0,
+            rawData: place,
+            towerId
+        }));
+
+        // Delete existing nearby businesses for this tower before adding new ones
+        await prisma.businessNearby.deleteMany({ where: { towerId } });
+
+        // Save new businesses
+        if (businesses.length > 0) {
+            await prisma.businessNearby.createMany({ data: businesses });
+        }
+
+        // Calculate summary stats
+        const avgDistance = businesses.length > 0
+            ? businesses.reduce((sum: number, b: any) => sum + b.distance, 0) / businesses.length
+            : null;
+
+        await prisma.tower.update({
+            where: { id: towerId },
+            data: {
+                businessCount: businesses.length,
+                avgBusinessDistance: avgDistance,
+                placesProcessedAt: new Date()
+            }
+        });
+
+        totalBusinesses += businesses.length;
+    }
+
+    return { status: 'completed', towerCount: towerIds.length, businessCount: totalBusinesses };
 }

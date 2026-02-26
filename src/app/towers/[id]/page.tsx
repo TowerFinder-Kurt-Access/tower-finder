@@ -104,6 +104,12 @@ interface Tower {
         };
     };
     notes?: Note[];
+    businessesNearby?: {
+        id: number;
+        name: string;
+        phone: string | null;
+        distance: number;
+    }[];
 }
 
 interface PageProps {
@@ -1037,12 +1043,47 @@ export default function TowerDetailPage({ params }: PageProps) {
                     </Paper>
 
                     {/* Notes Section */}
-                    <Paper sx={{ p: 3 }}>
+                    <Paper sx={{ p: 3, mb: 3 }}>
                         <NotesPanel
                             towerId={tower.id}
                             notes={notes}
                             onNotesChange={handleNotesChange}
                         />
+                    </Paper>
+
+                    {/* Nearby Businesses Section */}
+                    <Paper sx={{ p: 3, mb: 3 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                            <BusinessIcon sx={{ mr: 1, color: 'primary.main' }} />
+                            <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                                Nearby Businesses (within 2000m)
+                            </Typography>
+                        </Box>
+                        <Divider sx={{ mb: 2 }} />
+
+                        {!tower.businessesNearby || tower.businessesNearby.length === 0 ? (
+                            <Typography variant="body2" color="text.secondary" fontStyle="italic">
+                                No nearby businesses found or batch has not run yet.
+                            </Typography>
+                        ) : (
+                            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: '1fr 1fr 1fr' }, gap: 2 }}>
+                                {tower.businessesNearby.map((biz) => (
+                                    <Paper key={biz.id} variant="outlined" sx={{ p: 2, bgcolor: '#fafafa' }}>
+                                        <Typography variant="subtitle1" sx={{ fontWeight: 600, color: 'primary.dark' }}>
+                                            {biz.name}
+                                        </Typography>
+                                        <Typography variant="body2" sx={{ mt: 0.5 }}>
+                                            Distance: <strong>{Math.round(biz.distance)}m</strong>
+                                        </Typography>
+                                        {biz.phone && (
+                                            <Typography variant="body2" color="success.main" sx={{ fontWeight: 500, mt: 0.5 }}>
+                                                📞 {biz.phone}
+                                            </Typography>
+                                        )}
+                                    </Paper>
+                                ))}
+                            </Box>
+                        )}
                     </Paper>
                 </Box>
             </Box>
