@@ -194,5 +194,21 @@ async function pollGeoapifyBatch(params: { batchId: string, towerIds: number[] }
         totalBusinesses += businesses.length;
     }
 
-    return { status: 'completed', towerCount: towerIds.length, businessCount: totalBusinesses };
+    // Check if there are more towers to process. 
+    // If so, enqueue a NEW submission job to continue the cycle automatically.
+    const remainingCount = await prisma.tower.count({
+        where: { placesProcessedAt: null }
+    });
+
+    if (remainingCount > 0) {
+        console.log(`[Geoapify Job] ${remainingCount} towers remaining. Enqueueing next batch...`);
+        await enqueueJob('submit_geoapify_batch', {});
+    }
+
+    return {
+        status: 'completed',
+        towerCount: towerIds.length,
+        businessCount: totalBusinesses,
+        remainingTowers: remainingCount
+    };
 }
