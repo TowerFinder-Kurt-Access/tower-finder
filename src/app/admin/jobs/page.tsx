@@ -16,6 +16,8 @@ import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import PendingIcon from '@mui/icons-material/Pending';
 import AutorenewIcon from '@mui/icons-material/Autorenew';
 
+import ReplayIcon from '@mui/icons-material/Replay';
+
 interface Job {
     id: number;
     jobType: string;
@@ -83,6 +85,21 @@ export default function AdminJobsPage() {
         }
     };
 
+    const retryJob = async (id: number) => {
+        try {
+            setLoading(true);
+            await axios.post(`/api/admin/jobs/${id}/retry`);
+            setMessage(`Job #${id} reset to pending`);
+            setMessageType('success');
+            loadJobs();
+        } catch (error: any) {
+            setMessage('Failed to retry job');
+            setMessageType('error');
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const columns: GridColDef[] = [
         { field: 'id', headerName: 'ID', width: 70 },
         { field: 'jobType', headerName: 'Type', width: 220 },
@@ -114,6 +131,22 @@ export default function AdminJobsPage() {
                     />
                 );
             }
+        },
+        {
+            field: 'actions',
+            headerName: 'Actions',
+            width: 100,
+            renderCell: (params: GridRenderCellParams) => (
+                params.row.status === 'failed' ? (
+                    <Button
+                        size="small"
+                        startIcon={<ReplayIcon />}
+                        onClick={() => retryJob(params.row.id)}
+                    >
+                        Retry
+                    </Button>
+                ) : null
+            )
         },
         {
             field: 'attempts',
