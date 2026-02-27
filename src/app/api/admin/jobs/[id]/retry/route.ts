@@ -4,11 +4,12 @@ import { requireAdmin } from '@/lib/auth-helpers';
 
 export async function POST(
     request: Request,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
         await requireAdmin();
-        const jobId = parseInt(params.id);
+        const { id } = await params;
+        const jobId = parseInt(id);
 
         const job = await prisma.jobQueue.findUnique({
             where: { id: jobId }
