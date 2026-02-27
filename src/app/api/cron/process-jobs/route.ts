@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { pickNextJob, markCompleted, markFailed } from '@/lib/job-queue';
 import { JOB_HANDLERS } from '@/lib/job-handlers';
 import { GeoapifyQuotaError } from '@/services/GeoapifyService';
+import { auth } from '@/lib/auth';
+import { Role } from '@prisma/client';
 
 /**
  * GET /api/cron/process-jobs
@@ -15,7 +17,11 @@ export async function GET(request: Request) {
         const authHeader = request.headers.get('authorization');
         const cronSecret = process.env.CRON_SECRET;
 
-        if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+        // Check for session-based auth (for admin dashboard buttons)
+        const session = await auth();
+        const isAdmin = session?.user?.role === Role.ADMIN;
+
+        if (!isAdmin && cronSecret && authHeader !== `Bearer ${cronSecret}`) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
