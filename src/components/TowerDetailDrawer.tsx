@@ -276,6 +276,20 @@ export default function TowerDetailDrawer({
                             {tower.carrier && <Typography variant="body2"><strong>Carrier:</strong> {typeof tower.carrier === 'object' ? tower.carrier?.name : tower.carrier}</Typography>}
                             <Typography variant="body2"><strong>Coordinates:</strong> {tower.lat.toFixed(6)}, {tower.lon.toFixed(6)}</Typography>
                             <Typography variant="body2"><strong>Source:</strong> {tower.source || 'N/A'}</Typography>
+                            <Button
+                                variant="outlined"
+                                color="primary"
+                                fullWidth
+                                size="small"
+                                startIcon={<LocationOnIcon />}
+                                onClick={() => {
+                                    const url = `https://webmap.onxmaps.com/hunt/map/query/${tower.lat},${tower.lon},14.57/overview#15.5/${tower.lat}/${tower.lon}`;
+                                    window.open(url, '_blank');
+                                }}
+                                sx={{ mt: 1.5, borderColor: '#5c7c3c', color: '#5c7c3c', '&:hover': { borderColor: '#4a6430', bgcolor: 'rgba(92, 124, 60, 0.04)' } }}
+                            >
+                                Open in onX Maps
+                            </Button>
                         </Box>
                     </Box>
 
