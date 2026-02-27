@@ -142,19 +142,25 @@ async function pollGeoapifyBatch(params: { batchId: string, towerIds: number[] }
         throw new Error('Batch job still pending, will retry');
     }
 
-    const results = statusResult.results;
+    const batchData = statusResult.results || {};
+    const resultsArray = batchData.results || [];
     let totalBusinesses = 0;
 
     for (let i = 0; i < towerIds.length; i++) {
         const towerId = towerIds[i];
-        const towerResult = results[i];
+        const towerResult = resultsArray[i];
 
         if (!towerResult || towerResult.error) {
             console.error(`[Geoapify Job] Error for tower ${towerId}:`, towerResult?.error);
+            // Mark it as processed so we don't retry forever
+            await prisma.tower.update({
+                where: { id: towerId },
+                data: { placesProcessedAt: new Date() }
+            });
             continue;
         }
 
-        const places = towerResult.results || [];
+        const places = towerResult.result?.features || [];
         const businesses = places.map((place: any) => ({
             name: place.properties?.name || 'Unknown Business',
             phone: place.properties?.contact?.phone || null,
