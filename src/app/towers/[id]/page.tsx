@@ -291,6 +291,12 @@ export default function TowerDetailPage({ params }: PageProps) {
         }
     };
 
+    const handleOpenOnXMaps = () => {
+        if (tower) {
+            window.open(`https://webmap.onxmaps.com/hunt/map/query/${tower.lat},${tower.lon},14.57/overview#15.5/${tower.lat}/${tower.lon}`, '_blank');
+        }
+    };
+
     const handleLookupOwner = async () => {
         if (!tower) return;
         setIsOwnerLoading(true);
@@ -582,6 +588,19 @@ export default function TowerDetailPage({ params }: PageProps) {
                             Saved Street View
                         </Button>
                     )}
+                    <Button
+                        startIcon={<LocationOnIcon />}
+                        onClick={handleOpenOnXMaps}
+                        size="small"
+                        sx={{
+                            color: '#5c7c3c',
+                            '&:hover': {
+                                bgcolor: 'rgba(92, 124, 60, 0.04)'
+                            }
+                        }}
+                    >
+                        onX Maps
+                    </Button>
                     <Button
                         startIcon={<BusinessIcon />}
                         onClick={handleLookupOwner}
