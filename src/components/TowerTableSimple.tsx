@@ -94,6 +94,8 @@ export default function TowerTableSimple({
     const defaultVisibility: GridColumnVisibilityModel = {
         lat: false,
         lon: false,
+        businessCount: true,
+        avgBusinessDistance: true,
     };
 
     // Column visibility with localStorage persistence
@@ -482,6 +484,33 @@ export default function TowerTableSimple({
             headerName: 'Longitude',
             width: 100,
             valueGetter: (value: any, row: any) => row.lon?.toFixed(6) || ''
+        },
+        {
+            field: 'businessCount',
+            headerName: 'Businesses',
+            width: 120,
+            type: 'number',
+            valueGetter: (value: any) => value ?? 0,
+            renderCell: (params: GridRenderCellParams) => (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <BusinessIcon fontSize="small" color="action" />
+                    <Typography variant="body2">{params.value}</Typography>
+                </Box>
+            )
+        },
+        {
+            field: 'avgBusinessDistance',
+            headerName: 'Avg Distance (m)',
+            width: 150,
+            type: 'number',
+            valueGetter: (value: any) => value ? Math.round(value) : null,
+            renderCell: (params: GridRenderCellParams) => (
+                params.value !== null ? (
+                    <Typography variant="body2">{params.value} m</Typography>
+                ) : (
+                    <Typography variant="body2" color="text.secondary">-</Typography>
+                )
+            )
         },
         {
             field: 'actions',

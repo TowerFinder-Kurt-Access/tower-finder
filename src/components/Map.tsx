@@ -5,6 +5,7 @@ import MarkerClusterGroup from 'react-leaflet-cluster';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useEffect } from 'react';
+import { Typography } from '@mui/material';
 import type { LatLngExpression } from 'leaflet';
 
 // Component to handle map center updates
@@ -51,6 +52,13 @@ interface MapProps {
     towerLeads?: any[]; // Leads from local DB
     onTowerSelect: (tower: Tower | any) => void;
     selectedTower?: Tower | null;
+    businessesNearby?: {
+        id: number;
+        name: string;
+        phone: string | null;
+        distance: number;
+        rawData: any;
+    }[];
     onBoundsChange?: (bounds: { north: number, south: number, east: number, west: number }) => void;
 }
 
@@ -101,7 +109,10 @@ function MapEvents({ onBoundsChange }: { onBoundsChange?: (bounds: any) => void 
     return null;
 }
 
-export default function Map({ center, zoom, bounds, towers, towerLeads = [], onTowerSelect, selectedTower, onBoundsChange }: MapProps) {
+export default function Map({
+    center, zoom, bounds, towers, towerLeads = [], businessesNearby = [],
+    onTowerSelect, selectedTower, onBoundsChange
+}: MapProps) {
 
     // Debug logging for selected tower geometry
     useEffect(() => {
@@ -303,6 +314,39 @@ export default function Map({ center, zoom, bounds, towers, towerLeads = [], onT
                         </CircleMarker>
                     ))}
             </MarkerClusterGroup>
+
+            {/* Nearby Businesses (Purple) */}
+            {businessesNearby && businessesNearby.map(biz => {
+                // Extract coordinates from GeoJSON feature in rawData
+                const coords = biz.rawData?.geometry?.coordinates;
+                if (!coords || coords.length < 2) return null;
+                const bizLat = coords[1];
+                const bizLon = coords[0];
+
+                return (
+                    <CircleMarker
+                        key={`biz-${biz.id}`}
+                        center={[bizLat, bizLon] as LatLngExpression}
+                        pathOptions={{
+                            color: '#9c27b0', // Purple
+                            fillColor: '#ba68c8',
+                            fillOpacity: 0.7
+                        }}
+                        radius={6}
+                    >
+                        <Popup>
+                            <div style={{ minWidth: '150px' }}>
+                                <Typography variant="subtitle2" style={{ fontWeight: 'bold', display: 'block' }}>
+                                    {biz.name}
+                                </Typography>
+                                <strong>Type:</strong> Business<br />
+                                <strong>Distance:</strong> {Math.round(biz.distance)}m<br />
+                                {biz.phone && <><strong>Phone:</strong> {biz.phone}<br /></>}
+                            </div>
+                        </Popup>
+                    </CircleMarker>
+                );
+            })}
         </MapContainer>
     );
 }

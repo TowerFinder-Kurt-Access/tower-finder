@@ -31,6 +31,8 @@ interface Tower {
     parcelId?: string;
     ownerName?: string;
     dataSource?: string;
+    businessCount?: number;
+    avgBusinessDistance?: number;
 }
 
 interface OwnerResult {

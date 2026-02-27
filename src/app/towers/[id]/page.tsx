@@ -109,6 +109,7 @@ interface Tower {
         name: string;
         phone: string | null;
         distance: number;
+        rawData: any;
     }[];
 }
 
@@ -813,6 +814,7 @@ export default function TowerDetailPage({ params }: PageProps) {
                                     center={[tower.lat, tower.lon]}
                                     zoom={15}
                                     towers={[tower]}
+                                    businessesNearby={tower.businessesNearby || []}
                                     onTowerSelect={() => { }}
                                     selectedTower={tower}
                                 />
