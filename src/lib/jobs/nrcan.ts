@@ -23,18 +23,19 @@ export async function processNRCanBatch(params: any): Promise<any> {
             if (feature) {
                 const attributes = feature.attributes || {};
                 const geometry = feature.geometry || null;
+                const parcelId = attributes.PIN || attributes.planNumber;
 
                 await prisma.parcel.upsert({
                     where: { towerId: tower.id },
                     update: {
-                        parcelId: attributes.PIN || attributes.planNumber || null,
+                        parcelId: parcelId ? String(parcelId) : null,
                         rawData: attributes,
                         geometry: geometry,
                         dataSource: 'NRCan'
                     },
                     create: {
                         towerId: tower.id,
-                        parcelId: attributes.PIN || attributes.planNumber || null,
+                        parcelId: parcelId ? String(parcelId) : null,
                         rawData: attributes,
                         geometry: geometry,
                         dataSource: 'NRCan'
