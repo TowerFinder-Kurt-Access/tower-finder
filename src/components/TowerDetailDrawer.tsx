@@ -61,6 +61,7 @@ interface Tower {
         county?: string;
         parcelId?: string;
         dataSource?: string;
+        rawData?: any;
         owner?: {
             name?: string;
             address?: string;
@@ -324,6 +325,11 @@ export default function TowerDetailDrawer({
                                     <Typography variant="body2">
                                         <strong>Parcel ID:</strong> {tower.parcel.parcelId || 'N/A'}
                                     </Typography>
+                                    {tower.parcel.rawData && (tower.parcel.rawData as any).parcelDesignator && (
+                                        <Typography variant="body2">
+                                            <strong>Designator:</strong> {(tower.parcel.rawData as any).parcelDesignator}
+                                        </Typography>
+                                    )}
                                     <Typography variant="body2">
                                         <strong>Data Source:</strong> {tower.parcel.dataSource || tower.source || 'N/A'}
                                     </Typography>

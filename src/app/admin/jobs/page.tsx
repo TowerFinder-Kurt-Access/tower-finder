@@ -68,6 +68,19 @@ export default function AdminJobsPage() {
         }
     };
 
+    const triggerNRCan = async () => {
+        try {
+            setMessage('Triggering NRCan batch...');
+            setMessageType('success');
+            await axios.get('/api/cron/trigger-nrcan');
+            setMessage('NRCan batch job enqueued successfully');
+            loadJobs();
+        } catch (error: any) {
+            setMessage('Failed to trigger NRCan batch');
+            setMessageType('error');
+        }
+    };
+
     const processQueue = async () => {
         try {
             setMessage('Processing next job in queue...');
@@ -214,6 +227,14 @@ export default function AdminJobsPage() {
                         disabled={loading}
                     >
                         Trigger Geoapify Batch
+                    </Button>
+                    <Button
+                        variant="contained"
+                        startIcon={<PlayArrowIcon />}
+                        onClick={triggerNRCan}
+                        disabled={loading}
+                    >
+                        Trigger NRCan Batch
                     </Button>
                 </Stack>
             </Box>

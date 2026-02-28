@@ -62,17 +62,30 @@ interface MapProps {
     onBoundsChange?: (bounds: { north: number, south: number, east: number, west: number }) => void;
 }
 
-// Helper function to convert GeoJSON geometry to Leaflet coordinates
+// Helper function to convert GeoJSON or ArcGIS geometry to Leaflet coordinates
 function geometryToLeafletCoords(geometry: any): LatLngExpression[] | LatLngExpression[][] | null {
-    if (!geometry || !geometry.coordinates) return null;
+    if (!geometry) return null;
 
     try {
-        if (geometry.type === 'Polygon') {
-            // Polygon coordinates are [[[lon, lat], [lon, lat], ...]]
-            return geometry.coordinates[0].map((coord: number[]) => [coord[1], coord[0]] as LatLngExpression);
-        } else if (geometry.type === 'MultiPolygon') {
-            // MultiPolygon - use the first polygon
-            return geometry.coordinates[0][0].map((coord: number[]) => [coord[1], coord[0]] as LatLngExpression);
+        // Handle ArcGIS/Esri JSON format (rings)
+        if (geometry.rings) {
+            // ArcGIS rings are [[lon, lat], [lon, lat], ...]
+            // First ring is outer, subsequent are holes. Leaflet Polygon supports this nesting if we pass [[]].
+            // If we just want the outer boundary for simplicity:
+            return geometry.rings.map((ring: number[][]) =>
+                ring.map((coord: number[]) => [coord[1], coord[0]] as LatLngExpression)
+            );
+        }
+
+        // Handle GeoJSON format
+        if (geometry.coordinates) {
+            if (geometry.type === 'Polygon') {
+                // Polygon coordinates are [[[lon, lat], [lon, lat], ...]]
+                return geometry.coordinates[0].map((coord: number[]) => [coord[1], coord[0]] as LatLngExpression);
+            } else if (geometry.type === 'MultiPolygon') {
+                // MultiPolygon - use the first polygon
+                return geometry.coordinates[0][0].map((coord: number[]) => [coord[1], coord[0]] as LatLngExpression);
+            }
         }
     } catch (error) {
         console.error('[Map] Error converting geometry:', error);

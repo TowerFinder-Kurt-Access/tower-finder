@@ -29,6 +29,7 @@ model Tower {
   businessCount        Int?
   avgBusinessDistance Float?
   placesProcessedAt    DateTime?
+  parcelProcessedAt    DateTime?
   notes               Note[]
   businessesNearby    BusinessNearby[]
   parcel              Parcel?
