@@ -95,6 +95,7 @@ interface Tower {
         county?: string;
         parcelId?: string;
         dataSource?: string;
+        rawData?: any;
         owner?: {
             id?: number;
             name?: string;
@@ -990,6 +991,16 @@ export default function TowerDetailPage({ params }: PageProps) {
                                         <Box>
                                             <Typography variant="body2" color="text.secondary">County</Typography>
                                             <Typography variant="body1">{tower.parcel.county}</Typography>
+                                        </Box>
+                                    )}
+                                    <Box>
+                                        <Typography variant="body2" color="text.secondary">Parcel ID / PIN</Typography>
+                                        <Typography variant="body1">{tower.parcel?.parcelId || 'N/A'}</Typography>
+                                    </Box>
+                                    {tower.parcel?.rawData && (tower.parcel.rawData as any).parcelDesignator && (
+                                        <Box>
+                                            <Typography variant="body2" color="text.secondary">Designator</Typography>
+                                            <Typography variant="body1">{(tower.parcel.rawData as any).parcelDesignator}</Typography>
                                         </Box>
                                     )}
                                     <Box>

@@ -323,7 +323,7 @@ export default function TowerDetailDrawer({
                                         </Typography>
                                     )}
                                     <Typography variant="body2">
-                                        <strong>Parcel ID:</strong> {tower.parcel.parcelId || 'N/A'}
+                                        <strong>Parcel ID / PIN:</strong> {tower.parcel.parcelId || 'N/A'}
                                     </Typography>
                                     {tower.parcel.rawData && (tower.parcel.rawData as any).parcelDesignator && (
                                         <Typography variant="body2">
