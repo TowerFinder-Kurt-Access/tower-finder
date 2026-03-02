@@ -5,7 +5,7 @@ import { enqueueJob } from '@/lib/job-queue';
 export async function processNRCanBatch(params: any): Promise<any> {
     const towers = await prisma.tower.findMany({
         where: { parcelProcessedAt: null },
-        take: 50,
+        take: 200, // Increased batch size for faster enrichment
         select: { id: true, lat: true, lon: true }
     });
 
@@ -52,7 +52,7 @@ export async function processNRCanBatch(params: any): Promise<any> {
             processedCount++;
 
             // Sleep slightly to avoid spamming the API too fast
-            await new Promise(resolve => setTimeout(resolve, 200));
+            await new Promise(resolve => setTimeout(resolve, 100)); // Reduced from 200ms
 
         } catch (err) {
             console.error(`[NRCan Job] Error processing tower ${tower.id}:`, err);
