@@ -63,7 +63,7 @@ export async function GET(request: Request) {
             const where: any = {};
             if (country) where.country = { equals: country, mode: 'insensitive' };
             const result = await prisma.towerLead.findMany({
-                where: { ...where, source: { not: null } },
+                where: where,
                 distinct: ['source'],
                 select: { source: true },
                 orderBy: { source: 'asc' }

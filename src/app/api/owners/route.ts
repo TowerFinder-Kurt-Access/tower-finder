@@ -145,11 +145,15 @@ export async function GET(request: Request) {
         }
 
         const whereClause: any = {
-            parcel: { isNot: null },
-            ...(andConditions.length > 0 ? { AND: andConditions } : {})
+            parcel: { 
+                AND: [
+                    { ownerId: { not: null } },
+                    ...(andConditions.length > 0 ? andConditions.map(c => c.parcel) : [])
+                ]
+            }
         };
 
-        // Get all towers with owner information
+        // Get only towers with owner information
         const towers = await prisma.tower.findMany({
             where: whereClause,
             include: {
