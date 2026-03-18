@@ -86,6 +86,10 @@ function TowersPageContent() {
         address?: string;
         id?: string;
         search?: string;
+        minBusinessCount?: string;
+        maxBusinessCount?: string;
+        minAvgDistance?: string;
+        maxAvgDistance?: string;
     }>(() => urlIdParam ? { id: urlIdParam } : {});
 
     // Load settings from local storage on mount (skip if URL has ?id= param)
@@ -167,6 +171,10 @@ function TowersPageContent() {
                 if (filters.status) params.append('status', filters.status);
                 if (filters.address) params.append('address', filters.address);
                 if (filters.search) params.append('search', filters.search);
+                if (filters.minBusinessCount) params.append('minBusinessCount', filters.minBusinessCount);
+                if (filters.maxBusinessCount) params.append('maxBusinessCount', filters.maxBusinessCount);
+                if (filters.minAvgDistance) params.append('minAvgDistance', filters.minAvgDistance);
+                if (filters.maxAvgDistance) params.append('maxAvgDistance', filters.maxAvgDistance);
             }
 
             const res = await axios.get(`/api/towers?${params.toString()}`);

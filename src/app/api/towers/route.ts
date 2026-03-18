@@ -29,6 +29,12 @@ export async function GET(request: Request) {
         const owner = searchParams.get('owner');
         const search = searchParams.get('search'); // Global search across text fields
 
+        // Business filters
+        const minBusinessCount = searchParams.get('minBusinessCount');
+        const maxBusinessCount = searchParams.get('maxBusinessCount');
+        const minAvgDistance = searchParams.get('minAvgDistance');
+        const maxAvgDistance = searchParams.get('maxAvgDistance');
+
         // Default limit to prevent sending too many towers at once (performance optimization)
         // Use 1000 as default limit if not specified, unless fetching by ID
         const DEFAULT_LIMIT = 1000;
@@ -384,6 +390,22 @@ export async function GET(request: Request) {
                         }
                     }
                 });
+            }
+
+            // Business count filter
+            if (minBusinessCount !== null || maxBusinessCount !== null) {
+                const countFilter: any = {};
+                if (minBusinessCount !== null) countFilter.gte = parseInt(minBusinessCount);
+                if (maxBusinessCount !== null) countFilter.lte = parseInt(maxBusinessCount);
+                andConditions.push({ businessCount: countFilter });
+            }
+
+            // Avg distance filter
+            if (minAvgDistance !== null || maxAvgDistance !== null) {
+                const distFilter: any = {};
+                if (minAvgDistance !== null) distFilter.gte = parseFloat(minAvgDistance);
+                if (maxAvgDistance !== null) distFilter.lte = parseFloat(maxAvgDistance);
+                andConditions.push({ avgBusinessDistance: distFilter });
             }
 
             // Add parcel filters as a single condition if any exist

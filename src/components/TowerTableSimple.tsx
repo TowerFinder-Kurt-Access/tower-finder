@@ -47,8 +47,20 @@ interface TowerTableSimpleProps {
         types: LookupItem[];
         carriers: LookupItem[];
     };
-    onFilterChange: (filters: { city?: string; state?: string; county?: string; zip?: string; type?: string; carrier?: string; status?: string; address?: string; search?: string }) => void;
-    filters?: { city?: string; state?: string; county?: string; zip?: string; type?: string; carrier?: string; status?: string; address?: string; search?: string };
+    onFilterChange: (filters: { 
+        city?: string; state?: string; county?: string; zip?: string; 
+        type?: string; carrier?: string; status?: string; address?: string; 
+        search?: string;
+        minBusinessCount?: string; maxBusinessCount?: string;
+        minAvgDistance?: string; maxAvgDistance?: string;
+    }) => void;
+    filters?: { 
+        city?: string; state?: string; county?: string; zip?: string; 
+        type?: string; carrier?: string; status?: string; address?: string; 
+        search?: string;
+        minBusinessCount?: string; maxBusinessCount?: string;
+        minAvgDistance?: string; maxAvgDistance?: string;
+    };
     onCellEdit?: (towerId: number, field: string, value: string) => void;
     onNotesClick?: (tower: any) => void;
     onAddOwner?: (tower: any) => void;
@@ -268,7 +280,8 @@ export default function TowerTableSimple({
     const activeChips: { field: string; label: string; value: string }[] = [];
     const fieldLabels: Record<string, string> = {
         city: 'City', state: country === 'USA' ? 'State' : 'Province',
-        type: 'Type', status: 'Status', carrier: 'Carrier'
+        type: 'Type', status: 'Status', carrier: 'Carrier',
+        minBusinessCount: 'Min Businesses', maxAvgDistance: 'Max Distance'
     };
     for (const [field, label] of Object.entries(fieldLabels)) {
         const val = (filters as any)[field];
@@ -358,6 +371,26 @@ export default function TowerTableSimple({
                 {renderFilterAutocomplete('type', 'Type', filterOptions.types)}
                 {renderFilterAutocomplete('status', 'Status', filterOptions.statuses)}
                 {renderFilterAutocomplete('carrier', 'Carrier', filterOptions.carriers)}
+                
+                <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', ml: 1, borderLeft: '1px solid #e0e0e0', pl: 2 }}>
+                    <TextField
+                        label="Min Businesses"
+                        size="small"
+                        type="number"
+                        value={filters.minBusinessCount || ''}
+                        onChange={(e) => onFilterChange({ ...filters, minBusinessCount: e.target.value || undefined })}
+                        sx={{ width: 130 }}
+                    />
+                    <TextField
+                        label="Max Distance (m)"
+                        size="small"
+                        type="number"
+                        value={filters.maxAvgDistance || ''}
+                        onChange={(e) => onFilterChange({ ...filters, maxAvgDistance: e.target.value || undefined })}
+                        sx={{ width: 130 }}
+                    />
+                </Box>
+
                 {activeFilterCount > 0 && (
                     <Button
                         size="small"
