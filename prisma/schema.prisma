@@ -140,17 +140,29 @@ model TowerAssignment {
 }
 
 model Note {
-  id        Int      @id @default(autoincrement())
+  id        Int           @id @default(autoincrement())
   content   String
   initials  String?
   authorId  Int?
   towerId   Int
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  author    User?    @relation(fields: [authorId], references: [id])
-  tower     Tower    @relation(fields: [towerId], references: [id], onDelete: Cascade)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  author    User?         @relation(fields: [authorId], references: [id])
+  tower     Tower         @relation(fields: [towerId], references: [id], onDelete: Cascade)
+  history   NoteHistory[]
 
   @@index([authorId])
+}
+
+model NoteHistory {
+  id        Int      @id @default(autoincrement())
+  noteId    Int
+  content   String
+  initials  String?
+  updatedAt DateTime @default(now())
+  note      Note     @relation(fields: [noteId], references: [id], onDelete: Cascade)
+
+  @@index([noteId])
 }
 
 model TowerType {

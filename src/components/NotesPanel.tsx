@@ -19,6 +19,17 @@ import {
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
+import HistoryIcon from '@mui/icons-material/History';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import ExpandLessIcon from '@mui/icons-material/ExpandLess';
+import Divider from '@mui/material/Divider';
+
+interface NoteHistory {
+    id: number;
+    content: string;
+    initials: string | null;
+    updatedAt: string;
+}
 
 interface Note {
     id: number;
@@ -31,6 +42,7 @@ interface Note {
     } | null;
     createdAt: string;
     updatedAt: string;
+    history?: NoteHistory[];
 }
 
 interface NotesPanelProps {
@@ -46,6 +58,7 @@ export default function NotesPanel({ towerId, notes, onNotesChange }: NotesPanel
     const [content, setContent] = useState('');
     const [saving, setSaving] = useState(false);
     const [deleting, setDeleting] = useState<number | null>(null);
+    const [showHistory, setShowHistory] = useState<number | null>(null);
 
     const handleOpenDialog = (note?: Note) => {
         if (note) {
@@ -155,6 +168,35 @@ export default function NotesPanel({ towerId, notes, onNotesChange }: NotesPanel
                                             {note.initials ? `[${note.initials}] ` : ''}
                                             {note.author?.name || 'Unknown User'} - {formatDate(note.createdAt)}
                                         </Typography>
+
+                                        {note.history && note.history.length > 1 && (
+                                            <Box sx={{ mt: 1 }}>
+                                                <Button
+                                                    size="small"
+                                                    startIcon={showHistory === note.id ? <ExpandLessIcon /> : <HistoryIcon sx={{ fontSize: '1rem' }} />}
+                                                    onClick={() => setShowHistory(showHistory === note.id ? null : note.id)}
+                                                    sx={{ fontSize: '0.65rem', py: 0, minWidth: 0, textTransform: 'none' }}
+                                                >
+                                                    {showHistory === note.id ? 'Hide History' : `Show History (${note.history.length})`}
+                                                </Button>
+
+                                                {showHistory === note.id && (
+                                                    <Box sx={{ pl: 2, borderLeft: '2px solid #e0e0e0', mt: 1, display: 'flex', flexDirection: 'column', gap: 1 }}>
+                                                        {note.history.map((h, i) => (
+                                                            <Box key={h.id} sx={{ opacity: i === 0 ? 1 : 0.7 }}>
+                                                                <Typography variant="caption" sx={{ fontWeight: 600, display: 'block', fontSize: '0.7rem' }}>
+                                                                    {h.initials ? `[${h.initials}] ` : ''} {formatDate(h.updatedAt)} {i === 0 ? '(Current)' : ''}
+                                                                </Typography>
+                                                                <Typography variant="caption" sx={{ whiteSpace: 'pre-wrap', fontSize: '0.75rem' }}>
+                                                                    {h.content}
+                                                                </Typography>
+                                                                {i < note.history!.length - 1 && <Divider sx={{ my: 0.5, borderStyle: 'dotted' }} />}
+                                                            </Box>
+                                                        ))}
+                                                    </Box>
+                                                )}
+                                            </Box>
+                                        )}
                                     </Box>
                                     <Box sx={{ display: 'flex', gap: 0.5, ml: 1 }}>
                                         <IconButton

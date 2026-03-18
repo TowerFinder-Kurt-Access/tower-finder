@@ -15,6 +15,9 @@ export class NoteService {
                         name: true,
                         email: true
                     }
+                },
+                history: {
+                    orderBy: { updatedAt: 'desc' }
                 }
             },
             orderBy: { createdAt: 'desc' }
@@ -30,7 +33,13 @@ export class NoteService {
                 towerId,
                 content,
                 authorId,
-                initials
+                initials,
+                history: {
+                    create: {
+                        content,
+                        initials
+                    }
+                }
             },
             include: {
                 author: {
@@ -39,7 +48,8 @@ export class NoteService {
                         name: true,
                         email: true
                     }
-                }
+                },
+                history: true
             }
         });
     }
@@ -48,9 +58,36 @@ export class NoteService {
      * Update an existing note
      */
     static async updateNote(noteId: number, data: { content?: string, initials?: string }) {
-        return await prisma.note.update({
-            where: { id: noteId },
-            data
+        return await prisma.$transaction(async (tx) => {
+            const note = await tx.note.update({
+                where: { id: noteId },
+                data
+            });
+
+            // Create history entry
+            await tx.noteHistory.create({
+                data: {
+                    noteId,
+                    content: note.content,
+                    initials: note.initials
+                }
+            });
+
+            return await tx.note.findUnique({
+                where: { id: noteId },
+                include: {
+                    author: {
+                        select: {
+                            id: true,
+                            name: true,
+                            email: true
+                        }
+                    },
+                    history: {
+                        orderBy: { updatedAt: 'desc' }
+                    }
+                }
+            });
         });
     }
 
