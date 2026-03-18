@@ -24,12 +24,13 @@ export class NoteService {
     /**
      * Create a new note for a tower
      */
-    static async createNote(towerId: number, content: string, authorId: number) {
+    static async createNote(towerId: number, content: string, authorId: number, initials?: string) {
         return await prisma.note.create({
             data: {
                 towerId,
                 content,
-                authorId
+                authorId,
+                initials
             },
             include: {
                 author: {
@@ -46,7 +47,7 @@ export class NoteService {
     /**
      * Update an existing note
      */
-    static async updateNote(noteId: number, data: { content?: string }) {
+    static async updateNote(noteId: number, data: { content?: string, initials?: string }) {
         return await prisma.note.update({
             where: { id: noteId },
             data

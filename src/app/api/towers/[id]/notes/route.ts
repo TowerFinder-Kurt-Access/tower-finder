@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { NoteService } from '@/services/NoteService';
-import { getAuthUser } from '@/lib/auth-helpers';
+import { getAuthUser, getInitials } from '@/lib/auth-helpers';
 import { canAccessTower } from '@/lib/tower-access';
 
 interface RouteParams {
@@ -59,7 +59,8 @@ export async function POST(request: Request, { params }: RouteParams) {
             return NextResponse.json({ error: 'Note content is required' }, { status: 400 });
         }
 
-        const note = await NoteService.createNote(towerId, content.trim(), user.id);
+        const initials = getInitials(user.name);
+        const note = await NoteService.createNote(towerId, content.trim(), user.id, initials);
         return NextResponse.json(note, { status: 201 });
     } catch (error) {
         if (error instanceof Error && error.message === 'Unauthorized') {

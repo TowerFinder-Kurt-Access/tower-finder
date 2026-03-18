@@ -19,6 +19,9 @@ import Alert from '@mui/material/Alert';
 import Chip from '@mui/material/Chip';
 import IconButton from '@mui/material/IconButton';
 import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
+import CircularProgress from '@mui/material/CircularProgress';
+import { useSession } from 'next-auth/react';
+import { Role } from '@prisma/client';
 import AddIcon from '@mui/icons-material/Add';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -34,6 +37,7 @@ interface User {
 }
 
 export default function AdminUsersPage() {
+    const { data: session, status: sessionStatus } = useSession();
     const router = useRouter();
     const [users, setUsers] = useState<User[]>([]);
     const [loading, setLoading] = useState(true);
@@ -49,8 +53,20 @@ export default function AdminUsersPage() {
     const [messageType, setMessageType] = useState<'success' | 'error'>('success');
 
     useEffect(() => {
-        loadUsers();
-    }, []);
+        if (session?.user?.role === Role.ADMIN) {
+            loadUsers();
+        }
+    }, [session]);
+
+    if (sessionStatus === 'loading') return <Box sx={{ p: 4, textAlign: 'center' }}><CircularProgress /></Box>;
+
+    if (session?.user?.role !== Role.ADMIN) {
+        return (
+            <Box sx={{ p: 4 }}>
+                <Alert severity="error">Access Denied. Admin privileges required.</Alert>
+            </Box>
+        );
+    }
 
     const loadUsers = async () => {
         try {

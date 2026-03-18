@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getAuthUser } from '@/lib/auth-helpers';
+import { requireAdmin } from '@/lib/auth-helpers';
 
 export async function POST(request: Request) {
     try {
-        await getAuthUser();
+        await requireAdmin();
         const body = await request.json();
         const { sourceIds, targetName } = body;
 

@@ -15,6 +15,9 @@ import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import PendingIcon from '@mui/icons-material/Pending';
 import AutorenewIcon from '@mui/icons-material/Autorenew';
+import CircularProgress from '@mui/material/CircularProgress';
+import { useSession } from 'next-auth/react';
+import { Role } from '@prisma/client';
 
 import ReplayIcon from '@mui/icons-material/Replay';
 
@@ -32,6 +35,7 @@ interface Job {
 }
 
 export default function AdminJobsPage() {
+    const { data: session, status } = useSession();
     const [jobs, setJobs] = useState<Job[]>([]);
     const [loading, setLoading] = useState(true);
     const [message, setMessage] = useState('');
@@ -52,8 +56,22 @@ export default function AdminJobsPage() {
     };
 
     useEffect(() => {
-        loadJobs();
-    }, []);
+        if (session?.user?.role === Role.ADMIN) {
+            loadJobs();
+        }
+    }, [session]);
+
+    if (status === 'loading') {
+        return <Box sx={{ p: 4, textAlign: 'center' }}><CircularProgress /></Box>;
+    }
+
+    if (session?.user?.role !== Role.ADMIN) {
+        return (
+            <Box sx={{ p: 4 }}>
+                <Alert severity="error">Access Denied. Admin privileges required.</Alert>
+            </Box>
+        );
+    }
 
     const triggerGeoapify = async () => {
         try {

@@ -23,6 +23,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 interface Note {
     id: number;
     content: string;
+    initials?: string | null;
     author: {
         id: number;
         name: string | null;
@@ -151,6 +152,7 @@ export default function NotesPanel({ towerId, notes, onNotesChange }: NotesPanel
                                             {note.content}
                                         </Typography>
                                         <Typography variant="caption" color="text.secondary">
+                                            {note.initials ? `[${note.initials}] ` : ''}
                                             {note.author?.name || 'Unknown User'} - {formatDate(note.createdAt)}
                                         </Typography>
                                     </Box>

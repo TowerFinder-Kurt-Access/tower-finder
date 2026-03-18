@@ -9,6 +9,8 @@ import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
 import MergeTypeIcon from '@mui/icons-material/MergeType';
+import { useSession } from 'next-auth/react';
+import { Role } from '@prisma/client';
 import axios from 'axios';
 
 interface LookupItem {
@@ -19,6 +21,7 @@ interface LookupItem {
 type LookupType = 'status' | 'type' | 'carrier';
 
 export default function LookupsManagementPage() {
+    const { data: session, status: sessionStatus } = useSession();
     const [lookups, setLookups] = useState({
         statuses: [] as LookupItem[],
         types: [] as LookupItem[],
@@ -63,8 +66,10 @@ export default function LookupsManagementPage() {
     };
 
     useEffect(() => {
-        fetchLookups();
-    }, []);
+        if (session?.user?.role === Role.ADMIN) {
+            fetchLookups();
+        }
+    }, [session]);
 
     const showSnackbar = (message: string, severity: 'success' | 'error') => {
         setSnackbar({ open: true, message, severity });
@@ -231,7 +236,15 @@ export default function LookupsManagementPage() {
         );
     };
 
-    if (loading) return <Box sx={{ p: 4, textAlign: 'center' }}><CircularProgress /></Box>;
+    if (sessionStatus === 'loading' || (loading && session?.user?.role === Role.ADMIN)) return <Box sx={{ p: 4, textAlign: 'center' }}><CircularProgress /></Box>;
+
+    if (session?.user?.role !== Role.ADMIN) {
+        return (
+            <Container maxWidth="lg" sx={{ py: 4 }}>
+                <Alert severity="error">Access Denied. Admin privileges required.</Alert>
+            </Container>
+        );
+    }
 
     return (
         <Container maxWidth="lg" sx={{ py: 4, height: '100%', overflowY: 'auto' }}>
