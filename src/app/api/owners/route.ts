@@ -144,24 +144,61 @@ export async function GET(request: Request) {
             });
         }
 
-        const whereClause: any = {
-            parcel: { 
-                AND: [
-                    { ownerId: { not: null } },
-                    ...(andConditions.length > 0 ? andConditions.map(c => c.parcel) : [])
-                ]
+        // Build where clause for filters (on parcels of the owner)
+        const parcelWhere: any = { ownerId: { not: null } };
+        
+        if (countryParam) {
+            parcelWhere.country = { equals: countryParam, mode: 'insensitive' };
+        }
+
+        if (city) {
+            const cityValues = city.split(',').filter(Boolean);
+            parcelWhere.OR = [
+                { cityRaw: { in: cityValues, mode: 'insensitive' } },
+                { city: { name: { in: cityValues, mode: 'insensitive' } } }
+            ];
+        }
+
+        if (county) {
+            const countyValues = county.split(',').filter(Boolean);
+            parcelWhere.county = { in: countyValues, mode: 'insensitive' };
+        }
+
+        if (state) {
+            const stateValues = state.split(',').filter(Boolean);
+            parcelWhere.OR = [
+                ...(parcelWhere.OR || []),
+                { stateRaw: { in: stateValues, mode: 'insensitive' } },
+                { provinceRaw: { in: stateValues, mode: 'insensitive' } },
+                { province: { name: { in: stateValues, mode: 'insensitive' } } },
+                { province: { code: { in: stateValues, mode: 'insensitive' } } }
+            ];
+        }
+
+        if (zip) {
+            const zipValues = zip.split(',').filter(Boolean);
+            parcelWhere.OR = [
+                ...(parcelWhere.OR || []),
+                { postalCode: { in: zipValues, mode: 'insensitive' } },
+                { zip: { in: zipValues, mode: 'insensitive' } }
+            ];
+        }
+
+        const ownersWhere: any = {
+            parcels: {
+                some: parcelWhere
             }
         };
 
-        // Get only towers with owner information
-        const towers = await prisma.tower.findMany({
-            where: whereClause,
+        // Get owners with their parcels and towers
+        const owners = await prisma.owner.findMany({
+            where: ownersWhere,
             include: {
-                parcel: {
+                contacts: true,
+                parcels: {
+                    where: parcelWhere,
                     include: {
-                        owner: {
-                            include: { contacts: true }
-                        },
+                        tower: true,
                         city: true,
                         province: true
                     }
@@ -169,68 +206,56 @@ export async function GET(request: Request) {
             }
         });
 
-        // Group by Owner + Parcel ID client-side (complex SQL grouping would be difficult here)
-        const ownerMap = new Map<string, any>();
+        // Group by Owner + Parcel ID client-side
+        const resultItems: any[] = [];
 
-        towers.forEach((tower: any) => {
-            if (tower.parcel && tower.parcel.owner) {
-                const ownerName = typeof tower.parcel.owner === 'string'
-                    ? tower.parcel.owner
-                    : tower.parcel.owner.name || 'Unknown';
+        owners.forEach((owner: any) => {
+            // Each parcel for this owner becomes a row in the "Owners" table (as it's grouped by parcel)
+            owner.parcels.forEach((parcel: any) => {
+                if (!parcel.tower) return;
 
-                const parcelId = tower.parcel.parcelId || 'Unknown';
-                const address = tower.parcel.address || '';
-                const cityVal = typeof tower.parcel.city === 'object' && tower.parcel.city
-                    ? (tower.parcel.city as any).name
-                    : (tower.parcel.cityRaw || '');
-                const county = tower.parcel.county || '';
-                const stateVal = typeof tower.parcel.province === 'object' && tower.parcel.province
-                    ? (tower.parcel.province as any).name
-                    : (tower.parcel.provinceRaw || tower.parcel.stateRaw || '');
-                const zip = tower.parcel.postalCode || tower.parcel.zip || '';
+                const ownerName = owner.name || 'Unknown';
+                const parcelId = parcel.parcelId || 'Unknown';
+                const address = parcel.address || '';
+                const cityVal = parcel.city?.name || parcel.cityRaw || '';
+                const countyVal = parcel.county || '';
+                const stateVal = parcel.province?.name || parcel.provinceRaw || parcel.stateRaw || '';
+                const zipVal = parcel.postalCode || parcel.zip || '';
 
                 const key = `${ownerName}-${parcelId}`;
+                
+                const contacts = owner.contacts || [];
+                const phones = contacts
+                    .filter((c: any) => c.type === 'Phone')
+                    .map((c: any) => c.value);
+                const emails = contacts
+                    .filter((c: any) => c.type === 'Email')
+                    .map((c: any) => c.value);
 
-                if (ownerMap.has(key)) {
-                    const existing = ownerMap.get(key);
-                    existing.towerCount += 1;
-                    existing.towerIds.push(tower.id);
-                } else {
-                    const ownerObj = tower.parcel.owner as any;
-                    const contacts = ownerObj?.contacts || [];
-                    const phones = contacts
-                        .filter((c: any) => c.type === 'Phone')
-                        .map((c: any) => c.value);
-                    const emails = contacts
-                        .filter((c: any) => c.type === 'Email')
-                        .map((c: any) => c.value);
-
-                    ownerMap.set(key, {
-                        id: key,
-                        ownerId: ownerObj?.id || null,
-                        ownerName,
-                        ownerType: ownerObj?.type || '',
-                        ownerAddress: ownerObj?.address || '',
-                        parcelId,
-                        address,
-                        city: cityVal,
-                        county,
-                        state: stateVal,
-                        zip,
-                        phones,
-                        emails,
-                        towerCount: 1,
-                        towerIds: [tower.id]
-                    });
-                }
-            }
+                resultItems.push({
+                    id: key,
+                    ownerId: owner.id,
+                    ownerName,
+                    ownerType: owner.type || '',
+                    ownerAddress: owner.address || '',
+                    parcelId,
+                    address,
+                    city: cityVal,
+                    county: countyVal,
+                    state: stateVal,
+                    zip: zipVal,
+                    phones,
+                    emails,
+                    towerCount: 1, // With query on Owner -> Parcel, this is usually 1 tower per parcel in this schema
+                    towerIds: [parcel.tower.id]
+                });
+            });
         });
 
-        const allOwners = Array.from(ownerMap.values());
-        const total = allOwners.length;
+        const total = resultItems.length;
 
         // Apply pagination
-        const paginatedOwners = allOwners.slice(skip, skip + limit);
+        const paginatedOwners = resultItems.slice(skip, skip + limit);
 
         return NextResponse.json({
             data: paginatedOwners,
