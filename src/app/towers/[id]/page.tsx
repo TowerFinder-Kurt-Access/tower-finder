@@ -56,7 +56,11 @@ const Map = dynamic(() => import('@/components/Map'), {
 interface Note {
     id: number;
     content: string;
-    author: string;
+    author: {
+        id: number;
+        name: string | null;
+        email: string | null;
+    } | null;
     createdAt: string;
     updatedAt: string;
 }
@@ -191,7 +195,6 @@ export default function TowerDetailPage({ params }: PageProps) {
     const [statusNoteDialogOpen, setStatusNoteDialogOpen] = useState(false);
     const [pendingStatusId, setPendingStatusId] = useState<number | null>(null);
     const [statusNote, setStatusNote] = useState('');
-    const [statusNoteAuthor, setStatusNoteAuthor] = useState('');
 
     useEffect(() => {
         setMounted(true);
@@ -202,14 +205,6 @@ export default function TowerDetailPage({ params }: PageProps) {
         loadNavigation();
         loadLookups();
     }, [towerId]);
-
-    // Load saved author
-    useEffect(() => {
-        const savedAuthor = localStorage.getItem(AUTHOR_STORAGE_KEY);
-        if (savedAuthor) {
-            setStatusNoteAuthor(savedAuthor);
-        }
-    }, []);
 
     const loadTower = async () => {
         try {
@@ -359,12 +354,10 @@ export default function TowerDetailPage({ params }: PageProps) {
                 statusId: pendingStatusId
             });
 
-            if (addNote && statusNote.trim() && statusNoteAuthor.trim()) {
-                localStorage.setItem(AUTHOR_STORAGE_KEY, statusNoteAuthor.trim());
+            if (addNote && statusNote.trim()) {
                 const noteContent = `[Status changed to "${statusName}"]\n${statusNote.trim()}`;
                 await axios.post(`/api/towers/${tower.id}/notes`, {
-                    content: noteContent,
-                    author: statusNoteAuthor.trim()
+                    content: noteContent
                 });
             }
 
@@ -1141,17 +1134,7 @@ export default function TowerDetailPage({ params }: PageProps) {
                         fullWidth
                         value={statusNote}
                         onChange={(e) => setStatusNote(e.target.value)}
-                        sx={{ mb: 2 }}
                         placeholder="e.g., Spoke with property owner, they are interested..."
-                    />
-                    <TextField
-                        label="Your Name"
-                        fullWidth
-                        value={statusNoteAuthor}
-                        onChange={(e) => setStatusNoteAuthor(e.target.value)}
-                        placeholder="Enter your name"
-                        disabled={!statusNote.trim()}
-                        helperText={statusNote.trim() ? "Required to save the note" : ""}
                     />
                 </DialogContent>
                 <DialogActions>
@@ -1164,7 +1147,7 @@ export default function TowerDetailPage({ params }: PageProps) {
                     <Button
                         onClick={() => handleStatusSave(true)}
                         variant="contained"
-                        disabled={saving || (statusNote.trim() && !statusNoteAuthor.trim()) ? true : false}
+                        disabled={saving}
                     >
                         {saving ? <CircularProgress size={20} /> : 'Save With Note'}
                     </Button>

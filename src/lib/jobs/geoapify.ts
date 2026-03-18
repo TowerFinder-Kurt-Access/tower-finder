@@ -37,7 +37,14 @@ export async function pollGeoapifyBatch(params: { batchId: string, towerIds: num
     const statusResult = await GeoapifyService.getBatchResult(batchId);
 
     if (statusResult.status === 'pending') {
-        throw new Error('Batch job still pending, will retry');
+        console.log(`[Geoapify Job] Batch ${batchId} still pending. Rescheduling poll...`);
+        // Schedule a NEW poll job in 5 minutes
+        await enqueueJob(
+            'poll_geoapify_batch',
+            params,
+            new Date(Date.now() + 5 * 60 * 1000)
+        );
+        return { status: 'pending', batchId, message: 'Batch still pending, rescheduled' };
     }
 
     const batchData = statusResult.results || {};

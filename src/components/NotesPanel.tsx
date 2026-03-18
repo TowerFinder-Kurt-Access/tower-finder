@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useSession } from 'next-auth/react';
 import {
     Box,
     Typography,
@@ -13,8 +14,7 @@ import {
     DialogTitle,
     DialogContent,
     DialogActions,
-    CircularProgress,
-    Divider
+    CircularProgress
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
@@ -23,7 +23,11 @@ import DeleteIcon from '@mui/icons-material/Delete';
 interface Note {
     id: number;
     content: string;
-    author: string;
+    author: {
+        id: number;
+        name: string | null;
+        email: string | null;
+    } | null;
     createdAt: string;
     updatedAt: string;
 }
@@ -34,33 +38,21 @@ interface NotesPanelProps {
     onNotesChange: () => void;
 }
 
-const AUTHOR_STORAGE_KEY = 'tower-finder-note-author';
-
 export default function NotesPanel({ towerId, notes, onNotesChange }: NotesPanelProps) {
+    const { data: session } = useSession();
     const [dialogOpen, setDialogOpen] = useState(false);
     const [editingNote, setEditingNote] = useState<Note | null>(null);
     const [content, setContent] = useState('');
-    const [author, setAuthor] = useState('');
     const [saving, setSaving] = useState(false);
     const [deleting, setDeleting] = useState<number | null>(null);
-
-    // Load saved author from localStorage
-    useEffect(() => {
-        const savedAuthor = localStorage.getItem(AUTHOR_STORAGE_KEY);
-        if (savedAuthor) {
-            setAuthor(savedAuthor);
-        }
-    }, []);
 
     const handleOpenDialog = (note?: Note) => {
         if (note) {
             setEditingNote(note);
             setContent(note.content || '');
-            setAuthor(note.author || '');
         } else {
             setEditingNote(null);
             setContent('');
-            // Keep author from localStorage
         }
         setDialogOpen(true);
     };
@@ -72,26 +64,23 @@ export default function NotesPanel({ towerId, notes, onNotesChange }: NotesPanel
     };
 
     const handleSave = async () => {
-        if (!(content || '').trim() || !(author || '').trim()) return;
+        if (!(content || '').trim()) return;
 
         setSaving(true);
         try {
-            // Save author to localStorage
-            localStorage.setItem(AUTHOR_STORAGE_KEY, author.trim());
-
             if (editingNote) {
                 // Update existing note
                 await fetch(`/api/towers/${towerId}/notes/${editingNote.id}`, {
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ content: (content || '').trim(), author: (author || '').trim() })
+                    body: JSON.stringify({ content: (content || '').trim() })
                 });
             } else {
                 // Create new note
                 await fetch(`/api/towers/${towerId}/notes`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ content: (content || '').trim(), author: (author || '').trim() })
+                    body: JSON.stringify({ content: (content || '').trim() })
                 });
             }
 
@@ -162,7 +151,7 @@ export default function NotesPanel({ towerId, notes, onNotesChange }: NotesPanel
                                             {note.content}
                                         </Typography>
                                         <Typography variant="caption" color="text.secondary">
-                                            {note.author} - {formatDate(note.createdAt)}
+                                            {note.author?.name || 'Unknown User'} - {formatDate(note.createdAt)}
                                         </Typography>
                                     </Box>
                                     <Box sx={{ display: 'flex', gap: 0.5, ml: 1 }}>
@@ -206,17 +195,14 @@ export default function NotesPanel({ towerId, notes, onNotesChange }: NotesPanel
                         fullWidth
                         value={content}
                         onChange={(e) => setContent(e.target.value)}
-                        sx={{ mt: 1, mb: 2 }}
+                        sx={{ mt: 1 }}
                         placeholder="Enter your note here..."
                     />
-                    <TextField
-                        label="Your Name"
-                        fullWidth
-                        value={author}
-                        onChange={(e) => setAuthor(e.target.value)}
-                        placeholder="Enter your name"
-                        helperText="Your name will be saved for future notes"
-                    />
+                    {session?.user?.name && (
+                        <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                            Posting as: {session.user.name}
+                        </Typography>
+                    )}
                 </DialogContent>
                 <DialogActions>
                     <Button onClick={handleCloseDialog} disabled={saving}>
@@ -225,7 +211,7 @@ export default function NotesPanel({ towerId, notes, onNotesChange }: NotesPanel
                     <Button
                         onClick={handleSave}
                         variant="contained"
-                        disabled={saving || !(content || '').trim() || !(author || '').trim()}
+                        disabled={saving || !(content || '').trim()}
                     >
                         {saving ? <CircularProgress size={20} /> : 'Save'}
                     </Button>

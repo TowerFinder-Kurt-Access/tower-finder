@@ -29,7 +29,11 @@ import NotesPanel from './NotesPanel';
 interface Note {
     id: number;
     content: string;
-    author: string;
+    author: {
+        id: number;
+        name: string | null;
+        email: string | null;
+    } | null;
     createdAt: string;
     updatedAt: string;
 }
@@ -102,7 +106,6 @@ export default function TowerDetailDrawer({
     const [statusNoteDialogOpen, setStatusNoteDialogOpen] = useState(false);
     const [pendingStatusId, setPendingStatusId] = useState<number | null>(null);
     const [statusNote, setStatusNote] = useState('');
-    const [statusNoteAuthor, setStatusNoteAuthor] = useState('');
 
     // Sync status and notes when tower changes
     useEffect(() => {
@@ -113,14 +116,8 @@ export default function TowerDetailDrawer({
         }
     }, [tower]);
 
-    // Load saved author
+    // Fetch statuses if we haven't
     useEffect(() => {
-        const savedAuthor = localStorage.getItem(AUTHOR_STORAGE_KEY);
-        if (savedAuthor) {
-            setStatusNoteAuthor(savedAuthor);
-        }
-
-        // Fetch statuses if we haven't
         if (open && statuses.length === 0) {
             fetch('/api/towers?distinct=lookups')
                 .then(r => r.json())
@@ -168,15 +165,13 @@ export default function TowerDetailDrawer({
             });
 
             // Optionally add a note about the status change
-            if (addNote && statusNote.trim() && statusNoteAuthor.trim()) {
-                localStorage.setItem(AUTHOR_STORAGE_KEY, statusNoteAuthor.trim());
+            if (addNote && statusNote.trim()) {
                 const noteContent = `[Status changed to "${statusName}"]\n${statusNote.trim()}`;
                 await fetch(`/api/towers/${tower.id}/notes`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        content: noteContent,
-                        author: statusNoteAuthor.trim()
+                        content: noteContent
                     })
                 });
             }
@@ -394,17 +389,7 @@ export default function TowerDetailDrawer({
                         fullWidth
                         value={statusNote}
                         onChange={(e) => setStatusNote(e.target.value)}
-                        sx={{ mb: 2 }}
                         placeholder="e.g., Spoke with property owner, they are interested..."
-                    />
-                    <TextField
-                        label="Your Name"
-                        fullWidth
-                        value={statusNoteAuthor}
-                        onChange={(e) => setStatusNoteAuthor(e.target.value)}
-                        placeholder="Enter your name"
-                        disabled={!statusNote.trim()}
-                        helperText={statusNote.trim() ? "Required to save the note" : ""}
                     />
                 </DialogContent>
                 <DialogActions>
@@ -423,7 +408,7 @@ export default function TowerDetailDrawer({
                     <Button
                         onClick={() => handleStatusSave(true)}
                         variant="contained"
-                        disabled={saving || (statusNote.trim() && !statusNoteAuthor.trim())}
+                        disabled={saving}
                     >
                         {saving ? <CircularProgress size={20} /> : 'Save With Note'}
                     </Button>

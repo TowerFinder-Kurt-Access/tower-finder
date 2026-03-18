@@ -38,6 +38,15 @@ export async function GET(request: Request, { params }: RouteParams) {
                 carrier: true,
                 status: true,
                 notes: {
+                    include: {
+                        author: {
+                            select: {
+                                id: true,
+                                name: true,
+                                email: true
+                            }
+                        }
+                    },
                     orderBy: { createdAt: 'desc' }
                 },
                 businessesNearby: {
