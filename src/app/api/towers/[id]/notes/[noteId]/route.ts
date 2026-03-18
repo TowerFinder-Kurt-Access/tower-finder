@@ -33,8 +33,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
         const note = await NoteService.updateNote(noteIdNum, updateData);
         return NextResponse.json(note);
     } catch (error) {
-...
-
+        console.error('Error updating note:', error);
         return NextResponse.json({ error: 'Failed to update note' }, { status: 500 });
     }
 }
