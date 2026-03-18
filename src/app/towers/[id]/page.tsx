@@ -53,9 +53,17 @@ const Map = dynamic(() => import('@/components/Map'), {
     loading: () => <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}><CircularProgress /></Box>
 });
 
+interface NoteHistory {
+    id: number;
+    content: string;
+    initials: string | null;
+    updatedAt: string;
+}
+
 interface Note {
     id: number;
     content: string;
+    initials?: string | null;
     author: {
         id: number;
         name: string | null;
@@ -63,6 +71,7 @@ interface Note {
     } | null;
     createdAt: string;
     updatedAt: string;
+    history?: NoteHistory[];
 }
 
 interface LookupItem {
@@ -813,32 +822,6 @@ export default function TowerDetailPage({ params }: PageProps) {
                         )}
                     </Paper>
 
-                    {/* Map Section */}
-                    <Paper sx={{ mb: 3, overflow: 'hidden' }}>
-                        <Box sx={{ p: 2, bgcolor: 'primary.main', color: 'white' }}>
-                            <Typography variant="h6">
-                                <LocationOnIcon fontSize="small" sx={{ verticalAlign: 'text-bottom', mr: 0.5 }} />
-                                Location Map
-                            </Typography>
-                        </Box>
-                        <Box sx={{ height: 400, position: 'relative' }}>
-                            {mounted ? (
-                                <Map
-                                    center={[tower.lat, tower.lon]}
-                                    zoom={15}
-                                    towers={[tower]}
-                                    businessesNearby={tower.businessesNearby || []}
-                                    onTowerSelect={() => { }}
-                                    selectedTower={tower}
-                                />
-                            ) : (
-                                <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
-                                    <CircularProgress />
-                                </Box>
-                            )}
-                        </Box>
-                    </Paper>
-
                     {/* Parcel & Owner Section */}
                     <Paper sx={{ p: 3, mb: 3 }}>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
@@ -1109,6 +1092,32 @@ export default function TowerDetailPage({ params }: PageProps) {
                                 ))}
                             </Box>
                         )}
+                    </Paper>
+
+                    {/* Map Section */}
+                    <Paper sx={{ mb: 3, overflow: 'hidden' }}>
+                        <Box sx={{ p: 2, bgcolor: 'primary.main', color: 'white' }}>
+                            <Typography variant="h6">
+                                <LocationOnIcon fontSize="small" sx={{ verticalAlign: 'text-bottom', mr: 0.5 }} />
+                                Location Map
+                            </Typography>
+                        </Box>
+                        <Box sx={{ height: 400, position: 'relative' }}>
+                            {mounted ? (
+                                <Map
+                                    center={[tower.lat, tower.lon]}
+                                    zoom={15}
+                                    towers={[tower]}
+                                    businessesNearby={tower.businessesNearby || []}
+                                    onTowerSelect={() => { }}
+                                    selectedTower={tower}
+                                />
+                            ) : (
+                                <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+                                    <CircularProgress />
+                                </Box>
+                            )}
+                        </Box>
                     </Paper>
                 </Box>
             </Box>
