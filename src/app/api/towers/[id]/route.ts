@@ -37,6 +37,9 @@ export async function GET(request: Request, { params }: RouteParams) {
                 type: true,
                 carrier: true,
                 status: true,
+                phones: {
+                    orderBy: { createdAt: 'asc' }
+                },
                 notes: {
                     include: {
                         author: {

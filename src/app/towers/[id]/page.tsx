@@ -38,6 +38,7 @@ import BusinessIcon from '@mui/icons-material/Business';
 import TravelExploreIcon from '@mui/icons-material/TravelExplore';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
 import PersonIcon from '@mui/icons-material/Person';
+import PhoneIcon from '@mui/icons-material/Phone';
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import SaveIcon from '@mui/icons-material/Save';
@@ -72,6 +73,12 @@ interface Note {
     createdAt: string;
     updatedAt: string;
     history?: NoteHistory[];
+}
+
+interface Phone {
+    id: number;
+    number: string;
+    status: string;
 }
 
 interface LookupItem {
@@ -117,6 +124,7 @@ interface Tower {
             contacts?: { id: number; type: string; value: string; label: string; isValid: boolean }[];
         };
     };
+    phones?: Phone[];
     notes?: Note[];
     businessesNearby?: {
         id: number;
@@ -1045,9 +1053,56 @@ export default function TowerDetailPage({ params }: PageProps) {
                             )
                         ) : (
                             <Typography variant="body2" color="text.secondary" fontStyle="italic">
-                                No parcel data. Use "Lookup Property Owner" to fetch parcel information.
+                                No parcel data. Use &quot;Lookup Property Owner&quot; to fetch parcel information.
                             </Typography>
                         )}
+                    </Paper>
+
+                    {/* Tower Phones Section */}
+                    <Paper sx={{ p: 3, mb: 3 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                            <PhoneIcon sx={{ mr: 1, color: 'primary.main' }} />
+                            <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                                Tower Phones
+                            </Typography>
+                        </Box>
+                        <Divider sx={{ mb: 2 }} />
+                        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: '1fr 1fr 1fr' }, gap: 2 }}>
+                            {tower.phones && tower.phones.length > 0 ? (
+                                tower.phones.map((phone) => (
+                                    <Paper key={phone.id} variant="outlined" sx={{ p: 1.5, display: 'flex', alignItems: 'center', justifyContent: 'space-between', bgcolor: '#fafafa' }}>
+                                        <Typography variant="body1" sx={{ fontFamily: 'monospace', fontWeight: 'bold' }}>
+                                            {phone.number.length === 10 
+                                                ? `(${phone.number.slice(0, 3)}) ${phone.number.slice(3, 6)}-${phone.number.slice(6)}`
+                                                : phone.number}
+                                        </Typography>
+                                        <Chip 
+                                            label={phone.status} 
+                                            size="small" 
+                                            variant="outlined"
+                                            sx={{ 
+                                                height: 20, 
+                                                fontSize: '0.65rem',
+                                                borderColor: phone.status === 'active' || phone.status === 'verified_active' 
+                                                    ? 'success.main' 
+                                                    : phone.status === 'inactive' 
+                                                        ? 'error.main' 
+                                                        : 'grey.400',
+                                                color: phone.status === 'active' || phone.status === 'verified_active' 
+                                                    ? 'success.main' 
+                                                    : phone.status === 'inactive' 
+                                                        ? 'error.main' 
+                                                        : 'text.secondary'
+                                            }}
+                                        />
+                                    </Paper>
+                                ))
+                            ) : (
+                                <Typography variant="body2" color="text.secondary" fontStyle="italic">
+                                    No tower phone numbers found.
+                                </Typography>
+                            )}
+                        </Box>
                     </Paper>
 
                     {/* Notes Section */}
@@ -1130,7 +1185,7 @@ export default function TowerDetailPage({ params }: PageProps) {
                 fullWidth
             >
                 <DialogTitle>
-                    Change Status to "{statuses.find(s => s.id === pendingStatusId)?.name || 'Unknown'}"
+                    Change Status to &quot;{statuses.find(s => s.id === pendingStatusId)?.name || 'Unknown'}&quot;
                 </DialogTitle>
                 <DialogContent>
                     <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>

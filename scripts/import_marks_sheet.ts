@@ -50,6 +50,10 @@ async function main() {
 
     console.log(`Found ${rows.length} rows to process.`);
 
+    // Clear existing phones and notes for markslist towers to ensure a clean import
+    await prisma.phone.deleteMany({ where: { tower: { source: 'markslist' } } });
+    await prisma.note.deleteMany({ where: { tower: { source: 'markslist' } } });
+
     let successCount = 0;
     let errorCount = 0;
 
@@ -155,9 +159,6 @@ async function main() {
         const phoneString = rowData['Phone'];
         const extractedPhones = extractPhones(phoneString);
         
-        // Delete existing phones for this tower if we want to refresh them
-        await prisma.phone.deleteMany({ where: { towerId: tower.id } });
-
         for (const phoneNumber of extractedPhones) {
           await prisma.phone.create({
             data: {
@@ -167,6 +168,27 @@ async function main() {
             }
           });
         }
+
+        // 6. Handle Notes
+        const brettNotes = rowData['Brett Notes'];
+        const miscMM = rowData['Misc MM'];
+
+        const processNoteString = async (noteStr: string | undefined, initialsPrefix: string) => {
+          if (!noteStr) return;
+          const parts = noteStr.split(';').map(p => p.trim()).filter(p => p.length > 0);
+          for (const part of parts) {
+            await prisma.note.create({
+              data: {
+                content: part,
+                towerId: tower.id,
+                initials: initialsPrefix
+              }
+            });
+          }
+        };
+
+        await processNoteString(brettNotes, 'Brett');
+        await processNoteString(miscMM, 'MM');
 
         successCount++;
         if (successCount % 10 === 0) {

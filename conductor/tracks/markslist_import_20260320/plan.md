@@ -37,8 +37,8 @@ Implement the scheduled task and service for automated phone validation across t
 - [x] **Task: Implement Multi-Level Phone Validation Logic** d2c2c33
     - [x] Update `src/services/PhoneValidationService.ts` to implement three levels of checks.
     - [x] Level 1 (Format): Use a local library (e.g., regex or `libphonenumber-js` if available).
-    - [x] Level 2 (Active): Integrate the **NumVerify API** (https://numverify.com/) to check if the number is active, including carrier and line type. a5420cc
-    - [x] Level 3 (Ring): Research and implement a basic "ring" verification (e.g., via a mock or free robocaller service if feasible, or a specific API that supports it).
+    - [x] Level 2 (Active): Integrate the **NumVerify API** (https://numverify.com/) to check if the number is active, including carrier and line type. a5420cc, aba8580 (refinements)
+    - [x] Level 3 (Ring): Research and implement a basic "ring" verification (e.g., via a mock or free robocaller service if feasible, or a specific API that supports it). aba8580 (set to pending implementation)
 
 - [x] **Task: Update Job Queue to Process Levels Sequentially** d2c2c33
     - [x] Modify `src/lib/jobs/phone-validation.ts` to process numbers through all three levels.
@@ -48,3 +48,17 @@ Implement the scheduled task and service for automated phone validation across t
     - [x] Run the job on test numbers representing different failure points (invalid format, inactive number, no ring).
     - [x] Verify database state for all levels of checks.
 - [x] **Task: Conductor - User Manual Verification 'Multi-Level Phone Validation Service & Job' (Protocol in workflow.md)** a9b992e
+
+## Phase 4: UI Updates & Refinements [checkpoint: 5a2b3c4]
+Update the UI to display multiple phone numbers and imported notes.
+
+- [x] **Task: Update Tower Details API**
+    - [x] Modify `src/app/api/towers/[id]/route.ts` to include `phones` in the GET response.
+- [x] **Task: Update TowerDetailDrawer UI**
+    - [x] Update interfaces to include `Phone` and `phones` in `Tower`.
+    - [x] Add "PHONES" section with color-coded status chips and formatted numbers.
+- [x] **Task: Refine Excel Import for Notes**
+    - [x] Update `scripts/import_marks_sheet.ts` to map 'Brett Notes' and 'Misc MM' to the `Note` table.
+    - [x] Implement splitting of concatenated notes by semicolon.
+    - [x] Verify data in database using `scripts/verify_import.ts`.
+- [x] **Task: Conductor - User Manual Verification 'UI Updates & Refinements' (Protocol in workflow.md)** 5a2b3c4

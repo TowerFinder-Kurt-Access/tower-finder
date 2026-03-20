@@ -152,7 +152,7 @@ export default function NotesPanel({ towerId, notes, onNotesChange }: NotesPanel
 
             {notes.length === 0 ? (
                 <Typography color="text.secondary" sx={{ fontStyle: 'italic' }}>
-                    No notes yet. Click "Add Note" to create one.
+                    No notes yet. Click &quot;Add Note&quot; to create one.
                 </Typography>
             ) : (
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>

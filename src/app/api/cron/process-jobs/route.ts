@@ -68,7 +68,7 @@ export async function GET(request: Request) {
             console.error(`[Cron] Job ${job.id} failed:`, errorMessage);
 
             // Special handling for quota errors: reschedule for 24 hours later
-            if (handlerError instanceof GeoapifyQuotaError) {
+            if (handlerError instanceof GeoapifyQuotaError || (errorMessage && errorMessage.includes('Phone validation quota reached'))) {
                 const runAfter = new Date(Date.now() + 24 * 60 * 60 * 1000);
                 await markFailed(job.id, errorMessage, runAfter);
                 console.log(`[Cron] Quota error detected. Rescheduled job ${job.id} for ${runAfter.toISOString()}`);

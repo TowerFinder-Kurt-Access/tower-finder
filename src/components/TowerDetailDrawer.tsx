@@ -24,6 +24,7 @@ import {
 import CloseIcon from '@mui/icons-material/Close';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
 import PersonIcon from '@mui/icons-material/Person';
+import PhoneIcon from '@mui/icons-material/Phone';
 import NotesPanel from './NotesPanel';
 
 interface Note {
@@ -36,6 +37,12 @@ interface Note {
     } | null;
     createdAt: string;
     updatedAt: string;
+}
+
+interface Phone {
+    id: number;
+    number: string;
+    status: string;
 }
 
 interface Tower {
@@ -72,6 +79,7 @@ interface Tower {
             type?: string;
         };
     };
+    phones?: Phone[];
     notes?: Note[];
 }
 
@@ -345,7 +353,53 @@ export default function TowerDetailDrawer({
                                 </>
                             ) : (
                                 <Typography variant="body2" color="text.secondary" fontStyle="italic">
-                                    No parcel data. Use "Lookup Property Owner" to fetch parcel information.
+                                    No parcel data. Use &quot;Lookup Property Owner&quot; to fetch parcel information.
+                                </Typography>
+                            )}
+                        </Box>
+                    </Box>
+
+                    <Divider sx={{ my: 2 }} />
+
+                    {/* Phones Section */}
+                    <Box sx={{ mb: 3 }}>
+                        <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                            <PhoneIcon fontSize="small" sx={{ verticalAlign: 'text-bottom', mr: 0.5 }} />
+                            PHONES
+                        </Typography>
+                        <Box sx={{ pl: 1 }}>
+                            {tower.phones && tower.phones.length > 0 ? (
+                                tower.phones.map((phone) => (
+                                    <Box key={phone.id} sx={{ display: 'flex', alignItems: 'center', mb: 1, gap: 1 }}>
+                                        <Typography variant="body2" sx={{ fontFamily: 'monospace', fontWeight: 'bold' }}>
+                                            {phone.number.length === 10 
+                                                ? `(${phone.number.slice(0, 3)}) ${phone.number.slice(3, 6)}-${phone.number.slice(6)}`
+                                                : phone.number}
+                                        </Typography>
+                                        <Chip 
+                                            label={phone.status} 
+                                            size="small" 
+                                            variant="outlined"
+                                            sx={{ 
+                                                height: 20, 
+                                                fontSize: '0.65rem',
+                                                borderColor: phone.status === 'active' || phone.status === 'verified_active' 
+                                                    ? 'success.main' 
+                                                    : phone.status === 'inactive' 
+                                                        ? 'error.main' 
+                                                        : 'grey.400',
+                                                color: phone.status === 'active' || phone.status === 'verified_active' 
+                                                    ? 'success.main' 
+                                                    : phone.status === 'inactive' 
+                                                        ? 'error.main' 
+                                                        : 'text.secondary'
+                                            }}
+                                        />
+                                    </Box>
+                                ))
+                            ) : (
+                                <Typography variant="body2" color="text.secondary" fontStyle="italic">
+                                    No phone numbers found.
                                 </Typography>
                             )}
                         </Box>
@@ -376,7 +430,7 @@ export default function TowerDetailDrawer({
                 fullWidth
             >
                 <DialogTitle>
-                    Change Status to "{statuses.find(s => s.id === pendingStatusId)?.name || 'Unknown'}"
+                    Change Status to &quot;{statuses.find(s => s.id === pendingStatusId)?.name || 'Unknown'}&quot;
                 </DialogTitle>
                 <DialogContent>
                     <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
