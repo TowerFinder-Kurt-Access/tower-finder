@@ -2,11 +2,7 @@
   "crons": [
     {
       "path": "/api/cron/process-jobs",
-      "schedule": "*/5 * * * *"
-    },
-    {
-      "path": "/api/cron/trigger-phone-validation",
-      "schedule": "0 2 * * *"
+      "schedule": "0 3 * * *"
     }
   ]
 }
