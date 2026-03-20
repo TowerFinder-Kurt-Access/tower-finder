@@ -2,8 +2,10 @@ import { prisma } from '../prisma';
 import { PhoneValidationService } from '../../services/PhoneValidationService';
 
 /**
- * Job handler to validate phone numbers using all configured providers.
- * Processes a batch of 'unknown' or 'pending' phone numbers.
+ * Job handler to validate phone numbers across three levels:
+ * 1. Format
+ * 2. Active Status (API)
+ * 3. Ring Verification (Simulation/Robocaller)
  */
 export async function validatePhoneNumbers(params: { batchSize?: number } = {}) {
   const { batchSize = 10 } = params;
@@ -21,7 +23,7 @@ export async function validatePhoneNumbers(params: { batchSize?: number } = {}) 
     return { status: 'idle', processed: 0 };
   }
 
-  console.log(`Processing ${phones.length} phones for validation...`);
+  console.log(`Processing ${phones.length} phones for multi-level validation...`);
 
   let processedCount = 0;
 
@@ -33,29 +35,26 @@ export async function validatePhoneNumbers(params: { batchSize?: number } = {}) 
         data: { status: 'processing' }
       });
 
-      // 3. Run validation across all providers
-      const results = await PhoneValidationService.validateWithAll(phone.number);
+      // 3. Run multi-level validation
+      const result = await PhoneValidationService.validateMultiLevel(phone.number);
 
-      // 4. Create individual check records
-      for (const res of results) {
+      // 4. Create individual check records for each level attempted
+      for (const levelRes of result.levels) {
         await prisma.phoneCheck.create({
           data: {
             phoneId: phone.id,
-            apiName: res.provider,
-            status: res.valid ? 'valid' : 'invalid',
-            rawResult: res.raw as any
+            apiName: levelRes.name,
+            status: levelRes.status,
+            rawResult: levelRes.raw as any
           }
         });
       }
 
-      // 5. Update summary status
-      // Simple logic: if any API says it's valid, it's active.
-      const isAnyValid = results.some(r => r.valid);
-      
+      // 5. Update final summary status
       await prisma.phone.update({
         where: { id: phone.id },
         data: { 
-          status: isAnyValid ? 'active' : 'inactive'
+          status: result.overallStatus
         }
       });
 
