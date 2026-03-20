@@ -30,8 +30,10 @@ model Tower {
   avgBusinessDistance Float?
   placesProcessedAt    DateTime?
   parcelProcessedAt    DateTime?
+  rawExcelData         Json?
   notes               Note[]
   businessesNearby    BusinessNearby[]
+  phones              Phone[]
   parcel              Parcel?
   carrier             Carrier?          @relation(fields: [carrierId], references: [id])
   Licensee            Licensee?         @relation(fields: [licenseeId], references: [id])
@@ -41,6 +43,20 @@ model Tower {
   leadSource          TowerLead?
 
   @@unique([lat, lon])
+}
+
+model Phone {
+  id                  Int      @id @default(autoincrement())
+  number              String
+  status              String   @default("unknown")
+  rawValidationResult Json?
+  towerId             Int
+  tower               Tower    @relation(fields: [towerId], references: [id], onDelete: Cascade)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@index([towerId])
+  @@index([number])
 }
 
 model BusinessNearby {
