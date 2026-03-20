@@ -425,7 +425,7 @@ export default function AdminUserDetailPage({ params }: PageProps) {
                 <DialogContent>
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2 }}>
                         <Alert severity="warning">
-                            This will immediately change the user's password. They will need to use the new password to log in.
+                            This will immediately change the user&apos;s password. They will need to use the new password to log in.
                         </Alert>
                         <TextField
                             label="New Password"

@@ -50,17 +50,34 @@ async function runTests() {
     }
 
     // 3. Verify status updates on Phone records
-    console.log('3. Testing Phone status updates...');
+    console.log('3. Testing Phone status updates and PhoneCheck creation...');
     const phoneToUpdate = fetchedTower.phones[0];
-    const updatedPhone = await prisma.phone.update({
+    
+    // Update phone status
+    await prisma.phone.update({
       where: { id: phoneToUpdate.id },
-      data: { status: 'validated', rawValidationResult: { api_status: 'valid' } }
+      data: { status: 'validated' }
     });
 
-    if (updatedPhone.status === 'validated') {
-      console.log('   Success: Phone status and validation result updated.');
+    // Create a phone check record
+    const check = await prisma.phoneCheck.create({
+      data: {
+        phoneId: phoneToUpdate.id,
+        apiName: 'test_api',
+        status: 'valid',
+        rawResult: { api_status: 'valid', timestamp: new Date().toISOString() }
+      }
+    });
+
+    const updatedPhone = await prisma.phone.findUnique({
+      where: { id: phoneToUpdate.id },
+      include: { checks: true }
+    });
+
+    if (updatedPhone?.status === 'validated' && updatedPhone.checks.length === 1) {
+      console.log('   Success: Phone status and PhoneCheck record verified.');
     } else {
-      throw new Error('Phone status update failed.');
+      throw new Error(`Phone update verification failed. Status: ${updatedPhone?.status}, Checks: ${updatedPhone?.checks.length}`);
     }
 
     console.log('--- All Integration Tests Passed ---');

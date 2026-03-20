@@ -282,7 +282,7 @@ export default function LookupsManagementPage() {
                 <DialogTitle>Confirm Delete</DialogTitle>
                 <DialogContent>
                     <Typography>
-                        Are you sure you want to delete "{deleteDialog.item?.name}"? If it is currently assigned to any records, the deletion will be rejected.
+                        Are you sure you want to delete &quot;{deleteDialog.item?.name}&quot;? If it is currently assigned to any records, the deletion will be rejected.
                     </Typography>
                 </DialogContent>
                 <DialogActions>

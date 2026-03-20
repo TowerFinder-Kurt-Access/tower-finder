@@ -304,7 +304,7 @@ export default function OwnerDetailPage({ params }: PageProps) {
                             ))}
                             {editContacts.length === 0 && (
                                 <Typography variant="body2" color="text.secondary" fontStyle="italic">
-                                    No contacts. Click "Add Contact" to add one.
+                                    No contacts. Click &quot;Add Contact&quot; to add one.
                                 </Typography>
                             )}
                         </Stack>
