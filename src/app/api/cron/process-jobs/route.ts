@@ -3,7 +3,8 @@ import { pickNextJob, markCompleted, markFailed, enqueueJob } from '@/lib/job-qu
 import { JOB_HANDLERS } from '@/lib/job-handlers';
 import { GeoapifyQuotaError } from '@/services/GeoapifyService';
 import { auth } from '@/lib/auth';
-import { Role, prisma } from '@prisma/client';
+import { Role } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
 
 /**
  * GET /api/cron/process-jobs
