@@ -11,7 +11,7 @@
 ## Key Libraries & Tools
 - **Maps:** Leaflet & React-Leaflet
 - **Authentication:** NextAuth.js (v5)
-- **Phone Validation:** NumVerify API & Multi-level sequential logic (Format, Active, Ring).
+- **Phone Validation:** NumVerify API & Multi-level sequential logic (Format, Active, Ring [Pending Robocaller API]).
 - **Data Grid:** MUI X Data Grid
 - **Error Tracking:** Sentry
 - **Environment Management:** Dotenv
