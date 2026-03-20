@@ -16,6 +16,10 @@ Tower Finder 4900 is an advanced tower detection and CRM dashboard designed to s
 - **Interactive Map Integration:** Real-time visualization of tower locations with status tracking.
 - **CRM & Activity Tracking:** Comprehensive management of notes, follow-up activities, and call tracking.
 - **Automated Data Lookup:** seamless integration with NRCan, parcel data, and geocoding services.
+- **Multi-Level Phone Validation:** Advanced three-stage verification process:
+    1. **Format Validation:** Ensuring international compliance.
+    2. **Active Status Check:** Real-time subscriber verification via API.
+    3. **Connectivity Verification:** Simulating ring/answer status to ensure reachability.
 - **User Management:** Role-based access control to protect sensitive tower and owner information.
 
 ## Technical Constraints & Considerations
