@@ -9,5 +9,5 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ---
 
-- [ ] **Track: Import Tower Data & Phone Management (USA)**
+- [x] **Track: Import Tower Data & Phone Management (USA)**
   *Link: [./tracks/markslist_import_20260320/](./tracks/markslist_import_20260320/)*
