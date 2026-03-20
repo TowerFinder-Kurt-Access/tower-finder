@@ -1,10 +1,12 @@
 export { processOSMLeads } from './jobs/osm';
 export { submitGeoapifyBatch, pollGeoapifyBatch } from './jobs/geoapify';
 export { processNRCanBatch } from './jobs/nrcan';
+export { validatePhoneNumbers } from './jobs/phone-validation';
 
 import { processOSMLeads } from './jobs/osm';
 import { submitGeoapifyBatch, pollGeoapifyBatch } from './jobs/geoapify';
 import { processNRCanBatch } from './jobs/nrcan';
+import { validatePhoneNumbers } from './jobs/phone-validation';
 
 /**
  * Registry of job type → handler function.
@@ -16,4 +18,5 @@ export const JOB_HANDLERS: Record<string, (params: any) => Promise<any>> = {
     'submit_geoapify_batch': submitGeoapifyBatch,
     'poll_geoapify_batch': pollGeoapifyBatch,
     'process_nrcan_batch': processNRCanBatch,
+    'validate_phone_numbers': validatePhoneNumbers,
 };
