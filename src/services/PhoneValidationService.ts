@@ -18,7 +18,6 @@ export class PhoneValidationService {
 
   /**
    * Level 1: Format Validation
-   * Checks if the number follows basic international/national formatting rules.
    */
   static async validateLevel1Format(phoneNumber: string): Promise<ValidationLevelResult> {
     const digits = phoneNumber.replace(/[^\d]/g, '');
@@ -35,12 +34,11 @@ export class PhoneValidationService {
 
   /**
    * Level 2: Active Status Check (NumVerify API)
-   * Uses NumVerify to verify if the number is active, carrier, and line type.
+   * Includes specific handling for API Quotas.
    */
   static async validateLevel2Active(phoneNumber: string): Promise<ValidationLevelResult> {
     try {
       if (!this.NUMVERIFY_API_KEY) {
-        console.warn('NUMVERIFY_API_KEY not set, using simulated fallback for Level 2.');
         return this.simulateLevel2(phoneNumber);
       }
 
@@ -52,7 +50,20 @@ export class PhoneValidationService {
 
       const data = await response.json();
       
-      // NumVerify returns "valid: true" if the number exists and is correctly formatted/active
+      // Handle NumVerify Quota or API Errors
+      if (data.success === false && data.error) {
+        const errorType = data.error.type || 'unknown_error';
+        const isQuotaReached = data.error.code === 104 || data.error.code === 101; // 104: Usage limit, 101: Invalid key
+        
+        return {
+          level: 2,
+          name: 'numverify_active_check',
+          success: false,
+          status: isQuotaReached ? 'api_quota_reached' : 'api_error',
+          raw: data.error
+        };
+      }
+
       const isActive = data.valid === true;
 
       return {
@@ -63,20 +74,62 @@ export class PhoneValidationService {
         raw: data
       };
     } catch (error) {
-      console.error('PhoneValidationService Level 2 Error:', error);
       return {
         level: 2,
         name: 'numverify_check_failed',
         success: false,
-        status: 'error',
+        status: 'connection_error',
         raw: { error: error.message }
       };
     }
   }
 
   /**
-   * Simulation for Level 2 if API key is missing or for testing.
+   * Level 3: Ring/Answer Verification
+   * Set to "waiting_for_implementation" until a real API is connected.
    */
+  static async validateLevel3Ring(phoneNumber: string): Promise<ValidationLevelResult> {
+    // Current requirement: Step 3 will not show success until an API key is added.
+    return {
+      level: 3,
+      name: 'ring_verification',
+      success: false, // Not "success" until actual implementation
+      status: 'waiting_for_implementation',
+      raw: { note: 'Robocaller API integration required for Level 3 verification' }
+    };
+  }
+
+  /**
+   * Execute all levels of validation sequentially.
+   */
+  static async validateMultiLevel(phoneNumber: string): Promise<MultiLevelValidationResult> {
+    const levels: ValidationLevelResult[] = [];
+    
+    // Level 1: Format
+    const l1 = await this.validateLevel1Format(phoneNumber);
+    levels.push(l1);
+    if (!l1.success) return { phoneNumber, overallStatus: 'invalid_format', levels };
+
+    // Level 2: Active (NumVerify)
+    const l2 = await this.validateLevel2Active(phoneNumber);
+    levels.push(l2);
+    
+    // If quota reached or error, we stop and mark as 'pending_api'
+    if (l2.status === 'api_quota_reached') {
+        return { phoneNumber, overallStatus: 'validation_throttled', levels };
+    }
+    if (!l2.success) return { phoneNumber, overallStatus: 'inactive', levels };
+
+    // Level 3: Ring
+    const l3 = await this.validateLevel3Ring(phoneNumber);
+    levels.push(l3);
+    
+    // Overall status is 'active' after Level 2, but not 'verified_active' until Level 3
+    const overallStatus = l3.status === 'rings' ? 'verified_active' : 'active_status_only';
+    
+    return { phoneNumber, overallStatus, levels };
+  }
+
   private static simulateLevel2(phoneNumber: string): ValidationLevelResult {
     const isSimulatedActive = !phoneNumber.includes('000'); 
     return {
@@ -86,50 +139,5 @@ export class PhoneValidationService {
       status: isSimulatedActive ? 'active' : 'inactive',
       raw: { note: 'Simulated result (No API Key)' }
     };
-  }
-
-  /**
-   * Level 3: Ring/Answer Verification
-   * Simulates a robocall or uses a specialized API to see if the phone rings.
-   */
-  static async validateLevel3Ring(phoneNumber: string): Promise<ValidationLevelResult> {
-    const isRinging = !phoneNumber.endsWith('99'); 
-    
-    return {
-      level: 3,
-      name: 'ring_verification',
-      success: isRinging,
-      status: isRinging ? 'rings' : 'no_ring',
-      raw: { 
-        simulated: true, 
-        outcome: isRinging ? 'Somebody could answer' : 'No answer/Disconnected' 
-      }
-    };
-  }
-
-  /**
-   * Execute all levels of validation sequentially.
-   * Stops if a level fails.
-   */
-  static async validateMultiLevel(phoneNumber: string): Promise<MultiLevelValidationResult> {
-    const levels: ValidationLevelResult[] = [];
-    
-    // Level 1
-    const l1 = await this.validateLevel1Format(phoneNumber);
-    levels.push(l1);
-    if (!l1.success) return { phoneNumber, overallStatus: 'invalid_format', levels };
-
-    // Level 2
-    const l2 = await this.validateLevel2Active(phoneNumber);
-    levels.push(l2);
-    if (!l2.success) return { phoneNumber, overallStatus: 'inactive', levels };
-
-    // Level 3
-    const l3 = await this.validateLevel3Ring(phoneNumber);
-    levels.push(l3);
-    
-    const overallStatus = l3.success ? 'verified_active' : 'active_no_ring';
-    
-    return { phoneNumber, overallStatus, levels };
   }
 }
