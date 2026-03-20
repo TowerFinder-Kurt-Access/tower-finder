@@ -13,7 +13,8 @@ export interface MultiLevelValidationResult {
 }
 
 export class PhoneValidationService {
-  private static NUMVALIDATE_URL = 'https://numvalidate.com/api/validate';
+  private static NUMVERIFY_API_KEY = process.env.NUMVERIFY_API_KEY;
+  private static NUMVERIFY_URL = 'http://apilayer.net/api/validate';
 
   /**
    * Level 1: Format Validation
@@ -33,39 +34,39 @@ export class PhoneValidationService {
   }
 
   /**
-   * Level 2: Active Status Check
-   * Uses an external API to verify if the number is currently active.
+   * Level 2: Active Status Check (NumVerify API)
+   * Uses NumVerify to verify if the number is active, carrier, and line type.
    */
   static async validateLevel2Active(phoneNumber: string): Promise<ValidationLevelResult> {
     try {
-      // Attempt to call NumValidate API
-      const response = await fetch(`${this.NUMVALIDATE_URL}?number=${encodeURIComponent(phoneNumber)}`).catch(() => null);
-      
-      if (response && response.ok) {
-        const data = await response.json();
-        return {
-          level: 2,
-          name: 'active_check',
-          success: data.valid === true,
-          status: data.valid === true ? 'active' : 'inactive',
-          raw: data
-        };
+      if (!this.NUMVERIFY_API_KEY) {
+        console.warn('NUMVERIFY_API_KEY not set, using simulated fallback for Level 2.');
+        return this.simulateLevel2(phoneNumber);
       }
 
-      // Fallback logic if API is unreachable (Simulated for this environment)
-      // In production, this would retry or log a specific connectivity error
-      const isSimulatedActive = !phoneNumber.includes('000'); 
+      const response = await fetch(`${this.NUMVERIFY_URL}?access_key=${this.NUMVERIFY_API_KEY}&number=${encodeURIComponent(phoneNumber)}`);
+      
+      if (!response.ok) {
+        throw new Error(`NumVerify API failed: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      
+      // NumVerify returns "valid: true" if the number exists and is correctly formatted/active
+      const isActive = data.valid === true;
+
       return {
         level: 2,
-        name: 'active_check_fallback',
-        success: isSimulatedActive,
-        status: isSimulatedActive ? 'active' : 'inactive',
-        raw: { note: 'Result inferred or simulated due to API unavailability' }
+        name: 'numverify_active_check',
+        success: isActive,
+        status: isActive ? 'active' : 'inactive',
+        raw: data
       };
     } catch (error) {
+      console.error('PhoneValidationService Level 2 Error:', error);
       return {
         level: 2,
-        name: 'active_check_failed',
+        name: 'numverify_check_failed',
         success: false,
         status: 'error',
         raw: { error: error.message }
@@ -74,12 +75,24 @@ export class PhoneValidationService {
   }
 
   /**
+   * Simulation for Level 2 if API key is missing or for testing.
+   */
+  private static simulateLevel2(phoneNumber: string): ValidationLevelResult {
+    const isSimulatedActive = !phoneNumber.includes('000'); 
+    return {
+      level: 2,
+      name: 'numverify_simulated',
+      success: isSimulatedActive,
+      status: isSimulatedActive ? 'active' : 'inactive',
+      raw: { note: 'Simulated result (No API Key)' }
+    };
+  }
+
+  /**
    * Level 3: Ring/Answer Verification
    * Simulates a robocall or uses a specialized API to see if the phone rings.
    */
   static async validateLevel3Ring(phoneNumber: string): Promise<ValidationLevelResult> {
-    // This is typically done via a robocall service (e.g. Twilio, etc.)
-    // We implement a simulation logic here to represent the "Ring" phase
     const isRinging = !phoneNumber.endsWith('99'); 
     
     return {
