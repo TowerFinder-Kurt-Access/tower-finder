@@ -1,49 +1,50 @@
 # Implementation Plan: Import Tower Data & Phone Management (USA)
 
-## Phase 1: Data Model Updates
+## Phase 1: Data Model Updates [checkpoint: 9656785]
 Extend the database schema to support multiple phone numbers and preserve raw Excel data.
 
-- [ ] **Task: Define the 'Phone' Model in Prisma**
-    - [ ] Add the `Phone` model to `prisma/schema.prisma` with fields: `number`, `status` (active/inactive/unknown), `rawValidationResult`, and a relation to the `Tower` model.
-    - [ ] Update the `Tower` model to include a relation to multiple `Phone` records.
-    - [ ] Add a `rawExcelData` (JSON) field to the `Tower` model.
-    - [ ] Write a test case in a new or existing Prisma integration test file to verify the model relationship.
-    - [ ] **CRITICAL:** Run `npx prisma generate` and `npx prisma db push` (or create a migration).
-- [ ] **Task: Verify Data Model with Unit Tests**
-    - [ ] Create a test file for the `Tower` and `Phone` models.
-    - [ ] Write tests ensuring a `Tower` can have multiple `Phone` records and store raw JSON data.
-    - [ ] Verify that the status of a `Phone` number can be updated.
-- [ ] **Task: Conductor - User Manual Verification 'Data Model Updates' (Protocol in workflow.md)**
+- [x] **Task: Define the 'Phone' Model in Prisma** a0b3f56
+    - [x] Add the `Phone` model to `prisma/schema.prisma` with fields: `number`, `status` (active/inactive/unknown), `rawValidationResult`, and a relation to the `Tower` model.
+    - [x] Update the `Tower` model to include a relation to multiple `Phone` records.
+    - [x] Add a `rawExcelData` (JSON) field to the `Tower` model.
+    - [x] Write a test case in a new or existing Prisma integration test file to verify the model relationship.
+    - [x] **CRITICAL:** Run `npx prisma generate` and `npx prisma db push` (or create a migration).
+- [x] **Task: Verify Data Model with Unit Tests** 772a36c
+    - [x] Create a test file for the `Tower` and `Phone` models.
+    - [x] Write tests ensuring a `Tower` can have multiple `Phone` records and store raw JSON data.
+    - [x] Verify that the status of a `Phone` number can be updated.
+- [x] **Task: Conductor - User Manual Verification 'Data Model Updates' (Protocol in workflow.md)** 9656785
 
-## Phase 2: Excel Import Script
+## Phase 2: Excel Import Script [checkpoint: ea8ead2]
 Create a robust script to import US tower data from the Excel sheet, mapping key fields and handling multiple phone numbers.
 
-- [ ] **Task: Develop the Excel Import Script**
-    - [ ] Create a new script `scripts/import_marks_sheet.js`.
-    - [ ] Implement logic to read "Marks Sheet new towers only 20260305.xlsx".
-    - [ ] Map critical fields to `Tower`, `Owner`, and `Parcel` records.
-    - [ ] Correctly handle rows with multiple phone number columns, creating `Phone` records for each.
-    - [ ] Ensure towers are marked with source "markslist" and location context is set to USA.
-    - [ ] Save the complete raw row from Excel into the `rawExcelData` field.
-- [ ] **Task: Test Import Script with Sample Data**
-    - [ ] Prepare a small sample of the Excel data for testing.
-    - [ ] Write unit tests for the mapping logic.
-    - [ ] Run the import script on the sample data and verify that `Tower` and `Phone` records are correctly created in the database.
-- [ ] **Task: Conductor - User Manual Verification 'Excel Import Script' (Protocol in workflow.md)**
+- [x] **Task: Develop the Excel Import Script** 49aa356
+    - [x] Create a new script `scripts/import_marks_sheet.js`.
+    - [x] Implement logic to read "Marks Sheet new towers only 20260305.xlsx".
+    - [x] Map critical fields to `Tower`, `Owner`, and `Parcel` records.
+    - [x] Correctly handle rows with multiple phone number columns, creating `Phone` records for each.
+    - [x] Ensure towers are marked with source "markslist" and location context is set to USA.
+    - [x] Save the complete raw row from Excel into the `rawExcelData` field.
+- [x] **Task: Test Import Script with Sample Data** 49aa356
+    - [x] Prepare a small sample of the Excel data for testing.
+    - [x] Write unit tests for the mapping logic.
+    - [x] Run the import script on the sample data and verify that `Tower` and `Phone` records are correctly created in the database.
+- [x] **Task: Conductor - User Manual Verification 'Excel Import Script' (Protocol in workflow.md)** ea8ead2
 
-## Phase 3: Phone Validation Service & Job
-Implement the scheduled task and API integration for automated phone number validation.
+## Phase 3: Multi-Level Phone Validation Service & Job [checkpoint: a9b992e]
+Implement the scheduled task and service for automated phone validation across three levels: Format, Active Status, and Ring Verification.
 
-- [ ] **Task: Create Phone Validation Service**
-    - [ ] Research and select a free phone validation API.
-    - [ ] Create `src/services/PhoneValidationService.ts`.
-    - [ ] Write tests for the service, mocking the API response.
-    - [ ] Implement the validation logic, returning status and raw API output.
-- [ ] **Task: Integrate Phone Validator into Job Queue**
-    - [ ] Create a new job handler in `src/lib/job-handlers.ts`.
-    - [ ] Write tests for the job handler, ensuring it correctly updates `Phone` status and results in the database.
-    - [ ] Add the job to the existing scheduled task system (`src/lib/job-queue.ts`).
-- [ ] **Task: End-to-End Test of Validation Workflow**
-    - [ ] Manually trigger the validation job on a test `Phone` record.
-    - [ ] Verify that the API is called and the database record is updated with the correct status and raw output.
-- [ ] **Task: Conductor - User Manual Verification 'Phone Validation Service & Job' (Protocol in workflow.md)**
+- [x] **Task: Implement Multi-Level Phone Validation Logic** d2c2c33
+    - [x] Update `src/services/PhoneValidationService.ts` to implement three levels of checks.
+    - [x] Level 1 (Format): Use a local library (e.g., regex or `libphonenumber-js` if available).
+    - [x] Level 2 (Active): Integrate the **NumVerify API** (https://numverify.com/) to check if the number is active, including carrier and line type. a5420cc
+    - [x] Level 3 (Ring): Research and implement a basic "ring" verification (e.g., via a mock or free robocaller service if feasible, or a specific API that supports it).
+
+- [x] **Task: Update Job Queue to Process Levels Sequentially** d2c2c33
+    - [x] Modify `src/lib/jobs/phone-validation.ts` to process numbers through all three levels.
+    - [x] Ensure `PhoneCheck` records are created for each level of validation for audit purposes.
+    - [x] Update the `Phone` status based on the final successful level reached.
+- [x] **Task: End-to-End Test of Multi-Level Validation** d2c2c33
+    - [x] Run the job on test numbers representing different failure points (invalid format, inactive number, no ring).
+    - [x] Verify database state for all levels of checks.
+- [x] **Task: Conductor - User Manual Verification 'Multi-Level Phone Validation Service & Job' (Protocol in workflow.md)** a9b992e

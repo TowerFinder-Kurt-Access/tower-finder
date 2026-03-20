@@ -49,14 +49,27 @@ model Phone {
   id                  Int      @id @default(autoincrement())
   number              String
   status              String   @default("unknown")
-  rawValidationResult Json?
   towerId             Int
   tower               Tower    @relation(fields: [towerId], references: [id], onDelete: Cascade)
+  checks              PhoneCheck[]
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 
   @@index([towerId])
   @@index([number])
+}
+
+model PhoneCheck {
+  id        Int      @id @default(autoincrement())
+  phoneId   Int
+  apiName   String
+  status    String
+  rawResult Json
+  checkedAt DateTime @default(now())
+  phone     Phone    @relation(fields: [phoneId], references: [id], onDelete: Cascade)
+
+  @@index([phoneId])
+  @@index([apiName])
 }
 
 model BusinessNearby {

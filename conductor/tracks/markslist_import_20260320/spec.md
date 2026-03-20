@@ -18,9 +18,10 @@ This track focuses on importing tower data from "Marks Sheet new towers only 202
     - Create a `Phone` table with fields for number, status (active/inactive/unknown), and raw validation output.
     - Allow each tower to have one or more associated phone numbers.
 - **Validation Scheduled Task:**
-    - Use the existing job system to process phone numbers in the `Phone` table.
-    - Integrate with a free phone validation API (e.g., Numverify or similar).
-    - Update phone status and store raw API output in the database.
+    - Level 1: **Format Validation:** Verify that the number follows a valid international/national format.
+    - Level 2: **Active Status Check:** Use the **NumVerify API** (https://numverify.com/) to verify if the number is currently active, including carrier and line type detection.
+    - Level 3: **Ring/Answer Verification:** Simulate a call (robocaller or similar) to see if the phone rings or is answered.
+    - Update phone status and store raw API/call output in the database.
 
 ## Technical Requirements
 - **Database:** Define or update Prisma models for `Phone` and potentially `Tower` (to add a JSON raw data field).
