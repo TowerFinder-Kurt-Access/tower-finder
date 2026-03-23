@@ -189,7 +189,7 @@ function TowersPageContent() {
                 carrier: typeof tower.carrier === 'object' ? tower.carrier?.name : (tower.carrier || ''),
                 address: tower.parcel?.address || '',
                 city: typeof tower.parcel?.city === 'object' ? tower.parcel?.city?.name : (tower.parcel?.cityRaw || ''),
-                county: typeof tower.parcel?.county === 'object' ? tower.parcel?.county?.name : (tower.parcel?.countyRaw || ''),
+                county: typeof tower.parcel?.countyNormalized === 'object' ? tower.parcel?.countyNormalized?.name : (tower.parcel?.countyRaw || ''),
                 state: typeof tower.parcel?.province === 'object' ? tower.parcel?.province?.name : (tower.parcel?.provinceRaw || tower.parcel?.stateRaw || ''),
                 zip: tower.parcel?.postalCode || tower.parcel?.zip || '',
                 parcelId: tower.parcel?.parcelId || '',
@@ -240,7 +240,7 @@ function TowersPageContent() {
                     // Update flattened fields for DataGrid
                     address: parcelData.address || tower.address || '',
                     city: typeof parcelData.city === 'object' ? parcelData.city?.name : (parcelData.cityRaw || tower.city || ''),
-                    county: parcelData.county?.name || parcelData.countyRaw || tower.county || '',
+                    county: parcelData.countyNormalized?.name || parcelData.countyRaw || tower.county || '',
                     state: typeof parcelData.province === 'object' ? parcelData.province?.name : (parcelData.provinceRaw || parcelData.stateRaw || tower.state || ''),
                     zip: parcelData.postalCode || parcelData.zip || tower.zip || '',
                     parcelId: parcelData.parcelId || tower.parcelId || '',

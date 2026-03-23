@@ -434,7 +434,7 @@ export async function GET(request: Request) {
                             { parcel: { cityRaw: { contains: searchTermStr, mode: 'insensitive' } } },
                             { parcel: { city: { name: { contains: searchTermStr, mode: 'insensitive' } } } },
                             { parcel: { countyRaw: { contains: searchTermStr, mode: 'insensitive' } } },
-                            { parcel: { county: { name: { contains: searchTermStr, mode: 'insensitive' } } } },
+                            { parcel: { countyNormalized: { name: { contains: searchTermStr, mode: 'insensitive' } } } },
                             { parcel: { stateRaw: { contains: searchTermStr, mode: 'insensitive' } } },
                             { parcel: { provinceRaw: { contains: searchTermStr, mode: 'insensitive' } } },
                             { parcel: { province: { name: { contains: searchTermStr, mode: 'insensitive' } } } },
@@ -477,7 +477,7 @@ export async function GET(request: Request) {
                             owner: true,
                             city: true,
                             province: true,
-                            county: true
+                            countyNormalized: true
                         }
                     },
                     type: true,

@@ -113,6 +113,7 @@ interface Tower {
         state?: string;
         zip?: string;
         county?: { name: string } | string;
+        countyNormalized?: { name: string } | string;
         countyRaw?: string;
         parcelId?: string;
         dataSource?: string;
@@ -902,7 +903,7 @@ export default function TowerDetailPage({ params }: PageProps) {
                                                     postalCode: tower.parcel.postalCode || tower.parcel.zip || '',
                                                     cityRaw: cityName,
                                                     provinceRaw: provinceName,
-                                                    county: (tower.parcel.county as any)?.name || tower.parcel.countyRaw || '',
+                                                    county: (tower.parcel.countyNormalized as any)?.name || tower.parcel.countyRaw || '',
                                                 });
                                             }
                                         }}

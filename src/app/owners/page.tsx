@@ -96,7 +96,7 @@ export default function OwnersPage() {
                 const formattedRows = res.data.data.map((row: any) => ({
                     ...row,
                     city: row.city || '',
-                    county: row.county?.name || row.countyRaw || '',
+                    county: row.countyNormalized?.name || row.countyRaw || '',
                     state: row.state || '',
                     zip: row.zip || '',
                     towerIds: Array.isArray(row.towerIds) ? row.towerIds.join(', ') : row.towerIds

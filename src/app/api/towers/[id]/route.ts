@@ -32,7 +32,7 @@ export async function GET(request: Request, { params }: RouteParams) {
                         },
                         city: true,
                         province: true,
-                        county: true
+                        countyNormalized: true
                     }
                 },
                 type: true,
@@ -163,7 +163,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
                         owner: true,
                         city: true,
                         province: true,
-                        county: true
+                        countyNormalized: true
                     }
                 },
                 type: true,
