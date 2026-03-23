@@ -15,7 +15,7 @@
 - **Data Grid:** MUI X Data Grid
 - **Error Tracking:** Sentry
 - **Environment Management:** Dotenv
-- **File Parsing:** Papaparse & XLSX
+- **File Generation & Parsing:** XLSX (Excel) & Papaparse (CSV)
 
 ## Architecture & Workflow
 - **Monorepo:** A unified Next.js project structure for both the frontend and backend.
