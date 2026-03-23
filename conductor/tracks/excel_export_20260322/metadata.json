@@ -1,0 +1,8 @@
+{
+  "track_id": "excel_export_20260322",
+  "type": "feature",
+  "status": "new",
+  "created_at": "2026-03-22T12:00:00Z",
+  "updated_at": "2026-03-22T12:00:00Z",
+  "description": "Export tower data into an Excel spreadsheet format, including raw import data and added notes."
+}
