@@ -7,11 +7,12 @@
 - [x] Task: Conductor - User Manual Verification 'Phase 1: Data Model and Persistence Update' (Protocol in workflow.md) [4b70811]
 
 ## Phase 2: Export Service and API Implementation
-- [ ] Task: Create a new service (e.g., `src/services/ExportService.ts`) to handle Excel generation using `xlsx` library.
-- [ ] Task: Implement logic in `ExportService` to fetch towers (with notes) and concatenate raw data with notes.
-- [ ] Task: Create a new API route (e.g., `/api/towers/export`) that accepts query parameters for "All", "Filtered", or "Selected" tower IDs and returns the Excel file.
-- [ ] Task: Write tests for the `ExportService` and the API route.
-- [ ] Task: Conductor - User Manual Verification 'Phase 2: Export Service and API Implementation' (Protocol in workflow.md)
+- [x] Task: Create a new service (e.g., `src/services/ExportService.ts`) to handle Excel generation using `xlsx` library. [0e84777]
+- [x] Task: Implement logic in `ExportService` to fetch towers (with notes) and concatenate raw data with notes. [0e84777]
+- [x] Task: Create a new API route (e.g., `/api/towers/export`) that accepts query parameters for "All", "Filtered", or "Selected" tower IDs and returns the Excel file. [0e84777]
+- [x] Task: Write tests for the `ExportService` and the API route. [0e84777]
+- [x] Task: Conductor - User Manual Verification 'Phase 2: Export Service and API Implementation' (Protocol in workflow.md) [0e84777]
+
 
 ## Phase 3: Frontend Integration
 - [ ] Task: Update the `TowerTable` component to include checkboxes for row selection.
