@@ -1,10 +1,10 @@
 # Implementation Plan: Excel Export with Raw Data and Notes
 
 ## Phase 1: Data Model and Persistence Update
-- [ ] Task: Update Prisma schema to include a `rawImportData` field (JSON or String) in the `Tower` model.
-- [ ] Task: Create and run a database migration to add the `rawImportData` field.
-- [ ] Task: Update the Excel import logic (e.g., `scripts/import_marks_sheet.ts`) to store the raw row data for each tower during import.
-- [ ] Task: Conductor - User Manual Verification 'Phase 1: Data Model and Persistence Update' (Protocol in workflow.md)
+- [x] Task: Update Prisma schema to include a `rawImportData` field (JSON or String) in the `Tower` model. [4b70811]
+- [x] Task: Create and run a database migration to add the `rawImportData` field. [4b70811]
+- [x] Task: Update the Excel import logic (e.g., `scripts/import_marks_sheet.ts`) to store the raw row data for each tower during import. [4b70811]
+- [x] Task: Conductor - User Manual Verification 'Phase 1: Data Model and Persistence Update' (Protocol in workflow.md) [4b70811]
 
 ## Phase 2: Export Service and API Implementation
 - [ ] Task: Create a new service (e.g., `src/services/ExportService.ts`) to handle Excel generation using `xlsx` library.
