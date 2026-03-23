@@ -205,7 +205,8 @@ export async function GET(request: Request) {
                     include: {
                         tower: true,
                         city: true,
-                        province: true
+                        province: true,
+                        county: true
                     }
                 }
             }
@@ -220,12 +221,12 @@ export async function GET(request: Request) {
                 if (!parcel.tower) return;
 
                 const ownerName = owner.name || 'Unknown';
-                const parcelId = parcel.parcelId || 'Unknown';
-                const address = parcel.address || '';
-                const cityVal = parcel.city?.name || parcel.cityRaw || '';
-                const countyVal = parcel.county?.name || parcel.countyRaw || '';
-                const stateVal = parcel.province?.name || parcel.provinceRaw || parcel.stateRaw || '';
-                const zipVal = parcel.postalCode || parcel.zip || '';
+                const parcelId = parcel?.parcelId || 'Unknown';
+                const address = parcel?.address || '';
+                const cityVal = parcel?.city?.name || parcel?.cityRaw || '';
+                const countyVal = parcel?.county?.name || parcel?.countyRaw || '';
+                const stateVal = parcel?.province?.name || parcel?.provinceRaw || parcel?.stateRaw || '';
+                const zipVal = parcel?.postalCode || parcel?.zip || '';
 
                 const key = `${ownerName}-${parcelId}`;
                 

@@ -31,7 +31,8 @@ export async function GET(request: Request, { params }: RouteParams) {
                             }
                         },
                         city: true,
-                        province: true
+                        province: true,
+                        county: true
                     }
                 },
                 type: true,
@@ -97,11 +98,15 @@ export async function PATCH(request: Request, { params }: RouteParams) {
         if (parcelUpdate) {
             const parcelFields: any = {};
             const allowedFields = ['address', 'streetNumber', 'streetName', 'streetType', 'streetDir',
-                'unit', 'postalCode', 'cityRaw', 'provinceRaw', 'stateRaw', 'county'];
+                'unit', 'postalCode', 'cityRaw', 'provinceRaw', 'stateRaw', 'countyRaw'];
             for (const field of allowedFields) {
                 if (parcelUpdate[field] !== undefined) {
                     parcelFields[field] = parcelUpdate[field] || null;
                 }
+            }
+            // Backward compatibility for 'county' field name if sent from UI
+            if (parcelUpdate.county !== undefined) {
+                parcelFields.countyRaw = parcelUpdate.county || null;
             }
 
             if (Object.keys(parcelFields).length > 0) {
@@ -157,7 +162,8 @@ export async function PATCH(request: Request, { params }: RouteParams) {
                     include: {
                         owner: true,
                         city: true,
-                        province: true
+                        province: true,
+                        county: true
                     }
                 },
                 type: true,
