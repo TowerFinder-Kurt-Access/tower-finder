@@ -1,5 +1,5 @@
-import { prisma } from '../lib/prisma.ts';
-import { STATE_CODE_TO_NAME, USA_STATES, CANADA_PROVINCES } from '../lib/constants.ts';
+import { prisma } from '../lib/prisma.js';
+import { STATE_CODE_TO_NAME, USA_STATES, CANADA_PROVINCES } from '../lib/constants.js';
 
 export interface NormalizedLocation {
     city?: string;
