@@ -14,5 +14,5 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ---
 
-- [ ] **Track: Export tower data into an Excel spreadsheet format, including raw import data and added notes.**
+- [x] **Track: Export tower data into an Excel spreadsheet format, including raw import data and added notes.**
 *Link: [./tracks/excel_export_20260322/](./tracks/excel_export_20260322/)*
