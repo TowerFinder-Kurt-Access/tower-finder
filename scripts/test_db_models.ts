@@ -14,7 +14,7 @@ async function runTests() {
       data: {
         lat: 45.0 + Math.random(),
         lon: -75.0 - Math.random(),
-        rawExcelData: testData,
+        rawImportData: testData,
         source: 'markslist'
       }
     });

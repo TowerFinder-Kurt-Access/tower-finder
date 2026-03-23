@@ -38,17 +38,14 @@ async function main() {
                         lat_lon: { lat, lon }
                     },
                     update: {
-                        licensee: licensee,
                         googleMapsUrl: googleMapsUrl,
-                        type: type
+                        rawImportData: row
                     },
                     create: {
                         lat,
                         lon,
-                        type,
-                        status: 'New',
-                        licensee,
-                        googleMapsUrl
+                        googleMapsUrl,
+                        rawImportData: row
                     }
                 });
 

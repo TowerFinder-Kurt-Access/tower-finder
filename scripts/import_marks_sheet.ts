@@ -109,7 +109,7 @@ async function main() {
             businessName: rowData['Sitename'],
             remarks: rowData['Location'],
             source: 'markslist',
-            rawExcelData: rowData,
+            rawImportData: rowData,
             carrierId: carrierId
           },
           create: {
@@ -118,7 +118,7 @@ async function main() {
             businessName: rowData['Sitename'],
             remarks: rowData['Location'],
             source: 'markslist',
-            rawExcelData: rowData,
+            rawImportData: rowData,
             carrierId: carrierId
           }
         });

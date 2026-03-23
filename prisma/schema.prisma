@@ -30,7 +30,7 @@ model Tower {
   avgBusinessDistance Float?
   placesProcessedAt    DateTime?
   parcelProcessedAt    DateTime?
-  rawExcelData         Json?
+  rawImportData         Json? @map("rawExcelData")
   notes               Note[]
   businessesNearby    BusinessNearby[]
   phones              Phone[]
