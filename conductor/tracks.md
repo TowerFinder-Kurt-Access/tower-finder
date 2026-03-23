@@ -16,3 +16,8 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 - [x] **Track: Export tower data into an Excel spreadsheet format, including raw import data and added notes.**
 *Link: [./tracks/excel_export_20260322/](./tracks/excel_export_20260322/)*
+
+---
+
+- [ ] **Track: Standardize and normalize city, state/province, and county data across USA and Canada using dedicated tables and an internal job queue.**
+*Link: [./tracks/location_normalization_20260322/](./tracks/location_normalization_20260322/)*
