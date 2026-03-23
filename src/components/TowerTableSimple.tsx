@@ -16,6 +16,7 @@ import TravelExploreIcon from '@mui/icons-material/TravelExplore';
 import InfoIcon from '@mui/icons-material/Info';
 import NotesIcon from '@mui/icons-material/Notes';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
+import FileDownloadIcon from '@mui/icons-material/FileDownload';
 
 interface LookupItem {
     id: number;
@@ -64,6 +65,8 @@ interface TowerTableSimpleProps {
     onCellEdit?: (towerId: number, field: string, value: string) => void;
     onNotesClick?: (tower: any) => void;
     onAddOwner?: (tower: any) => void;
+    onSelectionChange?: (ids: number[]) => void;
+    onExport?: (ids?: number[], all?: boolean) => void;
     country?: string;
 }
 
@@ -86,12 +89,22 @@ export default function TowerTableSimple({
     onCellEdit,
     onNotesClick,
     onAddOwner,
+    onSelectionChange,
+    onExport,
     country
 }: TowerTableSimpleProps) {
     const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
     const [selectedTower, setSelectedTower] = React.useState<any>(null);
     const [jumpPage, setJumpPage] = React.useState<string>('');
     const [localSearch, setLocalSearch] = React.useState(filters.search || '');
+    const [selectionModel, setSelectionModel] = React.useState<number[]>([]);
+
+    const handleSelectionChange = (newSelection: any) => {
+        setSelectionModel(newSelection);
+        if (onSelectionChange) {
+            onSelectionChange(newSelection);
+        }
+    };
 
     React.useEffect(() => {
         setLocalSearch(filters.search || '');
@@ -391,18 +404,45 @@ export default function TowerTableSimple({
                     />
                 </Box>
 
-                {activeFilterCount > 0 && (
-                    <Button
-                        size="small"
-                        variant="outlined"
-                        color="error"
-                        startIcon={<ClearIcon />}
-                        onClick={() => onFilterChange({})}
-                        sx={{ ml: 'auto', textTransform: 'none', fontWeight: 600 }}
-                    >
-                        Clear All ({activeFilterCount})
-                    </Button>
-                )}
+                <Box sx={{ ml: 'auto', display: 'flex', gap: 1 }}>
+                    {onExport && (
+                        <>
+                            <Button
+                                size="small"
+                                variant="outlined"
+                                color="success"
+                                startIcon={<FileDownloadIcon />}
+                                onClick={() => onExport(selectionModel.length > 0 ? selectionModel : undefined, selectionModel.length === 0)}
+                                sx={{ textTransform: 'none', fontWeight: 600 }}
+                            >
+                                {selectionModel.length > 0 ? `Export Selected (${selectionModel.length})` : 'Export Filtered'}
+                            </Button>
+                            <Button
+                                size="small"
+                                variant="outlined"
+                                color="success"
+                                startIcon={<FileDownloadIcon />}
+                                onClick={() => onExport(undefined, true)}
+                                sx={{ textTransform: 'none', fontWeight: 600 }}
+                            >
+                                Export All
+                            </Button>
+                        </>
+                    )}
+
+                    {activeFilterCount > 0 && (
+                        <Button
+                            size="small"
+                            variant="outlined"
+                            color="error"
+                            startIcon={<ClearIcon />}
+                            onClick={() => onFilterChange({})}
+                            sx={{ textTransform: 'none', fontWeight: 600 }}
+                        >
+                            Clear All ({activeFilterCount})
+                        </Button>
+                    )}
+                </Box>
             </Box>
             {/* Active Filter Chips Row */}
             {activeChips.length > 0 && (
@@ -584,6 +624,9 @@ export default function TowerTableSimple({
                     }
                 }}
                 onFilterModelChange={handleFilterModelChange}
+                checkboxSelection
+                rowSelectionModel={selectionModel}
+                onRowSelectionModelChange={handleSelectionChange}
                 processRowUpdate={(newRow, oldRow) => {
                     // Find which field changed
                     const editableFields = ['type', 'carrier', 'status'];

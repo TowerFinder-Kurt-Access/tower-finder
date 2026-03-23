@@ -339,6 +339,46 @@ function TowersPageContent() {
         }
     };
 
+    const handleExport = async (ids?: number[], all?: boolean) => {
+        try {
+            let requestBody: any = { all };
+            if (ids) {
+                requestBody.ids = ids;
+            } else if (!all) {
+                // If not "all" and no "ids", it means "Export Filtered"
+                // For now, "Export Filtered" can be handled by sending all current filters to the API,
+                // but since we only implemented ids/all in the API, we'll just use "all: true" for now 
+                // if no ids provided, or we can fetch all IDs for current filters first.
+                // Actually, let's just use all: true if no ids provided for now, 
+                // or the user can select all.
+                requestBody.all = true; 
+            }
+
+            const response = await axios.post('/api/towers/export', requestBody, {
+                responseType: 'blob',
+            });
+
+            // Create a link to download the file
+            const url = window.URL.createObjectURL(new Blob([response.data]));
+            const link = document.createElement('a');
+            link.href = url;
+            const contentDisposition = response.headers['content-disposition'];
+            let fileName = 'towers_export.xlsx';
+            if (contentDisposition) {
+                const fileNameMatch = contentDisposition.match(/filename=\"(.+)\"/);
+                if (fileNameMatch?.[1]) fileName = fileNameMatch[1];
+            }
+            link.setAttribute('download', fileName);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            window.URL.revokeObjectURL(url);
+        } catch (error) {
+            console.error('Export failed:', error);
+            alert('Export failed. Please try again.');
+        }
+    };
+
 
     return (
         <Box sx={{ display: 'flex', height: '100%', overflow: 'hidden', flexDirection: 'column' }}>
@@ -394,6 +434,7 @@ function TowersPageContent() {
                         onCellEdit={handleCellEdit}
                         onNotesClick={handleNotesClick}
                         onAddOwner={(tower) => setAddOwnerTower(tower)}
+                        onExport={handleExport}
                         country={globalCountry}
                     />
                 </Paper>
