@@ -10,6 +10,7 @@
 
 ## Key Libraries & Tools
 - **Maps:** Leaflet & React-Leaflet
+- **Normalization:** OpenStreetMap (Nominatim)
 - **Authentication:** NextAuth.js (v5)
 - **Phone Validation:** NumVerify API & Multi-level sequential logic (Format, Active, Ring [Pending Robocaller API]).
 - **Data Grid:** MUI X Data Grid

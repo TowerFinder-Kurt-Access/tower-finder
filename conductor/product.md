@@ -17,6 +17,7 @@ Tower Finder 4900 is an advanced tower detection and CRM dashboard designed to s
 - **CRM & Activity Tracking:** Comprehensive management of notes, follow-up activities, and call tracking.
 - **Automated Data Lookup:** seamless integration with NRCan, parcel data, and geocoding services.
 - **Data Export:** Seamlessly export tower data to Excel spreadsheets, preserving original import data alongside new system notes generated within Tower Finder.
+- **Data Normalization:** Automatic and manual standardization of city, state/province, and county data across USA and Canada using OpenStreetMap data.
 - **Multi-Level Phone Validation:** Advanced three-stage verification process:
     1. **Format Validation:** Ensuring international compliance.
     2. **Active Status Check:** Real-time subscriber verification via API.
