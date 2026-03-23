@@ -55,6 +55,7 @@ function TowersPageContent() {
     const [page, setPage] = useState<number>(0);
     const [rowsPerPage, setRowsPerPage] = useState<number>(25);
     const [isLoading, setIsLoading] = useState<boolean>(false);
+    const [isExporting, setIsExporting] = useState<boolean>(false);
     const [selectedTower, setSelectedTower] = useState<Tower | null>(null);
     const [isOwnerLoading, setIsOwnerLoading] = useState<boolean>(false);
     const [notesDrawerTower, setNotesDrawerTower] = useState<any>(null);
@@ -340,17 +341,12 @@ function TowersPageContent() {
     };
 
     const handleExport = async (ids?: number[], all?: boolean) => {
+        setIsExporting(true);
         try {
             let requestBody: any = { all };
             if (ids) {
                 requestBody.ids = ids;
             } else if (!all) {
-                // If not "all" and no "ids", it means "Export Filtered"
-                // For now, "Export Filtered" can be handled by sending all current filters to the API,
-                // but since we only implemented ids/all in the API, we'll just use "all: true" for now 
-                // if no ids provided, or we can fetch all IDs for current filters first.
-                // Actually, let's just use all: true if no ids provided for now, 
-                // or the user can select all.
                 requestBody.all = true; 
             }
 
@@ -376,6 +372,8 @@ function TowersPageContent() {
         } catch (error) {
             console.error('Export failed:', error);
             alert('Export failed. Please try again.');
+        } finally {
+            setIsExporting(false);
         }
     };
 
@@ -424,6 +422,7 @@ function TowersPageContent() {
                         onViewDetails={handleViewDetails}
                         isOwnerLoading={isOwnerLoading}
                         isLoading={isLoading}
+                        isExporting={isExporting}
                         filterOptions={filterOptions}
                         lookups={lookups}
                         filters={filters}

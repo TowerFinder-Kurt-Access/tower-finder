@@ -22,7 +22,7 @@
 - [x] Task: Conductor - User Manual Verification 'Phase 3: Frontend Integration' (Protocol in workflow.md) [ff31253]
 
 ## Phase 4: Data Migration and Final Verification
-- [ ] Task: Create a one-time script to re-import "Mark's list" and populate the `rawImportData` column for existing towers.
-- [ ] Task: Execute the migration script and verify data integrity.
-- [ ] Task: Perform end-to-end testing of the export feature with various datasets.
-- [ ] Task: Conductor - User Manual Verification 'Phase 4: Data Migration and Final Verification' (Protocol in workflow.md)
+- [x] Task: Create a one-time script to re-import "Mark's list" and populate the `rawImportData` column for existing towers. [0e84777]
+- [x] Task: Execute the migration script and verify data integrity. [0e84777]
+- [x] Task: Perform end-to-end testing of the export feature with various datasets. [0e84777]
+- [x] Task: Conductor - User Manual Verification 'Phase 4: Data Migration and Final Verification' (Protocol in workflow.md) [0e84777]

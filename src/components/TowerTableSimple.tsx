@@ -1,12 +1,12 @@
 'use client';
 
 import * as React from 'react';
-import { Box, Button, Menu, MenuItem, ListItemIcon, ListItemText, Chip, Badge, TextField, Stack, Typography, Autocomplete, Checkbox, Tooltip, IconButton } from '@mui/material';
+import { Box, Button, Menu, MenuItem, ListItemIcon, ListItemText, Chip, Badge, TextField, Stack, Typography, Autocomplete, Checkbox, Tooltip, IconButton, CircularProgress } from '@mui/material';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import ClearIcon from '@mui/icons-material/Clear';
 import CheckBoxOutlineBlankIcon from '@mui/icons-material/CheckBoxOutlineBlank';
 import CheckBoxIcon from '@mui/icons-material/CheckBox';
-import { DataGrid, GridColDef, GridToolbar, GridRenderCellParams, GridCellEditStopReasons, GridFooterContainer, GridPagination, GridSlotsComponentsProps, GridColumnVisibilityModel } from '@mui/x-data-grid';
+import { DataGrid, GridColDef, GridToolbar, GridRenderCellParams, GridCellEditStopReasons, GridFooterContainer, GridPagination, GridSlotsComponentsProps, GridColumnVisibilityModel, GridRowSelectionModel } from '@mui/x-data-grid';
 import MapIcon from '@mui/icons-material/Map';
 import BusinessIcon from '@mui/icons-material/Business';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
@@ -67,6 +67,7 @@ interface TowerTableSimpleProps {
     onAddOwner?: (tower: any) => void;
     onSelectionChange?: (ids: number[]) => void;
     onExport?: (ids?: number[], all?: boolean) => void;
+    isExporting?: boolean;
     country?: string;
 }
 
@@ -82,6 +83,7 @@ export default function TowerTableSimple({
     onViewDetails,
     isOwnerLoading,
     isLoading,
+    isExporting,
     filterOptions,
     lookups,
     onFilterChange,
@@ -97,14 +99,34 @@ export default function TowerTableSimple({
     const [selectedTower, setSelectedTower] = React.useState<any>(null);
     const [jumpPage, setJumpPage] = React.useState<string>('');
     const [localSearch, setLocalSearch] = React.useState(filters.search || '');
-    const [selectionModel, setSelectionModel] = React.useState<number[]>([]);
+    const [selectionModel, setSelectionModel] = React.useState<GridRowSelectionModel>({ type: 'include', ids: new Set() });
 
-    const handleSelectionChange = (newSelection: any) => {
+    const handleSelectionChange = (newSelection: GridRowSelectionModel) => {
         setSelectionModel(newSelection);
         if (onSelectionChange) {
-            onSelectionChange(newSelection);
+            const idsArray = newSelection.ids instanceof Set 
+                ? Array.from(newSelection.ids) 
+                : (newSelection.ids || []);
+            onSelectionChange(idsArray as number[]);
         }
     };
+
+    const getSelectionCount = () => {
+        if (!selectionModel.ids) return 0;
+        return selectionModel.ids instanceof Set 
+            ? selectionModel.ids.size 
+            : (selectionModel.ids as any[]).length;
+    };
+
+    const getSelectionIds = () => {
+        if (!selectionModel.ids) return [];
+        return selectionModel.ids instanceof Set 
+            ? (Array.from(selectionModel.ids) as number[])
+            : (selectionModel.ids as number[]);
+    };
+
+    const selectionCount = getSelectionCount();
+    const selectionIds = getSelectionIds();
 
     React.useEffect(() => {
         setLocalSearch(filters.search || '');
@@ -411,21 +433,26 @@ export default function TowerTableSimple({
                                 size="small"
                                 variant="outlined"
                                 color="success"
-                                startIcon={<FileDownloadIcon />}
-                                onClick={() => onExport(selectionModel.length > 0 ? selectionModel : undefined, selectionModel.length === 0)}
+                                startIcon={isExporting ? <CircularProgress size={16} color="inherit" /> : <FileDownloadIcon />}
+                                onClick={() => onExport(selectionCount > 0 ? selectionIds : undefined, selectionCount === 0)}
+                                disabled={isExporting}
                                 sx={{ textTransform: 'none', fontWeight: 600 }}
                             >
-                                {selectionModel.length > 0 ? `Export Selected (${selectionModel.length})` : 'Export Filtered'}
+                                {isExporting 
+                                    ? 'Exporting...' 
+                                    : (selectionCount > 0 ? `Export Selected (${selectionCount})` : 'Export Filtered')
+                                }
                             </Button>
                             <Button
                                 size="small"
                                 variant="outlined"
                                 color="success"
-                                startIcon={<FileDownloadIcon />}
+                                startIcon={isExporting ? <CircularProgress size={16} color="inherit" /> : <FileDownloadIcon />}
                                 onClick={() => onExport(undefined, true)}
+                                disabled={isExporting}
                                 sx={{ textTransform: 'none', fontWeight: 600 }}
                             >
-                                Export All
+                                {isExporting ? 'Exporting...' : 'Export All'}
                             </Button>
                         </>
                     )}
