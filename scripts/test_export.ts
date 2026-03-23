@@ -1,6 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
-import { ExportService } from '../src/services/ExportService.ts';
+import { ExportService } from '../src/services/ExportService';
 import * as xlsx from 'xlsx';
 import * as fs from 'fs';
 
@@ -12,6 +12,18 @@ async function testExport() {
     // 1. Create a dummy tower with rawImportData and notes
     console.log('1. Creating test tower...');
     const testRawData = { 'Tower Name': 'Test Tower 1', 'Owner': 'Test Owner', 'Height': 100 };
+    
+    // Create a dummy user for the note
+    const user = await prisma.user.upsert({
+      where: { email: 'test@example.com' },
+      update: {},
+      create: {
+        email: 'test@example.com',
+        name: 'Test User',
+        password: 'password'
+      }
+    });
+
     const tower = await prisma.tower.create({
       data: {
         lat: 40.7128 + Math.random(),
@@ -20,8 +32,8 @@ async function testExport() {
         source: 'export-test',
         notes: {
           create: [
-            { content: 'First test note', initials: 'TF' },
-            { content: 'Second test note', initials: 'TF' }
+            { content: 'System note', initials: 'SY', authorId: user.id },
+            { content: 'Imported note', initials: 'IM' } // No authorId = imported
           ]
         }
       },
@@ -34,10 +46,6 @@ async function testExport() {
     console.log('2. Running export for the test tower...');
     const buffer = await ExportService.exportTowersToExcel([tower.id]);
     
-    // Save to temp file for inspection if needed
-    fs.writeFileSync('test_export_output.xlsx', buffer);
-    console.log('   Success: Export generated and saved to test_export_output.xlsx');
-
     // 3. Verify the Excel content
     console.log('3. Verifying Excel content...');
     const workbook = xlsx.read(buffer, { type: 'buffer' });
@@ -56,11 +64,15 @@ async function testExport() {
       throw new Error(`Incorrect Tower Name: ${row['Tower Name']}`);
     }
 
-    if (!row['System Notes'] || !row['System Notes'].includes('First test note') || !row['System Notes'].includes('Second test note')) {
-      throw new Error(`System Notes missing or incorrect: ${row['System Notes']}`);
+    if (!row['System Notes'] || !row['System Notes'].includes('System note')) {
+      throw new Error(`System Note missing: ${row['System Notes']}`);
     }
 
-    console.log('   Success: Excel content verified!');
+    if (row['System Notes'].includes('Imported note')) {
+      throw new Error(`Imported Note should be filtered out: ${row['System Notes']}`);
+    }
+
+    console.log('   Success: Imported notes correctly filtered out!');
     console.log('--- All Export Service Tests Passed ---');
 
   } catch (error) {

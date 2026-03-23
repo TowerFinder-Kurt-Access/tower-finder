@@ -1,5 +1,10 @@
-import { prisma } from '../lib/prisma.ts';
+import { prisma } from '../lib/prisma';
 import * as xlsx from 'xlsx';
+import { Prisma } from '@prisma/client';
+
+export type TowerWithNotes = Prisma.TowerGetPayload<{
+  include: { notes: true }
+}>;
 
 export class ExportService {
   /**
@@ -14,7 +19,7 @@ export class ExportService {
           orderBy: { createdAt: 'asc' }
         }
       }
-    });
+    }) as TowerWithNotes[];
 
     if (towers.length === 0) {
       // Return an empty workbook if no towers
@@ -57,11 +62,14 @@ export class ExportService {
       });
 
       // Fill in System Notes column
-      row['System Notes'] = t.notes.map(n => {
-        const date = n.createdAt.toISOString().split('T')[0];
-        const initials = n.initials ? ` [${n.initials}]` : '';
-        return `${date}${initials}: ${n.content}`;
-      }).join('; ');
+      // Only include notes created within the system (those with an authorId)
+      row['System Notes'] = t.notes
+        .filter(n => n.authorId !== null)
+        .map(n => {
+          const date = n.createdAt.toISOString().split('T')[0];
+          const initials = n.initials ? ` [${n.initials}]` : '';
+          return `${date}${initials}: ${n.content}`;
+        }).join('; ');
 
       return row;
     });
