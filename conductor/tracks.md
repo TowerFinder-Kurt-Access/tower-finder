@@ -19,5 +19,5 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ---
 
-- [ ] **Track: Standardize and normalize city, state/province, and county data across USA and Canada using dedicated tables and an internal job queue.**
+- [x] **Track: Standardize and normalize city, state/province, and county data across USA and Canada using dedicated tables and an internal job queue.**
 *Link: [./tracks/location_normalization_20260322/](./tracks/location_normalization_20260322/)*
