@@ -1,6 +1,6 @@
 # Implementation Plan: Excel Export with Raw Data and Notes
 
-## Phase 1: Data Model and Persistence Update
+## Phase 1: Data Model and Persistence Update [checkpoint: 6aee4bf]
 - [x] Task: Update Prisma schema to include a `rawImportData` field (JSON or String) in the `Tower` model. [4b70811]
 - [x] Task: Create and run a database migration to add the `rawImportData` field. [4b70811]
 - [x] Task: Update the Excel import logic (e.g., `scripts/import_marks_sheet.ts`) to store the raw row data for each tower during import. [4b70811]
