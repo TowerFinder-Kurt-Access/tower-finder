@@ -172,6 +172,7 @@ export default function TowerDetailPage({ params }: PageProps) {
     const [streetViewUrl, setStreetViewUrl] = useState('');
     const [isEditingStreetView, setIsEditingStreetView] = useState(false);
     const [isSavingStreetView, setIsSavingStreetView] = useState(false);
+    const [isNormalizing, setIsNormalizing] = useState(false);
 
     // Lookups
     const [types, setTypes] = useState<LookupItem[]>([]);
@@ -462,6 +463,21 @@ export default function TowerDetailPage({ params }: PageProps) {
 
     const handleNotesChange = () => {
         loadTower();
+    };
+
+    const handleNormalize = async () => {
+        if (!tower) return;
+        setIsNormalizing(true);
+        try {
+            await axios.post(`/api/towers/${tower.id}/normalize`);
+            alert('Location normalization completed!');
+            loadTower();
+        } catch (error: any) {
+            console.error('Normalization failed:', error);
+            alert('Failed to normalize location: ' + (error.response?.data?.error || error.message));
+        } finally {
+            setIsNormalizing(false);
+        }
     };
 
     const handleSaveStreetViewUrl = async () => {
@@ -839,13 +855,24 @@ export default function TowerDetailPage({ params }: PageProps) {
                                 Parcel & Property Owner Information
                             </Typography>
                             {tower.parcel && !editingAddress && (
-                                <Button
-                                    startIcon={<EditIcon />}
-                                    size="small"
-                                    onClick={() => setEditingAddress(true)}
-                                >
-                                    Edit Address
-                                </Button>
+                                <Box sx={{ display: 'flex', gap: 1 }}>
+                                    <Button
+                                        startIcon={isNormalizing ? <CircularProgress size={16} /> : <TravelExploreIcon />}
+                                        size="small"
+                                        onClick={handleNormalize}
+                                        disabled={isNormalizing}
+                                        color="secondary"
+                                    >
+                                        Normalize
+                                    </Button>
+                                    <Button
+                                        startIcon={<EditIcon />}
+                                        size="small"
+                                        onClick={() => setEditingAddress(true)}
+                                    >
+                                        Edit Address
+                                    </Button>
+                                </Box>
                             )}
                             {editingAddress && (
                                 <Box sx={{ display: 'flex', gap: 1 }}>

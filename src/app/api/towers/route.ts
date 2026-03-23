@@ -174,11 +174,17 @@ export async function GET(request: Request) {
                     ORDER BY name
                 `,
                 prisma.$queryRaw<{ county: string }[]>`
-                    SELECT DISTINCT p.county
-                    FROM "Parcel" p
-                    WHERE p.county IS NOT NULL AND p.county != ''
-                    ${countryFilter}
-                    ORDER BY p.county
+                    SELECT DISTINCT name as county FROM (
+                        SELECT c."name" FROM "County" c
+                        JOIN "Parcel" p ON p."countyId" = c.id
+                        WHERE 1=1 ${countryFilter}
+                        UNION
+                        SELECT p."county" as name FROM "Parcel" p
+                        WHERE p."county" IS NOT NULL AND p."county" != ''
+                        ${countryFilter}
+                    ) combined
+                    WHERE name IS NOT NULL AND name != ''
+                    ORDER BY name
                 `,
                 prisma.$queryRaw<{ zip: string }[]>`
                     SELECT DISTINCT name as zip FROM (
@@ -470,7 +476,8 @@ export async function GET(request: Request) {
                         include: {
                             owner: true,
                             city: true,
-                            province: true
+                            province: true,
+                            county: true
                         }
                     },
                     type: true,
