@@ -139,7 +139,7 @@ async function main() {
             cityRaw: rowData['City'],
             stateRaw: rowData['State'],
             zip: rowData['Zipcode']?.toString(),
-            county: rowData['County'],
+            countyRaw: rowData['County'],
             country: 'USA',
             ownerId: owner.id
           },
@@ -149,7 +149,7 @@ async function main() {
             cityRaw: rowData['City'],
             stateRaw: rowData['State'],
             zip: rowData['Zipcode']?.toString(),
-            county: rowData['County'],
+            countyRaw: rowData['County'],
             country: 'USA',
             ownerId: owner.id
           }

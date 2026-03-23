@@ -112,7 +112,8 @@ interface Tower {
         province?: { name: string; code?: string } | string;
         state?: string;
         zip?: string;
-        county?: string;
+        county?: { name: string } | string;
+        countyRaw?: string;
         parcelId?: string;
         dataSource?: string;
         rawData?: any;
@@ -874,7 +875,7 @@ export default function TowerDetailPage({ params }: PageProps) {
                                                     postalCode: tower.parcel.postalCode || tower.parcel.zip || '',
                                                     cityRaw: cityName,
                                                     provinceRaw: provinceName,
-                                                    county: tower.parcel.county?.name || tower.parcel.countyRaw || '',
+                                                    county: (tower.parcel.county as any)?.name || tower.parcel.countyRaw || '',
                                                 });
                                             }
                                         }}
@@ -974,7 +975,7 @@ export default function TowerDetailPage({ params }: PageProps) {
                                     {(tower.parcel?.county || tower.parcel?.countyRaw) && (
                                         <Box sx={{ mb: 2 }}>
                                             <Typography variant="subtitle2" color="text.secondary">County</Typography>
-                                            <Typography variant="body1">{tower.parcel.county?.name || tower.parcel.countyRaw}</Typography>
+                                            <Typography variant="body1">{(tower.parcel.county as any)?.name || tower.parcel.countyRaw}</Typography>
                                         </Box>
                                     )}
 

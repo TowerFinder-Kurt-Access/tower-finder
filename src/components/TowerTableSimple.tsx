@@ -49,14 +49,14 @@ interface TowerTableSimpleProps {
         carriers: LookupItem[];
     };
     onFilterChange: (filters: { 
-        city?: string; state?: string; county?: string; zip?: string; 
+        city?: string; state?: string; countyRaw?: string; zip?: string; 
         type?: string; carrier?: string; status?: string; address?: string; 
         search?: string;
         minBusinessCount?: string; maxBusinessCount?: string;
         minAvgDistance?: string; maxAvgDistance?: string;
     }) => void;
     filters?: { 
-        city?: string; state?: string; county?: string; zip?: string; 
+        city?: string; state?: string; countyRaw?: string; zip?: string; 
         type?: string; carrier?: string; status?: string; address?: string; 
         search?: string;
         minBusinessCount?: string; maxBusinessCount?: string;
@@ -274,7 +274,7 @@ export default function TowerTableSimple({
     };
 
     const handleFilterModelChange = (filterModel: any) => {
-        const newFilters: { city?: string; state?: string; county?: string; zip?: string; type?: string; status?: string; address?: string; search?: string } = { ...filters };
+        const newFilters: { city?: string; state?: string; county?: string; countyRaw?: string; zip?: string; type?: string; status?: string; address?: string; search?: string } = { ...filters };
 
         if (filterModel.items && filterModel.items.length > 0) {
             filterModel.items.forEach((item: any) => {
