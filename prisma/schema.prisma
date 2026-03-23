@@ -98,7 +98,7 @@ model Parcel {
   unit         String?
   postalCode   String?
   cityRaw      String?
-  county       String?
+  countyRaw    String?   @map("county")
   stateRaw     String?
   provinceRaw  String?
   zip          String?
@@ -110,9 +110,11 @@ model Parcel {
   ownerId      Int?
   cityId       Int?
   provinceId   Int?
+  countyId     Int?
   city         City?     @relation(fields: [cityId], references: [id])
   owner        Owner?    @relation(fields: [ownerId], references: [id])
   province     Province? @relation(fields: [provinceId], references: [id])
+  county       County?   @relation(fields: [countyId], references: [id])
   tower        Tower     @relation(fields: [towerId], references: [id])
 }
 
@@ -218,10 +220,21 @@ model Province {
   code    String   @unique
   name    String
   cities  City[]
+  counties County[]
   parcels Parcel[]
 }
 
 model City {
+  id         Int      @id @default(autoincrement())
+  name       String
+  provinceId Int
+  province   Province @relation(fields: [provinceId], references: [id])
+  parcels    Parcel[]
+
+  @@unique([name, provinceId])
+}
+
+model County {
   id         Int      @id @default(autoincrement())
   name       String
   provinceId Int

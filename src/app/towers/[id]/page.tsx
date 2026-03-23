@@ -247,7 +247,7 @@ export default function TowerDetailPage({ params }: PageProps) {
                     postalCode: t.parcel.postalCode || t.parcel.zip || '',
                     cityRaw: (typeof t.parcel.city === 'object' ? t.parcel.city?.name : null) || t.parcel.cityRaw || '',
                     provinceRaw: (typeof t.parcel.province === 'object' ? t.parcel.province?.name : null) || t.parcel.provinceRaw || t.parcel.stateRaw || '',
-                    county: t.parcel.county || '',
+                    county: t.parcel.county?.name || t.parcel.countyRaw || '',
                 });
             }
         } catch (error) {
@@ -874,7 +874,7 @@ export default function TowerDetailPage({ params }: PageProps) {
                                                     postalCode: tower.parcel.postalCode || tower.parcel.zip || '',
                                                     cityRaw: cityName,
                                                     provinceRaw: provinceName,
-                                                    county: tower.parcel.county || '',
+                                                    county: tower.parcel.county?.name || tower.parcel.countyRaw || '',
                                                 });
                                             }
                                         }}
@@ -971,12 +971,13 @@ export default function TowerDetailPage({ params }: PageProps) {
                                         <Typography variant="body2" color="text.secondary">Postal Code</Typography>
                                         <Typography variant="body1">{postalCode || 'N/A'}</Typography>
                                     </Box>
-                                    {tower.parcel?.county && (
-                                        <Box>
-                                            <Typography variant="body2" color="text.secondary">County</Typography>
-                                            <Typography variant="body1">{tower.parcel.county}</Typography>
+                                    {(tower.parcel?.county || tower.parcel?.countyRaw) && (
+                                        <Box sx={{ mb: 2 }}>
+                                            <Typography variant="subtitle2" color="text.secondary">County</Typography>
+                                            <Typography variant="body1">{tower.parcel.county?.name || tower.parcel.countyRaw}</Typography>
                                         </Box>
                                     )}
+
                                     <Box>
                                         <Typography variant="body2" color="text.secondary">Parcel ID / PIN</Typography>
                                         <Typography variant="body1">{tower.parcel?.parcelId || 'N/A'}</Typography>

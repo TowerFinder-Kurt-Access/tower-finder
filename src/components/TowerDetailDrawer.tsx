@@ -320,9 +320,9 @@ export default function TowerDetailDrawer({
                                     <Typography variant="body2">
                                         <strong>Postal Code:</strong> {tower.parcel.postalCode || tower.parcel.zip || 'N/A'}
                                     </Typography>
-                                    {tower.parcel.county && (
+                                    {(tower.parcel.county || (tower.parcel as any).countyRaw) && (
                                         <Typography variant="body2">
-                                            <strong>County:</strong> {tower.parcel.county}
+                                            <strong>County:</strong> {(tower.parcel.county as any)?.name || (tower.parcel as any).countyRaw || tower.parcel.county}
                                         </Typography>
                                     )}
                                     <Typography variant="body2">

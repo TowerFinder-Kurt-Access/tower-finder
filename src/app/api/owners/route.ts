@@ -116,7 +116,12 @@ export async function GET(request: Request) {
         if (county) {
             const countyValues = county.split(',').filter(Boolean);
             andConditions.push({
-                parcel: { county: { in: countyValues, mode: 'insensitive' } }
+                parcel: {
+                    OR: [
+                        { countyRaw: { in: countyValues, mode: 'insensitive' } },
+                        { county: { name: { in: countyValues, mode: 'insensitive' } } }
+                    ]
+                }
             });
         }
 
@@ -161,7 +166,7 @@ export async function GET(request: Request) {
 
         if (county) {
             const countyValues = county.split(',').filter(Boolean);
-            parcelWhere.county = { in: countyValues, mode: 'insensitive' };
+            parcelWhere.countyRaw = { in: countyValues, mode: 'insensitive' };
         }
 
         if (state) {
@@ -218,7 +223,7 @@ export async function GET(request: Request) {
                 const parcelId = parcel.parcelId || 'Unknown';
                 const address = parcel.address || '';
                 const cityVal = parcel.city?.name || parcel.cityRaw || '';
-                const countyVal = parcel.county || '';
+                const countyVal = parcel.county?.name || parcel.countyRaw || '';
                 const stateVal = parcel.province?.name || parcel.provinceRaw || parcel.stateRaw || '';
                 const zipVal = parcel.postalCode || parcel.zip || '';
 

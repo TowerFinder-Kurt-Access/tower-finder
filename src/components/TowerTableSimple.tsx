@@ -281,7 +281,7 @@ export default function TowerTableSimple({
                 if (item.value) {
                     switch (item.field) {
                         case 'city': newFilters.city = item.value; break;
-                        case 'county': newFilters.county = item.value; break;
+                        case 'county': newFilters.countyRaw = item.value; break;
                         case 'state': newFilters.state = item.value; break;
                         case 'zip': newFilters.zip = item.value; break;
                         case 'type': newFilters.type = item.value; break;

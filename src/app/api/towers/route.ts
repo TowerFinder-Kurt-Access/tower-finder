@@ -332,7 +332,7 @@ export async function GET(request: Request) {
 
             if (county) {
                 const countyValues = county.split(',').filter(Boolean);
-                parcelFilters.county = { in: countyValues, mode: 'insensitive' };
+                parcelFilters.countyRaw = { in: countyValues, mode: 'insensitive' };
             }
 
             if (zip) {
@@ -427,7 +427,8 @@ export async function GET(request: Request) {
                             { parcel: { address: { contains: searchTermStr, mode: 'insensitive' } } },
                             { parcel: { cityRaw: { contains: searchTermStr, mode: 'insensitive' } } },
                             { parcel: { city: { name: { contains: searchTermStr, mode: 'insensitive' } } } },
-                            { parcel: { county: { contains: searchTermStr, mode: 'insensitive' } } },
+                            { parcel: { countyRaw: { contains: searchTermStr, mode: 'insensitive' } } },
+                            { parcel: { county: { name: { contains: searchTermStr, mode: 'insensitive' } } } },
                             { parcel: { stateRaw: { contains: searchTermStr, mode: 'insensitive' } } },
                             { parcel: { provinceRaw: { contains: searchTermStr, mode: 'insensitive' } } },
                             { parcel: { province: { name: { contains: searchTermStr, mode: 'insensitive' } } } },
