@@ -15,11 +15,11 @@
 
 
 ## Phase 3: Frontend Integration
-- [ ] Task: Update the `TowerTable` component to include checkboxes for row selection.
-- [ ] Task: Add an "Export" button to the `TowerTable` (or a global position as previously discussed).
-- [ ] Task: Implement the frontend logic to trigger the export API call with the correct parameters (all, filtered, or selected IDs).
-- [ ] Task: Add a loading state and error handling for the export process.
-- [ ] Task: Conductor - User Manual Verification 'Phase 3: Frontend Integration' (Protocol in workflow.md)
+- [x] Task: Update the `TowerTable` component to include checkboxes for row selection. [ff31253]
+- [x] Task: Add an "Export" button to the `TowerTable` (or a global position as previously discussed). [ff31253]
+- [x] Task: Implement the frontend logic to trigger the export API call with the correct parameters (all, filtered, or selected IDs). [ff31253]
+- [x] Task: Add a loading state and error handling for the export process. [ff31253]
+- [x] Task: Conductor - User Manual Verification 'Phase 3: Frontend Integration' (Protocol in workflow.md) [ff31253]
 
 ## Phase 4: Data Migration and Final Verification
 - [ ] Task: Create a one-time script to re-import "Mark's list" and populate the `rawImportData` column for existing towers.
