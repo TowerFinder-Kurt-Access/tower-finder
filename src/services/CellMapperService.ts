@@ -50,7 +50,7 @@ export class CellMapperService {
             // Navigate to the map centered on the coordinates
             // CellMapper URL pattern: ?lat=XX&lon=YY&zoom=15&mcc=310&mnc=410
             const url = `${this.BASE_URL}?lat=${lat}&lon=${lon}&zoom=15&mcc=310&mnc=410`;
-            await page.goto(url, { waitUntil: 'networkidle' });
+            await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
 
             // Wait a bit for the markers to load and responses to flutter in
             await page.waitForTimeout(5000);

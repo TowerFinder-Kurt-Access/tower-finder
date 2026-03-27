@@ -2,6 +2,7 @@ import { prisma } from '@/lib/prisma';
 import { AntennaSearchService } from '@/services/AntennaSearchService';
 import { CellMapperService } from '@/services/CellMapperService';
 import { pickNextJob, markCompleted, markFailed } from '@/lib/job-queue';
+import { processLeaseFusion } from '@/lib/jobs/leaseFusion';
 import { chromium } from 'playwright-extra';
 
 /**
@@ -37,10 +38,15 @@ async function main() {
             let result: any = {};
 
             if (job.jobType === 'scrape_all_sources') {
-                const [antennas, signals] = await Promise.all([
-                    AntennaSearchService.fetchAntennas(lat, lon),
-                    CellMapperService.fetchTowers(lat, lon)
-                ]);
+                console.log(`[Worker] Starting scrape for H3 Hexagon: ${h3Index} (${lat}, ${lon})`);
+                
+                console.log(`[Worker] Fetching AntennaSearch registration data...`);
+                const antennas = await AntennaSearchService.fetchAntennas(lat, lon);
+                console.log(`[Worker] Found ${antennas.length} rooftop leads from AntennaSearch.`);
+
+                console.log(`[Worker] Fetching live CellMapper signal data (requires Stealth Browser)...`);
+                const signals = await CellMapperService.fetchTowers(lat, lon);
+                console.log(`[Worker] Intercepted ${signals.length} live AT&T cell signals from CellMapper.`);
 
                 // Save results as TowerLeads (Raw Scrapes)
                 for (const item of antennas) {
@@ -70,6 +76,10 @@ async function main() {
                         }
                     });
                 }
+
+                console.log(`[Worker] Commencing Spatial Fusion for matched records...`);
+                await processLeaseFusion({ h3Index, lat, lon });
+                console.log(`[Worker] Fusion complete.`);
 
                 result = { foundAntennas: antennas.length, foundSignals: signals.length };
             }
