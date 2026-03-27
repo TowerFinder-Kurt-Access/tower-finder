@@ -19,7 +19,7 @@ async function main() {
             columns: true,
             skip_empty_lines: true,
             trim: true
-        });
+        }) as any[];
 
         if (!cityMap[provinceCode]) cityMap[provinceCode] = new Set();
 
