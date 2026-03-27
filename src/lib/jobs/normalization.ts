@@ -1,6 +1,6 @@
-import { prisma } from '../prisma.js';
-import { LocationNormalizationService } from '../../services/LocationNormalizationService.js';
-import { enqueueJob } from '../job-queue.js';
+import { prisma } from '@/lib/prisma';
+import { LocationNormalizationService } from '@/services/LocationNormalizationService';
+import { enqueueJob } from '@/lib/job-queue';
 
 /**
  * Job handler to normalize locations for a batch of parcels.

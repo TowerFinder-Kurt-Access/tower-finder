@@ -1,6 +1,6 @@
-import { prisma } from '../lib/prisma.js';
-import { STATE_CODE_TO_NAME, USA_STATES, CANADA_PROVINCES } from '../lib/constants.js';
-import canadianCities from '../lib/canadian_cities.json' with { type: 'json' };
+import { prisma } from '@/lib/prisma';
+import { STATE_CODE_TO_NAME, USA_STATES, CANADA_PROVINCES } from '@/lib/constants';
+import canadianCities from '@/lib/canadian_cities.json' with { type: 'json' };
 
 export interface NormalizedLocation {
     city?: string;
