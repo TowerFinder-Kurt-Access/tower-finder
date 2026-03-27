@@ -496,7 +496,7 @@ export default function TowerTableSimple({
             type: 'singleSelect',
             editable: !!onCellEdit,
             valueOptions: filterOptions.types,
-            valueGetter: (value: any) => typeof value === 'object' ? value?.name : (value || '')
+            valueGetter: (value: any) => (value && typeof value === 'object') ? value.name : (value || '')
         },
         {
             field: 'status',
@@ -506,7 +506,7 @@ export default function TowerTableSimple({
             editable: !!onCellEdit,
             valueOptions: filterOptions.statuses,
             valueGetter: (value: any, row: any) => {
-                if (typeof value === 'object') return value?.name || '';
+                if (value && typeof value === 'object') return value.name || '';
                 if (value === undefined || value === null) return row.legacyStatus || '';
                 return value;
             },

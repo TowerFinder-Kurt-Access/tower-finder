@@ -1,5 +1,6 @@
 import { prisma } from '../lib/prisma.js';
 import { STATE_CODE_TO_NAME, USA_STATES, CANADA_PROVINCES } from '../lib/constants.js';
+import canadianCities from '../lib/canadian_cities.json' with { type: 'json' };
 
 export interface NormalizedLocation {
     city?: string;
@@ -12,6 +13,32 @@ export interface NormalizedLocation {
 export class LocationNormalizationService {
     private static USER_AGENT = 'TowerFinderNormalization/1.0 (alex@example.com)';
     private static NOMINATIM_URL = 'https://nominatim.openstreetmap.org/search';
+
+    /**
+     * Attempts to find an official Canadian city name within a string.
+     */
+    static normalizeCanadianCity(input: string, provinceCode: string): string | null {
+        if (!input || !provinceCode) return null;
+        
+        const cities = (canadianCities as any)[provinceCode];
+        if (!cities) return null;
+
+        const lowerInput = input.toLowerCase().trim();
+        
+        // 1. Exact match
+        const exactMatch = cities.find((c: string) => c.toLowerCase() === lowerInput);
+        if (exactMatch) return exactMatch;
+
+        // 2. Check if the input contains an official city name (e.g. "Burnaby, BC")
+        const partialMatch = cities.find((c: string) => lowerInput.includes(c.toLowerCase()));
+        if (partialMatch) return partialMatch;
+
+        // 3. Filter out common non-city patterns (like postal code fragments V5N, etc.)
+        const isPostalCode = /^[A-Z]\d[A-Z](\s?\d[A-Z]\d)?$/i.test(input) || /^[A-Z]\d[A-Z]$/i.test(input);
+        if (isPostalCode) return null;
+
+        return null;
+    }
 
     /**
      * Normalizes a location using local logic and constants.
@@ -39,6 +66,17 @@ export class LocationNormalizationService {
                     normalized.province = found[0];
                     normalized.provinceCode = found[1];
                 }
+            }
+        }
+
+        // Special handling for Canada cities
+        if (country?.toLowerCase() === 'canada' && normalized.provinceCode) {
+            const officialCity = this.normalizeCanadianCity(city || '', normalized.provinceCode);
+            if (officialCity) {
+                normalized.city = officialCity;
+            } else if (city && (city.length < 4 || /^[A-Z]\d[A-Z]$/i.test(city))) {
+                // If it looks like a postal code fragment, don't use it as city
+                normalized.city = undefined;
             }
         }
 

@@ -1,59 +1,62 @@
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("PRISMA_DATABASE_URL")
-  directUrl = env("POSTGRES_URL")
+  provider   = "postgresql"
+  url        = env("POSTGRES_URL")
+  directUrl  = env("POSTGRES_URL")
+  extensions = [postgis]
 }
 
 model Tower {
-  id            Int               @id @default(autoincrement())
-  lat           Float
-  lon           Float
-  typeId        Int?
-  carrierId     Int?
-  licenseeId    Int?
-  businessName  String?
-  remarks       String?
-  titleHolder   String?
-  expiration    String?
-  legacyStatus  String?           @map("status")
-  googleMapsUrl String?
-  streetViewUrl String?
-  source        String            @default("Excel Import")
-  createdAt     DateTime          @default(now())
-  updatedAt     DateTime          @updatedAt
+  id                  Int               @id @default(autoincrement())
+  lat                 Float
+  lon                 Float
+  typeId              Int?
+  carrierId           Int?
+  licenseeId          Int?
+  businessName        String?
+  remarks             String?
+  titleHolder         String?
+  expiration          String?
+  legacyStatus        String?           @map("status")
+  googleMapsUrl       String?
+  streetViewUrl       String?
+  source              String            @default("Excel Import")
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
   statusId            Int?
-  businessCount        Int?
   avgBusinessDistance Float?
-  placesProcessedAt    DateTime?
-  parcelProcessedAt    DateTime?
-  rawImportData         Json? @map("rawExcelData")
-  notes               Note[]
+  businessCount       Int?
+  placesProcessedAt   DateTime?
+  parcelProcessedAt   DateTime?
+  rawImportData       Json?             @map("rawExcelData")
   businessesNearby    BusinessNearby[]
-  phones              Phone[]
+  notes               Note[]
   parcel              Parcel?
+  phones              Phone[]
   carrier             Carrier?          @relation(fields: [carrierId], references: [id])
   Licensee            Licensee?         @relation(fields: [licenseeId], references: [id])
   status              TowerStatus?      @relation(fields: [statusId], references: [id])
   type                TowerType?        @relation(fields: [typeId], references: [id])
   assignments         TowerAssignment[]
   leadSource          TowerLead?
+  cellMapperLog       CellMapperLog?
 
   @@unique([lat, lon])
 }
 
 model Phone {
-  id                  Int      @id @default(autoincrement())
-  number              String
-  status              String   @default("unknown")
-  towerId             Int
-  tower               Tower    @relation(fields: [towerId], references: [id], onDelete: Cascade)
-  checks              PhoneCheck[]
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  id        Int          @id @default(autoincrement())
+  number    String
+  status    String       @default("unknown")
+  towerId   Int
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+  tower     Tower        @relation(fields: [towerId], references: [id], onDelete: Cascade)
+  checks    PhoneCheck[]
 
   @@index([towerId])
   @@index([number])
@@ -79,46 +82,43 @@ model BusinessNearby {
   distance  Float
   rawData   Json?
   towerId   Int
-  tower     Tower    @relation(fields: [towerId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  tower     Tower    @relation(fields: [towerId], references: [id], onDelete: Cascade)
 
   @@index([towerId])
 }
 
-
 model Parcel {
-  id           Int       @id @default(autoincrement())
-  parcelId     String?
-  address      String?
-  streetNumber String?
-  streetName   String?
-  streetType   String?
-  streetDir    String?
-  unit         String?
-  postalCode   String?
-  cityRaw      String?
-  countyRaw    String?   @map("county")
-  stateRaw     String?
-  provinceRaw  String?
-  zip          String?
-  country      String?
-  rawData      Json?
-  dataSource   String?
-  geometry     Json?
-  towerId      Int       @unique
-  ownerId      Int?
-  cityId       Int?
-  provinceId   Int?
-  countyId     Int?
-  city         City?     @relation(fields: [cityId], references: [id])
-  owner        Owner?    @relation(fields: [ownerId], references: [id])
-  province     Province? @relation(fields: [provinceId], references: [id])
-  countyNormalized County? @relation(fields: [countyId], references: [id])
-  tower        Tower     @relation(fields: [towerId], references: [id])
-  }
-
-
+  id               Int       @id @default(autoincrement())
+  parcelId         String?
+  address          String?
+  streetNumber     String?
+  streetName       String?
+  streetType       String?
+  streetDir        String?
+  unit             String?
+  postalCode       String?
+  cityRaw          String?
+  countyRaw        String?   @map("county")
+  stateRaw         String?
+  provinceRaw      String?
+  zip              String?
+  country          String?
+  rawData          Json?
+  dataSource       String?
+  geometry         Json?
+  towerId          Int       @unique
+  ownerId          Int?
+  cityId           Int?
+  provinceId       Int?
+  countyId         Int?
+  city             City?     @relation(fields: [cityId], references: [id])
+  countyNormalized County?   @relation(fields: [countyId], references: [id])
+  owner            Owner?    @relation(fields: [ownerId], references: [id])
+  province         Province? @relation(fields: [provinceId], references: [id])
+  tower            Tower     @relation(fields: [towerId], references: [id])
+}
 
 model Owner {
   id        Int       @id @default(autoincrement())
@@ -175,11 +175,11 @@ model TowerAssignment {
 model Note {
   id        Int           @id @default(autoincrement())
   content   String
-  initials  String?
   authorId  Int?
   towerId   Int
   createdAt DateTime      @default(now())
   updatedAt DateTime      @updatedAt
+  initials  String?
   author    User?         @relation(fields: [authorId], references: [id])
   tower     Tower         @relation(fields: [towerId], references: [id], onDelete: Cascade)
   history   NoteHistory[]
@@ -218,12 +218,12 @@ model Carrier {
 }
 
 model Province {
-  id      Int      @id @default(autoincrement())
-  code    String   @unique
-  name    String
-  cities  City[]
+  id       Int      @id @default(autoincrement())
+  code     String   @unique
+  name     String
+  cities   City[]
   counties County[]
-  parcels Parcel[]
+  parcels  Parcel[]
 }
 
 model City {
@@ -301,6 +301,25 @@ model JobQueue {
 
   @@index([status, runAfter])
   @@index([jobType])
+}
+
+model CellMapperLog {
+  id              Int       @id @default(autoincrement())
+  towerId         Int       @unique
+  h3Index         String
+  matchScore      String    // "High", "Medium", "Potential"
+  structureType   String
+  isVerified      Boolean
+  height          Float?
+  lastVerifiedAt  DateTime
+  rawData         Json      // Combined raw data of the match
+  tower           Tower     @relation(fields: [towerId], references: [id], onDelete: Cascade)
+
+  // Native PostGIS geometry column for raw SQL queries (st_dwithin)
+  location        Unsupported("geometry(Point, 4326)")?
+
+  @@index([h3Index])
+  @@index([matchScore])
 }
 
 model Licensee {
