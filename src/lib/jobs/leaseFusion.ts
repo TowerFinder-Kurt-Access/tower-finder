@@ -1,6 +1,24 @@
 import { prisma } from '@/lib/prisma';
 
 /**
+ * Calculates the Haversine distance between two points in meters.
+ */
+function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+    const R = 6371e3; // Earth radius in meters
+    const phi1 = lat1 * Math.PI / 180;
+    const phi2 = lat2 * Math.PI / 180;
+    const dPhi = (lat2 - lat1) * Math.PI / 180;
+    const dLambda = (lon2 - lon1) * Math.PI / 180;
+
+    const a = Math.sin(dPhi / 2) * Math.sin(dPhi / 2) +
+              Math.cos(phi1) * Math.cos(phi2) *
+              Math.sin(dLambda / 2) * Math.sin(dLambda / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+    return R * c;
+}
+
+/**
  * leaseFusion
  * Performs spatial joins between raw TowerLeads and creates/updates 
  * verified Tower + CellMapperLog records.
@@ -19,22 +37,24 @@ export async function processLeaseFusion(params: any) {
 
         if (!isStructuralMatch) continue;
 
-        // 2. Perform 50m Spatial Join using raw SQL (ST_DWithin)
-        // Note: This requires the 'location' geometry column to be search-ready.
-        // If the DB migration is lagging, we fall back to a simple bounding box in JS for now.
-        const nearbySignals: any[] = await prisma.$queryRaw`
-            SELECT * FROM "TowerLead"
-            WHERE source = 'CellMapper'
-            AND ST_DWithin(
-                ST_SetSRID(ST_MakePoint(lon, lat), 4326)::geography,
-                ST_SetSRID(ST_MakePoint(${lead.lon}, ${lead.lat}), 4326)::geography,
-                50
-            )
-        `;
+        // 2. Perform 50m distance check in memory (since we're blocked on PostGIS)
+        const nearbySignals = await prisma.towerLead.findMany({
+            where: {
+                source: 'CellMapper',
+                lat: { gte: lead.lat - 0.001, lte: lead.lat + 0.001 }, // Quick bounding box 
+                lon: { gte: lead.lon - 0.001, lte: lead.lon + 0.001 }
+            }
+        });
 
-        if (nearbySignals.length > 0) {
+        // Filter to exact 50m using Haversine
+        const matches = nearbySignals.filter(s => {
+            const dist = calculateDistance(lead.lat, lead.lon, s.lat, s.lon);
+            return dist <= 50;
+        });
+
+        if (matches.length > 0) {
             // WE HAVE A MATCH! High or Medium Score
-            const signal = nearbySignals[0];
+            const signal = matches[0];
             const signalTags = signal.tags as any;
 
             // SCORING LOGIC
