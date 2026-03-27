@@ -1,0 +1,18 @@
+{
+  "type": "Feature",
+  "properties": {
+    "name": "San Francisco Downtown (Sample)"
+  },
+  "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+      [
+        [-122.420, 37.780],
+        [-122.390, 37.780],
+        [-122.390, 37.800],
+        [-122.420, 37.800],
+        [-122.420, 37.780]
+      ]
+    ]
+  }
+}
