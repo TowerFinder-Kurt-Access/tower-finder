@@ -67,7 +67,7 @@ export async function pollGeoapifyBatch(params: { batchId: string, towerIds: num
 
         const places = towerResult.result?.features || [];
         const businesses = places.map((place: any) => ({
-            name: place.properties?.name || 'Unknown Business',
+            name: place.properties?.name ? String(place.properties.name) : 'Unknown Business',
             // Cast phone to string as Geoapify sometimes returns it as a number
             phone: place.properties?.contact?.phone ? String(place.properties.contact.phone) : null,
             distance: place.properties?.distance || 0,
