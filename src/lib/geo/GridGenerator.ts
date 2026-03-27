@@ -22,10 +22,10 @@ export class GridGenerator {
         let cells: string[] = [];
 
         if (type === 'Polygon') {
-            cells = h3.polyfill(coordinates, resolution, true);
+            cells = h3.polygonToCells(coordinates, resolution, true);
         } else if (type === 'MultiPolygon') {
             coordinates.forEach((polyCoords: any) => {
-                const polyCells = h3.polyfill(polyCoords, resolution, true);
+                const polyCells = h3.polygonToCells(polyCoords, resolution, true);
                 cells = cells.concat(polyCells);
             });
             // Ensure unique cells across multipolygons
@@ -43,7 +43,7 @@ export class GridGenerator {
      * @returns [lat, lon]
      */
     static getCentroid(h3Index: string): [number, number] {
-        return h3.h3ToGeo(h3Index);
+        return h3.cellToLatLng(h3Index);
     }
 
     /**
@@ -52,6 +52,6 @@ export class GridGenerator {
      * @returns Array of [lat, lon] coordinates
      */
     static getBoundary(h3Index: string): number[][] {
-        return h3.h3ToGeoBoundary(h3Index);
+        return h3.cellToBoundary(h3Index, true);
     }
 }
