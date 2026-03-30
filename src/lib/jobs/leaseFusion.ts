@@ -150,6 +150,7 @@ export async function processLeaseFusion(params: any) {
                             create: {
                                 h3Index: params.h3Index || 'unknown',
                                 matchScore: 'Potential',
+                                structureType: 'Signal',
                                 isVerified: !!signalTags.visible,
                                 lastVerifiedAt: new Date(),
                                 rawData: { signal: signalTags }
@@ -170,6 +171,7 @@ export async function processLeaseFusion(params: any) {
                         create: {
                             h3Index: params.h3Index || 'unknown',
                             matchScore: 'Potential',
+                            structureType: 'Signal',
                             isVerified: !!signalTags.visible,
                             lastVerifiedAt: new Date(),
                             rawData: { signal: signalTags }
