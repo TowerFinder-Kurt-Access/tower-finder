@@ -285,21 +285,23 @@ export default function DiscoveryProgressPage() {
                     {/* Map Header Overlay */}
                     <Box sx={{
                         position: 'absolute', top: 0, left: 0, right: 0, zIndex: 1000,
-                        p: 2, background: 'linear-gradient(180deg, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0) 100%)',
+                        p: 2, pl: 7, background: 'linear-gradient(180deg, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0) 100%)',
                         pointerEvents: 'none',
                     }}>
-                        <Typography variant="h6" fontWeight={700} sx={{ color: 'white' }}>
+                        <Typography variant="subtitle1" fontWeight={700} sx={{ color: 'white', lineHeight: 1.2 }}>
                             {activeScan.state} — Cell Coverage Map
                         </Typography>
-                        <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.7)' }}>
-                            🟢 Completed · 🔴 Failed · ⚪ Pending
-                            {mapLoading && ' · Loading map data...'}
+                        <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.8)', display: 'block' }}>
+                            <Box component="span" sx={{ color: '#4CAF50' }}>●</Box> Completed · 
+                            <Box component="span" sx={{ color: '#f44336' }}> ●</Box> Failed · 
+                            <Box component="span" sx={{ color: 'rgba(255,255,255,0.4)' }}> ●</Box> Pending
+                            {mapLoading && ' (Loading...)'}
                         </Typography>
                     </Box>
 
                     {/* Legend overlay */}
                     <Box sx={{
-                        position: 'absolute', bottom: 16, right: 16, zIndex: 1000,
+                        position: 'absolute', bottom: 24, left: 16, zIndex: 1000,
                         bgcolor: 'rgba(26,26,26,0.9)', borderRadius: 2, p: 1.5,
                         border: '1px solid #333',
                     }}>
