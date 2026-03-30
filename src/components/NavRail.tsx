@@ -20,6 +20,7 @@ import { Role } from '@prisma/client';
 import { useCountry } from '@/lib/country-context';
 
 import AutorenewIcon from '@mui/icons-material/Autorenew';
+import RadarIcon from '@mui/icons-material/Radar';
 
 const COUNTRIES = [
     { code: 'Canada', flag: '\ud83c\udde8\ud83c\udde6', short: 'CA' },
@@ -42,6 +43,7 @@ export default function NavRail() {
     const adminNavItems = [
         { label: 'Users', icon: <AdminPanelSettingsIcon />, path: '/admin/users' },
         { label: 'Background Jobs', icon: <AutorenewIcon />, path: '/admin/jobs' },
+        { label: 'Discovery Scans', icon: <RadarIcon />, path: '/admin/discovery' },
         { label: 'Lookups', icon: <SettingsIcon />, path: '/admin/lookups' },
     ];
 
