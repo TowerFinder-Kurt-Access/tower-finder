@@ -1,4 +1,4 @@
-import { AntennaSearchService } from '@/services/AntennaSearchService';
+import { FCCService } from '@/services/FCCService';
 import { CellMapperService } from '@/services/CellMapperService';
 
 /**
@@ -6,18 +6,18 @@ import { CellMapperService } from '@/services/CellMapperService';
  * Targeted verification for known downtown rooftop sites.
  */
 async function shadowRun() {
-    console.log('[ShadowRun] Testing core engine logic...');
+    console.log('[ShadowRun] Testing core engine logic (FCC + CellMapper)...');
 
-    // San Francisco Downtown Centroid (Near Market St)
-    const lat = 37.7882;
-    const lon = -122.4075;
+    // Downtown Chicago Test (Millennium Park Area)
+    const lat = 41.881832;
+    const lon = -87.623177;
 
-    console.log(`[ShadowRun] Testing AntennaSearch (Building/Rooftop filters) at ${lat},${lon}...`);
-    const antennas = await AntennaSearchService.fetchAntennas(lat, lon);
-    console.log(`[ShadowRun] Found ${antennas.length} potential rooftop registrations.`);
+    console.log(`[ShadowRun] Testing FCC ULS (Official Bypass) at ${lat},${lon}...`);
+    const licenses = await FCCService.fetchAntennas(lat, lon, 0.5); // 0.5 mile radius
+    console.log(`[ShadowRun] Found ${licenses.length} AT&T FCC licenses.`);
     
-    if (antennas.length > 0) {
-        console.log('[ShadowRun] Sample Match:', JSON.stringify(antennas[0], null, 2));
+    if (licenses.length > 0) {
+        console.log('[ShadowRun] Sample FCC License:', JSON.stringify(licenses[0], null, 2));
     }
 
     console.log(`[ShadowRun] Testing CellMapper (Stealth Interception) at ${lat},${lon}...`);

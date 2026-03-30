@@ -116,5 +116,69 @@ export async function processLeaseFusion(params: any) {
         }
     }
 
+    // 4. Handle CellMapper-only signals (Discovery without AntennaSearch match)
+    const allSignals = await prisma.towerLead.findMany({
+        where: { source: 'CellMapper' }
+    });
+
+    for (const signal of allSignals) {
+        const signalTags = signal.tags as any;
+        const siteId = String(signalTags.siteID || signalTags.id);
+
+        // Check if this signal has already been promoted (by Site ID in rawData)
+        // This is a bit slow but necessary without better indexing
+        const existingLog = await prisma.cellMapperLog.findFirst({
+            where: {
+                OR: [
+                    { rawData: { path: ['signal', 'siteID'], equals: siteId } },
+                    { rawData: { path: ['signal', 'id'], equals: siteId } }
+                ]
+            }
+        });
+
+        if (!existingLog) {
+            // New discovery!
+            console.log(`[Fusion] New standalone signal discovery at ${signal.lat},${signal.lon} (Site: ${siteId})`);
+            
+            await prisma.tower.upsert({
+                where: { lat_lon: { lat: signal.lat, lon: signal.lon } },
+                update: {
+                    businessName: `AT&T Site ${siteId}`,
+                    source: 'Signal Discovery',
+                    cellMapperLog: {
+                        upsert: {
+                            create: {
+                                h3Index: params.h3Index || 'unknown',
+                                matchScore: 'Potential',
+                                isVerified: !!signalTags.visible,
+                                lastVerifiedAt: new Date(),
+                                rawData: { signal: signalTags }
+                            },
+                            update: {
+                                lastVerifiedAt: new Date(),
+                                rawData: { signal: signalTags }
+                            }
+                        }
+                    }
+                },
+                create: {
+                    lat: signal.lat,
+                    lon: signal.lon,
+                    businessName: `AT&T Site ${siteId}`,
+                    source: 'Signal Discovery',
+                    cellMapperLog: {
+                        create: {
+                            h3Index: params.h3Index || 'unknown',
+                            matchScore: 'Potential',
+                            isVerified: !!signalTags.visible,
+                            lastVerifiedAt: new Date(),
+                            rawData: { signal: signalTags }
+                        }
+                    }
+                }
+            });
+        }
+    }
+
     return { status: 'completed' };
 }

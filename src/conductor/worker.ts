@@ -76,9 +76,9 @@ async function main() {
             // Show idle status periodically
             if (processedTotal > 0 && processedTotal % 10 === 0) {
                 try {
-                    const scans = await withRetry(() => (prisma as any).discoveryScan.findMany({
+                    const scans: any[] = await (prisma as any).discoveryScan.findMany({
                         where: { status: 'running' }
-                    }));
+                    });
                     for (const scan of scans) {
                         const pct = ((scan.completedCells / scan.totalCells) * 100).toFixed(2);
                         console.log(`[Worker] 📊 ${scan.state}: ${scan.completedCells}/${scan.totalCells} (${pct}%) — ${scan.foundLeads} leads`);

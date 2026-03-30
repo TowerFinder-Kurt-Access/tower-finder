@@ -47,3 +47,17 @@ next-env.d.ts
 sources/
 
 nul
+
+# discovery debug artifacts
+*.log
+antennasearch_*.png
+cellmapper_*.png
+fcc_error_*.png
+fcc_uls_debug.png
+fcc_results_debug.html
+antennasearch_last_response.html
+discovery_session_antennas/
+discovery_session_cellmapper/
+check_jobs_status.ts
+check_pending_jobs.ts
+test_fcc_uls.ts
