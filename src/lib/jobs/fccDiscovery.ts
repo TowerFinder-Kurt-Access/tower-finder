@@ -81,7 +81,7 @@ export async function processFCCDiscovery(params: Record<string, any>) {
     // Update DiscoveryScan progress
     if (scanId) {
         try {
-            const scan = await dbRetry(() => (prisma as any).discoveryScan.update({
+            const scan: any = await dbRetry(() => (prisma as any).discoveryScan.update({
                 where: { id: scanId },
                 data: {
                     completedCells: { increment: 1 },
