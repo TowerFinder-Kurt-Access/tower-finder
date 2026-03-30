@@ -21,8 +21,9 @@ export async function enqueueJob(jobType: string, params: Record<string, any>, r
  * Pick the next pending job that is ready to run.
  * Atomically sets status to 'processing' to prevent double-picks.
  * Respects runAfter (scheduled jobs) and maxAttempts (retry limit).
+ * @param jobTypeFilter Optional filter to only pick jobs of a specific type.
  */
-export async function pickNextJob() {
+export async function pickNextJob(jobTypeFilter?: string) {
     const now = new Date();
 
     // Find the oldest pending job that's ready to run
@@ -30,6 +31,7 @@ export async function pickNextJob() {
         where: {
             status: 'pending',
             runAfter: { lte: now },
+            ...(jobTypeFilter ? { jobType: jobTypeFilter } : {}),
         },
         orderBy: { createdAt: 'asc' },
     });

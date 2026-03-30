@@ -302,6 +302,25 @@ model JobQueue {
   @@index([jobType])
 }
 
+model DiscoveryScan {
+  id             Int       @id @default(autoincrement())
+  state          String
+  country        String    @default("US")
+  status         String    @default("pending") // pending, running, completed, failed
+  totalCells     Int       @default(0)
+  completedCells Int       @default(0)
+  failedCells    Int       @default(0)
+  foundLeads     Int       @default(0)
+  h3Resolution   Int       @default(7)
+  startedAt      DateTime?
+  completedAt    DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@unique([state, country])
+  @@index([status])
+}
+
 model CellMapperLog {
   id              Int       @id @default(autoincrement())
   towerId         Int       @unique
