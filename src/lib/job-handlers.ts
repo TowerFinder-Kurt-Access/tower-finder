@@ -4,6 +4,16 @@ import { processNRCanBatch } from './jobs/nrcan';
 import { validatePhoneNumbers } from './jobs/phone-validation';
 import { normalizeLocations } from './jobs/normalization';
 
+// Re-export individual handlers for internal use and testing
+export { 
+    processOSMLeads, 
+    submitGeoapifyBatch, 
+    pollGeoapifyBatch, 
+    processNRCanBatch, 
+    validatePhoneNumbers, 
+    normalizeLocations 
+};
+
 /**
  * Registry of job type → handler function.
  * Each handler receives the job's `params` and returns a result object.
