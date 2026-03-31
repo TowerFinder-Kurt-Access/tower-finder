@@ -177,43 +177,40 @@ export default function DiscoveryProgressPage() {
                 <Alert severity="info">No discovery scans found. Run the seed script to start scanning a state.</Alert>
             )}
 
-            <Stack direction="row" spacing={2} sx={{ overflowX: 'auto', pb: 2, px: 0.5 }}>
+            <Stack direction="row" spacing={2} sx={{ 
+                overflowX: 'auto', 
+                pb: 4, 
+                px: 1, 
+                '&::-webkit-scrollbar': { height: 6 },
+                '&::-webkit-scrollbar-thumb': { bgcolor: 'rgba(255,255,255,0.1)', borderRadius: 3 }
+            }}>
                 {scans.map(scan => (
                     <Paper
                         key={scan.id}
-                        elevation={0}
+                        variant="outlined"
                         onClick={() => setSelectedScan(scan.state)}
                         sx={{
-                            p: 2,
-                            minWidth: 300,
-                            maxWidth: 320,
+                            p: 2.5,
+                            minWidth: 320,
+                            width: 320,
+                            height: 220, // Fixed height to prevent layout shifts and cutoffs
                             cursor: 'pointer',
-                            border: '1px solid',
-                            borderColor: selectedScan === scan.state ? 'primary.main' : 'rgba(255,255,255,0.1)',
-                            bgcolor: selectedScan === scan.state ? 'rgba(76, 175, 80, 0.04)' : 'rgba(255,255,255,0.02)',
+                            display: 'flex',
+                            flexDirection: 'column',
                             borderRadius: 3,
-                            transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                            position: 'relative',
-                            overflow: 'hidden',
+                            bgcolor: selectedScan === scan.state ? 'rgba(76, 175, 80, 0.05)' : 'background.paper',
+                            borderColor: selectedScan === scan.state ? 'primary.main' : 'divider',
+                            transition: 'all 0.2s ease-in-out',
                             '&:hover': { 
                                 borderColor: 'primary.main',
                                 transform: 'translateY(-4px)',
-                                bgcolor: 'rgba(76, 175, 80, 0.08)',
-                                boxShadow: '0 12px 24px -10px rgba(0,0,0,0.5)'
+                                boxShadow: '0 8px 16px rgba(0,0,0,0.3)'
                             },
                         }}
                     >
-                        {/* Selected Indicator */}
-                        {selectedScan === scan.state && (
-                            <Box sx={{ 
-                                position: 'absolute', top: 0, left: 0, right: 0, height: 4, 
-                                bgcolor: 'primary.main', borderBottomLeftRadius: 4, borderBottomRightRadius: 4 
-                            }} />
-                        )}
-
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
                             <Box>
-                                <Typography variant="h6" fontWeight={800} sx={{ letterSpacing: '-0.5px' }}>
+                                <Typography variant="subtitle1" fontWeight={800} color="text.primary">
                                     {scan.state}
                                 </Typography>
                                 <Typography variant="caption" color="text.secondary">
@@ -223,27 +220,17 @@ export default function DiscoveryProgressPage() {
                             <Chip
                                 label={scan.status.toUpperCase()}
                                 size="small"
-                                sx={{
-                                    bgcolor: statusColor(scan.status),
-                                    color: 'white',
-                                    fontWeight: 900,
-                                    fontSize: '0.65rem',
-                                    height: 20,
-                                    boxShadow: scan.status === 'running' ? '0 0 12px rgba(76, 175, 80, 0.4)' : 'none',
-                                    animation: scan.status === 'running' ? 'pulse-glow 2s infinite' : 'none',
-                                    '@keyframes pulse-glow': {
-                                        '0%, 100%': { opacity: 1, transform: 'scale(1)' },
-                                        '50%': { opacity: 0.8, transform: 'scale(0.95)' },
-                                    },
+                                color={scan.status === 'running' ? 'primary' : 'default'}
+                                sx={{ 
+                                    fontWeight: 900, fontSize: '0.65rem', height: 20,
+                                    bgcolor: scan.status === 'paused' ? 'warning.main' : undefined 
                                 }}
                             />
                         </Box>
 
-                        <Box sx={{ mb: 2 }}>
-                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', mb: 1 }}>
-                                <Typography variant="caption" fontWeight={700} color="text.secondary" sx={{ textTransform: 'uppercase', fontSize: '0.65rem' }}>
-                                    Progress
-                                </Typography>
+                        <Box sx={{ flexGrow: 1 }}>
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                                <Typography variant="caption" fontWeight={700} color="text.secondary">PROGRESS</Typography>
                                 <Typography variant="subtitle2" fontWeight={900} color="primary">
                                     {scan.progressPercent}%
                                 </Typography>
@@ -252,48 +239,36 @@ export default function DiscoveryProgressPage() {
                                 variant="determinate"
                                 value={scan.progressPercent}
                                 sx={{
-                                    height: 6,
-                                    borderRadius: 3,
+                                    height: 10,
+                                    borderRadius: 5,
                                     bgcolor: 'rgba(255,255,255,0.05)',
-                                    '& .MuiLinearProgress-bar': {
-                                        borderRadius: 3,
-                                        background: 'linear-gradient(90deg, #4CAF50, #81C784)',
-                                    },
+                                    '& .MuiLinearProgress-bar': { borderRadius: 5 }
                                 }}
                             />
                         </Box>
 
                         <Box sx={{ 
-                            mt: 'auto', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1
+                            mt: 2, 
+                            display: 'grid', 
+                            gridTemplateColumns: '1fr 1fr', 
+                            gap: 1.5,
+                            pt: 2,
+                            borderTop: '1px solid',
+                            borderColor: 'divider'
                         }}>
                             {[
-                                { icon: <CheckCircleIcon sx={{ fontSize: 14 }} />, val: scan.completedCells, color: '#4CAF50' },
-                                { icon: <ErrorIcon sx={{ fontSize: 14 }} />, val: scan.failedCells, color: '#f44336' },
-                                { icon: <PendingIcon sx={{ fontSize: 14 }} />, val: scan.totalCells - scan.completedCells - scan.failedCells, color: 'rgba(255,255,255,0.3)' },
-                                { icon: <CellTowerIcon sx={{ fontSize: 14 }} />, val: scan.foundLeads, color: '#ff9800', suffix: ' leads' },
+                                { icon: <CheckCircleIcon sx={{ fontSize: 16 }} />, val: scan.completedCells, color: '#4CAF50' },
+                                { icon: <ErrorIcon sx={{ fontSize: 16 }} />, val: scan.failedCells, color: '#f44336' },
+                                { icon: <PendingIcon sx={{ fontSize: 16 }} />, val: scan.totalCells - scan.completedCells - scan.failedCells, color: 'text.secondary' },
+                                { icon: <CellTowerIcon sx={{ fontSize: 16 }} />, val: scan.foundLeads, color: '#ff9800', suffix: ' leads' },
                             ].map((stat, idx) => (
-                                <Box key={idx} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                <Box key={idx} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                     <Box sx={{ color: stat.color, display: 'flex' }}>{stat.icon}</Box>
-                                    <Typography variant="caption" fontWeight={700} sx={{ opacity: 0.9 }}>
+                                    <Typography variant="caption" fontWeight={700}>
                                         {stat.val}{stat.suffix}
                                     </Typography>
                                 </Box>
                             ))}
-                        </Box>
-
-                        <Box sx={{ mt: 1.5, pt: 1.5, borderTop: '1px solid rgba(255,255,255,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                           <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
-                                {formatDuration(scan.startedAt, scan.completedAt)}
-                            </Typography>
-                            {scan.status === 'running' && scan.estimatedTimeMinutes && (
-                                <Typography variant="caption" color="primary.main" fontWeight={700} sx={{ fontSize: '0.65rem', display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                    <TimerIcon sx={{ fontSize: 10 }} />
-                                    {scan.estimatedTimeMinutes > 60
-                                        ? `${Math.floor(scan.estimatedTimeMinutes / 60)}h ${scan.estimatedTimeMinutes % 60}m`
-                                        : `${scan.estimatedTimeMinutes}m`
-                                    }
-                                </Typography>
-                            )}
                         </Box>
                     </Paper>
                 ))}
