@@ -147,7 +147,7 @@ export default function DiscoveryProgressPage() {
     };
 
     return (
-        <Box sx={{ p: 3, height: 'calc(100vh - 64px)', display: 'flex', flexDirection: 'column', gap: 2, overflow: 'auto' }}>
+        <Box sx={{ p: 3, height: '100%', display: 'flex', flexDirection: 'column', gap: 2, overflow: 'hidden' }}>
             {/* Header */}
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -279,48 +279,36 @@ export default function DiscoveryProgressPage() {
                 ))}
             </Stack>
 
+            {/* Map Header */}
+            {activeScan && (
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', mt: 1 }}>
+                    <Box>
+                        <Typography variant="h6" fontWeight={700} sx={{ lineHeight: 1 }}>
+                            {activeScan.state} — Coverage Map
+                        </Typography>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mt: 0.5 }}>
+                            <Typography variant="caption" sx={{ color: 'text.secondary', display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                <Box component="span" sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#4CAF50' }} /> Completed
+                            </Typography>
+                            <Typography variant="caption" sx={{ color: 'text.secondary', display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                <Box component="span" sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#ff9800' }} /> Leads Found
+                            </Typography>
+                            <Typography variant="caption" sx={{ color: 'text.secondary', display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                <Box component="span" sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#f44336' }} /> Failed
+                            </Typography>
+                            <Typography variant="caption" sx={{ color: 'text.secondary', display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                <Box component="span" sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: 'rgba(255,255,255,0.1)' }} /> Pending
+                            </Typography>
+                        </Box>
+                    </Box>
+                    {mapLoading && <Typography variant="caption" color="primary" sx={{ animation: 'pulse 1s infinite' }}>Updating map data...</Typography>}
+                </Box>
+            )}
+
             {/* Map Section */}
             {activeScan && (
-                <Paper sx={{ flex: 1, minHeight: 500, overflow: 'hidden', position: 'relative' }}>
-                    {/* Map Header Overlay */}
-                    <Box sx={{
-                        position: 'absolute', top: 0, left: 0, right: 0, zIndex: 1000,
-                        p: 2, pl: 7, background: 'linear-gradient(180deg, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0) 100%)',
-                        pointerEvents: 'none',
-                    }}>
-                        <Typography variant="subtitle1" fontWeight={700} sx={{ color: 'white', lineHeight: 1.2 }}>
-                            {activeScan.state} — Cell Coverage Map
-                        </Typography>
-                        <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.8)', display: 'block' }}>
-                            <Box component="span" sx={{ color: '#4CAF50' }}>●</Box> Completed · 
-                            <Box component="span" sx={{ color: '#f44336' }}> ●</Box> Failed · 
-                            <Box component="span" sx={{ color: 'rgba(255,255,255,0.4)' }}> ●</Box> Pending
-                            {mapLoading && ' (Loading...)'}
-                        </Typography>
-                    </Box>
-
-                    {/* Legend overlay */}
-                    <Box sx={{
-                        position: 'absolute', bottom: 24, left: 16, zIndex: 1000,
-                        bgcolor: 'rgba(26,26,26,0.9)', borderRadius: 2, p: 1.5,
-                        border: '1px solid #333',
-                    }}>
-                        <Typography variant="caption" fontWeight={700} sx={{ color: 'white', display: 'block', mb: 0.5 }}>
-                            Legend
-                        </Typography>
-                        {[
-                            { color: '#4CAF50', label: 'Completed (no leads)' },
-                            { color: '#ff9800', label: 'Completed (with leads)' },
-                            { color: '#f44336', label: 'Failed' },
-                            { color: 'rgba(255,255,255,0.2)', label: 'Pending' },
-                        ].map(item => (
-                            <Box key={item.label} sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.25 }}>
-                                <Box sx={{ width: 12, height: 12, borderRadius: '50%', bgcolor: item.color, border: '1px solid rgba(255,255,255,0.3)' }} />
-                                <Typography variant="caption" sx={{ color: '#ccc' }}>{item.label}</Typography>
-                            </Box>
-                        ))}
-                    </Box>
-
+                <Paper sx={{ flex: 1, minHeight: 400, overflow: 'hidden', position: 'relative', border: '1px solid rgba(255,255,255,0.05)', borderRadius: 2 }}>
+                    {/* Legend overlay removed in favor of header and clearer markers */}
                     <DiscoveryMap cells={mapData} state={activeScan.state} />
                 </Paper>
             )}
