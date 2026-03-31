@@ -18,7 +18,9 @@ async function main() {
         || 'Illinois';
 
     const country = 'US';
-    const resolution = 6; // H3 res-6 = ~36 km² hexagons, ~3.2km edge — good for initial test
+    const resolutionArg = process.argv.find(a => a.startsWith('--resolution='))?.split('=')[1]
+        || process.argv[process.argv.indexOf('--resolution') + 1];
+    const resolution = resolutionArg ? parseInt(resolutionArg) : 6;
 
     console.log(`[Seed] Starting discovery seed for ${stateArg} (${country})...`);
 

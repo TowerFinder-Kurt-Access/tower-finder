@@ -11,6 +11,7 @@ import Chip from '@mui/material/Chip';
 import Stack from '@mui/material/Stack';
 import CircularProgress from '@mui/material/CircularProgress';
 import LinearProgress from '@mui/material/LinearProgress';
+import Grid from '@mui/material/Grid';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import RadarIcon from '@mui/icons-material/Radar';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
@@ -176,47 +177,74 @@ export default function DiscoveryProgressPage() {
                 <Alert severity="info">No discovery scans found. Run the seed script to start scanning a state.</Alert>
             )}
 
-            <Stack direction="row" spacing={2} sx={{ overflowX: 'auto', pb: 1 }}>
+            <Stack direction="row" spacing={2} sx={{ overflowX: 'auto', pb: 2, px: 0.5 }}>
                 {scans.map(scan => (
                     <Paper
                         key={scan.id}
-                        elevation={selectedScan === scan.state ? 8 : 1}
+                        elevation={0}
                         onClick={() => setSelectedScan(scan.state)}
                         sx={{
                             p: 2,
-                            minWidth: 280,
+                            minWidth: 300,
+                            maxWidth: 320,
                             cursor: 'pointer',
-                            border: selectedScan === scan.state ? '2px solid #4CAF50' : '2px solid transparent',
-                            bgcolor: selectedScan === scan.state ? 'rgba(76, 175, 80, 0.05)' : 'background.paper',
-                            transition: 'all 0.2s ease',
-                            '&:hover': { borderColor: '#4CAF50', transform: 'translateY(-2px)' },
+                            border: '1px solid',
+                            borderColor: selectedScan === scan.state ? 'primary.main' : 'rgba(255,255,255,0.1)',
+                            bgcolor: selectedScan === scan.state ? 'rgba(76, 175, 80, 0.04)' : 'rgba(255,255,255,0.02)',
+                            borderRadius: 3,
+                            transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                            position: 'relative',
+                            overflow: 'hidden',
+                            '&:hover': { 
+                                borderColor: 'primary.main',
+                                transform: 'translateY(-4px)',
+                                bgcolor: 'rgba(76, 175, 80, 0.08)',
+                                boxShadow: '0 12px 24px -10px rgba(0,0,0,0.5)'
+                            },
                         }}
                     >
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                            <Typography variant="h6" fontWeight={700}>
-                                {scan.state}
-                            </Typography>
+                        {/* Selected Indicator */}
+                        {selectedScan === scan.state && (
+                            <Box sx={{ 
+                                position: 'absolute', top: 0, left: 0, right: 0, height: 4, 
+                                bgcolor: 'primary.main', borderBottomLeftRadius: 4, borderBottomRightRadius: 4 
+                            }} />
+                        )}
+
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+                            <Box>
+                                <Typography variant="h6" fontWeight={800} sx={{ letterSpacing: '-0.5px' }}>
+                                    {scan.state}
+                                </Typography>
+                                <Typography variant="caption" color="text.secondary">
+                                    Res {scan.h3Resolution} · {scan.totalCells} cells
+                                </Typography>
+                            </Box>
                             <Chip
                                 label={scan.status.toUpperCase()}
                                 size="small"
                                 sx={{
                                     bgcolor: statusColor(scan.status),
                                     color: 'white',
-                                    fontWeight: 700,
-                                    fontSize: '0.7rem',
-                                    animation: scan.status === 'running' ? 'pulse 2s ease-in-out infinite' : 'none',
-                                    '@keyframes pulse': {
-                                        '0%, 100%': { opacity: 1 },
-                                        '50%': { opacity: 0.7 },
+                                    fontWeight: 900,
+                                    fontSize: '0.65rem',
+                                    height: 20,
+                                    boxShadow: scan.status === 'running' ? '0 0 12px rgba(76, 175, 80, 0.4)' : 'none',
+                                    animation: scan.status === 'running' ? 'pulse-glow 2s infinite' : 'none',
+                                    '@keyframes pulse-glow': {
+                                        '0%, 100%': { opacity: 1, transform: 'scale(1)' },
+                                        '50%': { opacity: 0.8, transform: 'scale(0.95)' },
                                     },
                                 }}
                             />
                         </Box>
 
-                        <Box sx={{ mb: 1.5 }}>
-                            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-                                <Typography variant="caption" color="text.secondary">Progress</Typography>
-                                <Typography variant="caption" fontWeight={700} color="primary">
+                        <Box sx={{ mb: 2 }}>
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', mb: 1 }}>
+                                <Typography variant="caption" fontWeight={700} color="text.secondary" sx={{ textTransform: 'uppercase', fontSize: '0.65rem' }}>
+                                    Progress
+                                </Typography>
+                                <Typography variant="subtitle2" fontWeight={900} color="primary">
                                     {scan.progressPercent}%
                                 </Typography>
                             </Box>
@@ -224,60 +252,53 @@ export default function DiscoveryProgressPage() {
                                 variant="determinate"
                                 value={scan.progressPercent}
                                 sx={{
-                                    height: 8,
-                                    borderRadius: 4,
-                                    bgcolor: 'rgba(76, 175, 80, 0.1)',
+                                    height: 6,
+                                    borderRadius: 3,
+                                    bgcolor: 'rgba(255,255,255,0.05)',
                                     '& .MuiLinearProgress-bar': {
-                                        borderRadius: 4,
-                                        background: 'linear-gradient(90deg, #4CAF50, #66BB6A)',
+                                        borderRadius: 3,
+                                        background: 'linear-gradient(90deg, #4CAF50, #81C784)',
                                     },
                                 }}
                             />
                         </Box>
 
-                        <Stack direction="row" spacing={2} sx={{ flexWrap: 'wrap' }}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                <CheckCircleIcon sx={{ fontSize: 14, color: '#4CAF50' }} />
-                                <Typography variant="caption">{scan.completedCells}</Typography>
-                            </Box>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                <ErrorIcon sx={{ fontSize: 14, color: '#f44336' }} />
-                                <Typography variant="caption">{scan.failedCells}</Typography>
-                            </Box>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                <PendingIcon sx={{ fontSize: 14, color: '#9e9e9e' }} />
-                                <Typography variant="caption">{scan.remainingCells}</Typography>
-                            </Box>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                <CellTowerIcon sx={{ fontSize: 14, color: '#ff9800' }} />
-                                <Typography variant="caption" fontWeight={700}>{scan.foundLeads} leads</Typography>
-                            </Box>
-                        </Stack>
-
-                        <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
-                            <Typography variant="caption" color="text.secondary">
-                                Res {scan.h3Resolution} · {scan.totalCells} cells
-                            </Typography>
-                            {scan.status === 'running' && scan.estimatedTimeMinutes && (
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                    <TimerIcon sx={{ fontSize: 12, color: 'text.secondary' }} />
-                                    <Typography variant="caption" color="text.secondary">
-                                        ~{scan.estimatedTimeMinutes > 60
-                                            ? `${Math.floor(scan.estimatedTimeMinutes / 60)}h ${scan.estimatedTimeMinutes % 60}m`
-                                            : `${scan.estimatedTimeMinutes}m`
-                                        } remaining
+                        <Box sx={{ 
+                            mt: 'auto', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1
+                        }}>
+                            {[
+                                { icon: <CheckCircleIcon sx={{ fontSize: 14 }} />, val: scan.completedCells, color: '#4CAF50' },
+                                { icon: <ErrorIcon sx={{ fontSize: 14 }} />, val: scan.failedCells, color: '#f44336' },
+                                { icon: <PendingIcon sx={{ fontSize: 14 }} />, val: scan.totalCells - scan.completedCells - scan.failedCells, color: 'rgba(255,255,255,0.3)' },
+                                { icon: <CellTowerIcon sx={{ fontSize: 14 }} />, val: scan.foundLeads, color: '#ff9800', suffix: ' leads' },
+                            ].map((stat, idx) => (
+                                <Box key={idx} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                    <Box sx={{ color: stat.color, display: 'flex' }}>{stat.icon}</Box>
+                                    <Typography variant="caption" fontWeight={700} sx={{ opacity: 0.9 }}>
+                                        {stat.val}{stat.suffix}
                                     </Typography>
                                 </Box>
-                            )}
-                        </Stack>
+                            ))}
+                        </Box>
 
-                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
-                            Duration: {formatDuration(scan.startedAt, scan.completedAt)}
-                            {' · '}Algorithm: FCC ULS
-                        </Typography>
+                        <Box sx={{ mt: 1.5, pt: 1.5, borderTop: '1px solid rgba(255,255,255,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                           <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
+                                {formatDuration(scan.startedAt, scan.completedAt)}
+                            </Typography>
+                            {scan.status === 'running' && scan.estimatedTimeMinutes && (
+                                <Typography variant="caption" color="primary.main" fontWeight={700} sx={{ fontSize: '0.65rem', display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                    <TimerIcon sx={{ fontSize: 10 }} />
+                                    {scan.estimatedTimeMinutes > 60
+                                        ? `${Math.floor(scan.estimatedTimeMinutes / 60)}h ${scan.estimatedTimeMinutes % 60}m`
+                                        : `${scan.estimatedTimeMinutes}m`
+                                    }
+                                </Typography>
+                            )}
+                        </Box>
                     </Paper>
                 ))}
             </Stack>
+
 
             {/* Map Header */}
             {activeScan && (
