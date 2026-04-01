@@ -48,10 +48,12 @@ export class FCCService {
 
             // STEP 2: Geographic Coordinate Search
             const dms = this.decimalToDMS(lat, lon);
+            
+            // Fill form fields WITHOUT submitting (prepare for Playwright-tracked navigation)
             await page.evaluate((d) => {
                 const form = document.querySelector('form[name="ULSForm"]') as any;
                 if (form) {
-                    form.searchType[1].checked = true; // Coordinates
+                    form.searchType[1].checked = true; // Coordinates radio
                     form.latDeg.value = d.lat.deg;
                     form.latMin.value = d.lat.min;
                     form.latSec.value = d.lat.sec;
@@ -64,22 +66,35 @@ export class FCCService {
                     form.radiusunit.value = 'MI';
                     form.hiddenForm.value = 'hiddenForm';
                     form.searchType.value = 'UGCOORD';
-                    form.submit();
                 }
             }, { ...dms, radius: radiusMiles.toString() });
 
-            try {
-                await page.waitForURL(url => url.toString().includes('results.jsp'), { timeout: 45000 });
-            } catch (e) {
-                console.log('[FCC] Waiting for results.jsp timed out. Checking if results are on current page...');
+            // Submit form WITH Playwright navigation tracking
+            // form.submit() inside evaluate() bypasses Playwright's navigation detection,
+            // causing waitForURL to always time out. Using Promise.all ensures proper tracking.
+            await Promise.all([
+                page.waitForNavigation({ waitUntil: 'load', timeout: 45000 }),
+                page.evaluate(() => {
+                    const form = document.querySelector('form[name="ULSForm"]') as any;
+                    if (form) form.submit();
+                })
+            ]);
+
+            const currentUrl = page.url();
+            console.log(`[FCC] After form submit, current URL: ${currentUrl}`);
+
+            if (!currentUrl.includes('results.jsp')) {
+                console.log('[FCC] Did not reach results.jsp — no results for this location.');
+                return results;
             }
 
-            // Scan up to 5 pages for faster testing
+            // Scan up to 5 pages for results
             for (let pageNum = 1; pageNum <= 5; pageNum++) {
                 console.log(`[FCC] Scanning results page ${pageNum}...`);
                 const resultTable = page.locator('table').filter({ hasText: 'Call Sign/Lease ID' }).last();
                 const rows = resultTable.locator('tr');
                 const rowCount = await rows.count();
+                console.log(`[FCC] Found ${rowCount} rows in results table on page ${pageNum}`);
 
                 for (let i = 0; i < rowCount; i++) {
                     const text = await rows.nth(i).innerText();
@@ -106,7 +121,6 @@ export class FCCService {
                 const nextBtn = page.locator('img[alt="Next"], a:has-text("Next")').first();
                 if (await nextBtn.isVisible() && pageNum < 5) {
                     await nextBtn.click();
-                    // Wait for the table to update
                     await page.waitForTimeout(2000); 
                 } else {
                     break;
@@ -126,8 +140,6 @@ export class FCCService {
                     });
                 }
             }
-
-            return results;
 
             console.log(`[FCC] Successfully captured ${results.length} AT&T records.`);
             return results;
