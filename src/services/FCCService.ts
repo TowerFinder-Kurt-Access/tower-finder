@@ -12,13 +12,14 @@ export class FCCService {
             const absolute = Math.abs(decimal);
             const deg = Math.floor(absolute);
             const min = Math.floor((absolute - deg) * 60);
-            const sec = Math.floor((absolute - deg) * 60 - min) * 60;
+            const rawSec = ((absolute - deg) * 60 - min) * 60;
+            const sec = Math.round(rawSec);
             return { deg: deg.toString(), min: min.toString(), sec: sec.toString() };
         };
 
         return {
             lat: { ...convert(lat), dir: lat >= 0 ? 'N' : 'S' },
-            lon: { ...convert(lon), dir: lon >= 0 ? 'W' : 'E' } // FCC uses W for negative lon
+            lon: { ...convert(lon), dir: lon >= 0 ? 'E' : 'W' } // Negative longitude = West (US is negative)
         };
     }
 
