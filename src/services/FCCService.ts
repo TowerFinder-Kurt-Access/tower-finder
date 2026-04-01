@@ -26,10 +26,12 @@ export class FCCService {
     /**
      * Discover AT&T antennas by scraping the FCC ULS Geographic Search.
      * Scans multiple pages to ensure results aren't missed due to volume.
+     * Set FCC_HEADED=1 env var to watch the browser live for debugging.
      */
     static async fetchAntennas(lat: number, lon: number, radiusMiles: number = 0.5): Promise<any[]> {
         const results: any[] = [];
-        const browser = await chromium.launch({ headless: true });
+        const isHeaded = process.env.FCC_HEADED === '1';
+        const browser = await chromium.launch({ headless: !isHeaded, slowMo: isHeaded ? 200 : 0 });
         const context = await browser.newContext();
         const page = await context.newPage();
 
