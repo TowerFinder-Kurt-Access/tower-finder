@@ -32,7 +32,8 @@ export async function processFCCDiscovery(params: Record<string, any>) {
     let foundCount = 0;
 
     try {
-        const licenses = await FCCService.fetchAntennas(lat, lon, 1.0); // 1 mile radius for H3 res-6
+        // Use 0.5 mile radius for H3 Res-8 cells (~0.46km across) for efficiency.
+        const licenses = await FCCService.fetchAntennas(lat, lon, 0.5); 
 
         console.log(`[FCC-Job] Found ${licenses.length} AT&T licenses at cell ${h3Index}`);
 
