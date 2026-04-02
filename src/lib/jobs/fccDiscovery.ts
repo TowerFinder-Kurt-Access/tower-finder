@@ -20,29 +20,29 @@ async function dbRetry<T>(fn: () => Promise<T>, retries = 3, delayMs = 5000): Pr
 }
 
 /**
- * FCC Rooftop Discovery Job Handler
- * Processes a single H3 cell: runs the FCC ULS scraper,
+ * FCC County Discovery Job Handler
+ * Processes a single County for a State: runs the 2-step FCC ULS pipeline,
  * saves results as TowerLeads, and updates DiscoveryScan progress.
  */
-export async function processFCCDiscovery(params: Record<string, any>) {
-    const { lat, lon, h3Index, state, country, scanId } = params;
+export async function processFCCDiscoveryCounty(params: Record<string, any>) {
+    const { state, county, licensee, scanId } = params;
 
-    console.log(`[FCC-Job] Processing cell ${h3Index} (${lat}, ${lon}) for ${state}...`);
+    console.log(`[FCC-County] Starting work for ${county}, ${state} (${licensee})...`);
 
     let foundCount = 0;
 
     try {
-        // Use 0.5 mile radius for H3 Res-8 cells (~0.46km across) for efficiency.
-        const licenses = await FCCService.fetchAntennas(lat, lon, 0.5); 
+        // Run the stable county discovery
+        const results = await FCCService.discoverCountyLeads(state, county, licensee);
 
-        console.log(`[FCC-Job] Found ${licenses.length} AT&T licenses at cell ${h3Index}`);
+        console.log(`[FCC-County] Verification complete. Found ${results.length} building sites in ${county}.`);
 
-        for (const lic of licenses) {
+        for (const lic of results) {
             await dbRetry(() => prisma.towerLead.upsert({
                 where: {
                     lat_lon_source: {
-                        lat: lic.lat ?? lat,
-                        lon: lic.lon ?? lon,
+                        lat: lic.lat,
+                        lon: lic.lon,
                         source: 'FCC_ULS'
                     }
                 },
@@ -51,64 +51,68 @@ export async function processFCCDiscovery(params: Record<string, any>) {
                     updatedAt: new Date()
                 },
                 create: {
-                    lat: lic.lat ?? lat,
-                    lon: lic.lon ?? lon,
+                    lat: lic.lat,
+                    lon: lic.lon,
                     source: 'FCC_ULS',
                     sourceId: lic.registrationId || null,
                     type: 'rooftop',
-                    country: country || 'US',
+                    country: 'US',
                     province: state || null,
+                    city: county || null,
                     tags: lic as any
                 }
             }));
             foundCount++;
         }
     } catch (error: any) {
-        console.error(`[FCC-Job] Error processing cell ${h3Index}:`, error.message);
-        // Still update progress even on failure — the cell was attempted
+        console.error(`[FCC-County] Error processing ${county}:`, error.message);
+        
         if (scanId) {
             try {
-                await dbRetry(() => (prisma as any).discoveryScan.update({
+                await dbRetry(() => prisma.discoveryScan.update({
                     where: { id: scanId },
-                    data: { failedCells: { increment: 1 } }
+                    data: { failedCounties: { increment: 1 } }
                 }));
             } catch (dbErr: any) {
-                console.warn(`[FCC-Job] Could not update failedCells:`, dbErr.message);
+                 console.warn(`[FCC-County] Progress failure:`, dbErr.message);
             }
         }
-        throw error; // Let the job queue handle retries
+        throw error;
     }
 
-    // Update DiscoveryScan progress
+    // Update Progress
     if (scanId) {
         try {
-            const scan: any = await dbRetry(() => (prisma as any).discoveryScan.update({
+            const scan = await dbRetry(() => prisma.discoveryScan.update({
                 where: { id: scanId },
                 data: {
-                    completedCells: { increment: 1 },
+                    completedCounties: { increment: 1 },
                     foundLeads: { increment: foundCount }
                 }
             }));
 
-            const pct = ((scan.completedCells / scan.totalCells) * 100).toFixed(2);
-            console.log(`[FCC-Job] Progress: ${scan.completedCells}/${scan.totalCells} (${pct}%) — ${scan.foundLeads} leads found so far`);
+            const pct = ((scan.completedCounties / (scan.totalCounties || 1)) * 100).toFixed(1);
+            console.log(`[FCC-County] Progress: ${scan.completedCounties}/${scan.totalCounties} (${pct}%) — ${scan.foundLeads} rooftops found.`);
 
-            // Check if scan is complete
-            if (scan.completedCells + scan.failedCells >= scan.totalCells) {
-                await dbRetry(() => (prisma as any).discoveryScan.update({
+            if (scan.completedCounties + scan.failedCounties >= scan.totalCounties) {
+                await dbRetry(() => prisma.discoveryScan.update({
                     where: { id: scanId },
-                    data: {
-                        status: 'completed',
-                        completedAt: new Date()
-                    }
+                    data: { status: 'completed', completedAt: new Date() }
                 }));
-                console.log(`[FCC-Job] ✅ Scan for ${state} COMPLETE!`);
+                console.log(`[FCC-County] ✅ State ${state} DISCOVERY DONE!`);
             }
         } catch (dbErr: any) {
-            // Non-fatal: the job itself succeeded, just progress tracking failed
-            console.warn(`[FCC-Job] Could not update progress:`, dbErr.message);
+            console.warn(`[FCC-County] Final progress update failed:`, dbErr.message);
         }
     }
 
-    return { h3Index, foundCount, lat, lon };
+    return { county, state, foundCount };
+}
+
+/** Legacy support or shared entry */
+export async function processFCCDiscovery(params: Record<string, any>) {
+    if (params.county) {
+        return processFCCDiscoveryCounty(params);
+    }
+    // ... rest of old code if needed, but we are moving to county
 }
