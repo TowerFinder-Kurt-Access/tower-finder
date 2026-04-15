@@ -33,11 +33,11 @@ export const JOB_HANDLERS: Record<string, (params: any, jobId?: string) => Promi
     'normalize_locations': normalizeLocations,
     'fcc_rooftop_discovery': async (params: any, jobId?: string) => {
         const { processFCCDiscovery } = await import('./jobs/fccDiscovery');
-        return processFCCDiscovery(params, jobId);
+        return processFCCDiscovery(params);
     },
     'fcc-discovery-county': async (params: any, jobId?: string) => {
         const { processFCCDiscoveryCounty } = await import('./jobs/fccDiscovery');
-        return processFCCDiscoveryCounty(params, jobId);
+        return processFCCDiscoveryCounty(params);
     },
     'arcgis-county-discovery': processArcGISCountyDiscovery,
 };
