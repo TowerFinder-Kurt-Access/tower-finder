@@ -30,9 +30,11 @@ export const JOB_HANDLERS: Record<string, (params: any) => Promise<any>> = {
     'validate_phone_numbers': validatePhoneNumbers,
     'normalize_locations': normalizeLocations,
     'fcc_rooftop_discovery': async (params: any) => {
-        // Dynamic import to prevent Playwright/Chromium being bundled eagerly 
-        // and causing build errors on environments like Vercel.
         const { processFCCDiscovery } = await import('./jobs/fccDiscovery');
         return processFCCDiscovery(params);
+    },
+    'fcc-discovery-county': async (params: any) => {
+        const { processFCCDiscoveryCounty } = await import('./jobs/fccDiscovery');
+        return processFCCDiscoveryCounty(params);
     }
 };
