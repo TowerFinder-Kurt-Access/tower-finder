@@ -14,6 +14,7 @@ import SatelliteAltIcon from '@mui/icons-material/SatelliteAlt';
 import AddLocationAltIcon from '@mui/icons-material/AddLocationAlt';
 import MapIcon from '@mui/icons-material/Map';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
+import TerrainIcon from '@mui/icons-material/Terrain';
 import AddOwnerDialog from '@/components/AddOwnerDialog';
 
 import { STATIC_LOCATIONS, ABBR_TO_PROVINCE } from '@/lib/locations';
@@ -327,6 +328,17 @@ function TowerLeadsContent() {
                                 target="_blank"
                             >
                                 <SatelliteAltIcon fontSize="small" />
+                            </IconButton>
+                        </Tooltip>
+
+                        <Tooltip title="View Terrain">
+                            <IconButton
+                                size="small"
+                                color="primary"
+                                href={`https://www.google.com/maps?q=loc:${lead.lat},${lead.lon}&t=p`}
+                                target="_blank"
+                            >
+                                <TerrainIcon fontSize="small" />
                             </IconButton>
                         </Tooltip>
 
