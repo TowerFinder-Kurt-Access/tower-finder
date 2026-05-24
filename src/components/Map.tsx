@@ -60,6 +60,7 @@ interface MapProps {
         rawData: any;
     }[];
     onBoundsChange?: (bounds: { north: number, south: number, east: number, west: number }) => void;
+    userPosition?: { lat: number; lon: number; accuracy?: number } | null;
 }
 
 // Helper function to convert GeoJSON or ArcGIS geometry to Leaflet coordinates
@@ -124,7 +125,7 @@ function MapEvents({ onBoundsChange }: { onBoundsChange?: (bounds: any) => void 
 
 export default function Map({
     center, zoom, bounds, towers, towerLeads = [], businessesNearby = [],
-    onTowerSelect, selectedTower, onBoundsChange
+    onTowerSelect, selectedTower, onBoundsChange, userPosition
 }: MapProps) {
 
     // Debug logging for selected tower geometry
@@ -171,6 +172,36 @@ export default function Map({
                 }
                 return null;
             })()}
+
+            {/* User's live GPS position (blue dot + accuracy halo) */}
+            {userPosition && (
+                <>
+                    {typeof userPosition.accuracy === 'number' && userPosition.accuracy > 0 && (
+                        <CircleMarker
+                            center={[userPosition.lat, userPosition.lon] as LatLngExpression}
+                            pathOptions={{
+                                color: '#1976d2',
+                                fillColor: '#42A5F5',
+                                fillOpacity: 0.15,
+                                weight: 1
+                            }}
+                            radius={Math.min(40, Math.max(12, userPosition.accuracy / 4))}
+                            interactive={false}
+                        />
+                    )}
+                    <CircleMarker
+                        center={[userPosition.lat, userPosition.lon] as LatLngExpression}
+                        pathOptions={{
+                            color: '#1976d2',
+                            fillColor: '#42A5F5',
+                            fillOpacity: 0.9,
+                            weight: 2
+                        }}
+                        radius={8}
+                        interactive={false}
+                    />
+                </>
+            )}
 
             {/* Existing Towers (Red) - Clustered */}
             <MarkerClusterGroup

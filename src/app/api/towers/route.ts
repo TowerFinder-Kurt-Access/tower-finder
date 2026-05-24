@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
-import { getAuthUser, requireAdmin } from '@/lib/auth-helpers';
+import { getAuthUser } from '@/lib/auth-helpers';
 import { buildTowerAccessFilter } from '@/lib/tower-access';
 import { ABBR_TO_PROVINCE } from '@/lib/locations';
 
@@ -523,14 +523,15 @@ export async function GET(request: Request) {
     }
 }
 
-// POST /api/towers - Create a new tower (admin only)
+// POST /api/towers - Create a new tower
+// Any authenticated user may create; field drops (source='field') auto-assign to the creator
+// so CALLERs can see their own creation under the per-user access filter.
 export async function POST(request: Request) {
     try {
-        // Only admins can create towers
-        await requireAdmin();
+        const user = await getAuthUser();
 
         const body = await request.json();
-        const { lat, lon, type, status } = body;
+        const { lat, lon, type, status, source } = body;
 
         if (!lat || !lon) {
             return NextResponse.json({ error: 'Latitude and Longitude are required' }, { status: 400 });
@@ -558,6 +559,8 @@ export async function POST(request: Request) {
             statusId = newStatus.id;
         }
 
+        const resolvedSource = typeof source === 'string' && source.length > 0 ? source : undefined;
+
         // Upsert: Create if not found, or update if exists (though usually we just want to return existing)
         // Using upsert ensures we don't violate unique constraint
         const tower = await prisma.tower.upsert({
@@ -577,14 +580,23 @@ export async function POST(request: Request) {
                 lon: parseFloat(lon),
                 typeId: typeId || undefined,
                 statusId: statusId,
-                legacyStatus: status || 'New'
+                legacyStatus: status || 'New',
+                source: resolvedSource ?? undefined
             }
         });
 
+        if (resolvedSource === 'field') {
+            await prisma.towerAssignment.upsert({
+                where: { userId_towerId: { userId: user.id, towerId: tower.id } },
+                update: {},
+                create: { userId: user.id, towerId: tower.id, assignedBy: user.id }
+            });
+        }
+
         return NextResponse.json(tower);
     } catch (error) {
-        if (error instanceof Error && error.message.includes('Forbidden')) {
-            return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 });
+        if (error instanceof Error && error.message === 'Unauthorized') {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
         console.error('Error creating tower:', error);
         return NextResponse.json({ error: 'Failed to create tower' }, { status: 500 });

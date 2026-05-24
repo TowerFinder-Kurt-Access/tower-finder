@@ -8,6 +8,9 @@ import axios from 'axios';
 import { Paper } from '@mui/material';
 import { useCountry } from '@/lib/country-context';
 import MapIcon from '@mui/icons-material/Map';
+import MyLocationIcon from '@mui/icons-material/MyLocation';
+import AddLocationIcon from '@mui/icons-material/AddLocation';
+import { useGeolocation } from '@/hooks/useGeolocation';
 // Dynamically import Map to avoid SSR issues with Leaflet
 const Map = dynamic(() => import('@/components/Map'), {
   ssr: false,
@@ -65,6 +68,9 @@ function HomeContent() {
   const [leadToPromote, setLeadToPromote] = useState<any>(null);
   const [addOwnerTower, setAddOwnerTower] = useState<any>(null);
   const [isViewingSpecificTower, setIsViewingSpecificTower] = useState<boolean>(false);
+  const [isTrackingLocation, setIsTrackingLocation] = useState<boolean>(false);
+  const [isDroppingTower, setIsDroppingTower] = useState<boolean>(false);
+  const { position: userPosition, error: geoError, start: startGeo, stop: stopGeo } = useGeolocation();
 
   const isMounted = useRef(true);
   useEffect(() => {
@@ -378,6 +384,60 @@ function HomeContent() {
     setShowLeads(!showLeads);
   };
 
+  const toggleLocationTracking = () => {
+    if (isTrackingLocation) {
+      stopGeo();
+      setIsTrackingLocation(false);
+    } else {
+      startGeo();
+      setIsTrackingLocation(true);
+    }
+  };
+
+  // When we first acquire a GPS fix, recenter the map there once.
+  const hasCenteredOnUserRef = useRef(false);
+  useEffect(() => {
+    if (isTrackingLocation && userPosition && !hasCenteredOnUserRef.current) {
+      setMapCenter([userPosition.lat, userPosition.lon]);
+      setZoom(17);
+      setShouldFitBounds(false);
+      setBoundsToFit(undefined);
+      hasCenteredOnUserRef.current = true;
+    }
+    if (!isTrackingLocation) {
+      hasCenteredOnUserRef.current = false;
+    }
+  }, [isTrackingLocation, userPosition]);
+
+  const handleDropTower = async () => {
+    if (!userPosition) return;
+    if (!window.confirm('Drop a new tower at your current location?')) return;
+    setIsDroppingTower(true);
+    try {
+      const { data: newTower } = await axios.post('/api/towers', {
+        lat: userPosition.lat,
+        lon: userPosition.lon,
+        source: 'field'
+      });
+      if (!isMounted.current) return;
+      setTowers(prev => {
+        const idx = prev.findIndex(t => t.id === newTower.id);
+        if (idx >= 0) {
+          const next = prev.slice();
+          next[idx] = { ...prev[idx], ...newTower };
+          return next;
+        }
+        return [...prev, newTower];
+      });
+      setSelectedTower(newTower);
+    } catch (err) {
+      console.error('Failed to drop tower', err);
+      alert('Could not create tower. Please try again.');
+    } finally {
+      if (isMounted.current) setIsDroppingTower(false);
+    }
+  };
+
   if (!mounted) return null;
 
   return (
@@ -417,6 +477,7 @@ function HomeContent() {
             onTowerSelect={handleTowerSelect}
             selectedTower={selectedTower}
             towerLeads={showLeads ? towerLeads : []}
+            userPosition={isTrackingLocation ? userPosition : null}
           />
         </Suspense>
 
@@ -454,6 +515,81 @@ function HomeContent() {
               </Box>
             </Box>
           </Box>
+        </Paper>
+
+        <Paper
+          elevation={3}
+          sx={{
+            position: 'absolute',
+            top: 90,
+            right: 20,
+            zIndex: 1000,
+            bgcolor: 'background.paper',
+            borderRadius: 2,
+            overflow: 'hidden',
+            minWidth: 200
+          }}
+        >
+          <Box
+            onClick={toggleLocationTracking}
+            sx={{
+              p: 1.5,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1,
+              minHeight: 44,
+              '&:hover': { bgcolor: 'action.hover' },
+              bgcolor: isTrackingLocation ? 'primary.soft' : 'background.paper'
+            }}
+          >
+            <MyLocationIcon color={isTrackingLocation ? 'primary' : 'action'} />
+            <Box>
+              <Box sx={{ fontWeight: 'bold', fontSize: '0.9rem' }}>
+                {isTrackingLocation ? 'Tracking location' : 'Locate me'}
+              </Box>
+              <Box sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>
+                {isTrackingLocation
+                  ? (userPosition ? 'GPS active' : 'Waiting for GPS…')
+                  : 'Tap to share location'}
+              </Box>
+            </Box>
+          </Box>
+
+          {isTrackingLocation && geoError && (
+            <Box sx={{ px: 1.5, pb: 1, fontSize: '0.75rem', color: 'error.main' }}>
+              Location unavailable — check permissions
+            </Box>
+          )}
+
+          {isTrackingLocation && userPosition && (
+            <Box
+              onClick={isDroppingTower ? undefined : handleDropTower}
+              sx={{
+                p: 1.5,
+                cursor: isDroppingTower ? 'wait' : 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1,
+                minHeight: 44,
+                borderTop: '1px solid',
+                borderColor: 'divider',
+                bgcolor: 'success.soft',
+                opacity: isDroppingTower ? 0.6 : 1,
+                '&:hover': { bgcolor: isDroppingTower ? 'success.soft' : 'action.hover' }
+              }}
+            >
+              <AddLocationIcon color="success" />
+              <Box>
+                <Box sx={{ fontWeight: 'bold', fontSize: '0.9rem' }}>
+                  {isDroppingTower ? 'Saving…' : 'Drop tower here'}
+                </Box>
+                <Box sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>
+                  {userPosition.lat.toFixed(5)}, {userPosition.lon.toFixed(5)}
+                </Box>
+              </Box>
+            </Box>
+          )}
         </Paper>
 
         <PromoteLeadDialog
