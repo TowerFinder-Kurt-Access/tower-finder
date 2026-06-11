@@ -31,6 +31,13 @@ model Tower {
   businessCount       Int?
   placesProcessedAt   DateTime?
   parcelProcessedAt   DateTime?
+  humanLabel          String?
+  labelSource         String?
+  labeledAt           DateTime?
+  aiTowerScore        Float?
+  aiLabel             String?
+  aiClassifiedAt      DateTime?
+  aiModelVersion      String?
   rawImportData       Json?             @map("rawExcelData")
   businessesNearby    BusinessNearby[]
   notes               Note[]
@@ -45,6 +52,8 @@ model Tower {
   cellMapperLog       CellMapperLog?
 
   @@unique([lat, lon])
+  @@index([aiTowerScore])
+  @@index([humanLabel])
 }
 
 model Phone {

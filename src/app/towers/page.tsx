@@ -33,6 +33,8 @@ interface Tower {
     dataSource?: string;
     businessCount?: number;
     avgBusinessDistance?: number;
+    aiTowerScore?: number | null;
+    aiLabel?: string | null;
 }
 
 interface OwnerResult {
@@ -92,6 +94,7 @@ function TowersPageContent() {
         minAvgDistance?: string;
         maxAvgDistance?: string;
     }>(() => urlIdParam ? { id: urlIdParam } : {});
+    const [sortModel, setSortModel] = useState<{ field: string; order: 'asc' | 'desc' } | null>(null);
 
     // Load settings from local storage on mount (skip if URL has ?id= param)
     useEffect(() => {
@@ -161,6 +164,10 @@ function TowersPageContent() {
             });
 
             if (globalCountry) params.append('country', globalCountry);
+            if (sortModel) {
+                params.append('sort', sortModel.field);
+                params.append('order', sortModel.order);
+            }
             if (filters.id) params.append('id', filters.id);
             if (!filters.id) {
                 // Only apply other filters when not filtering by ID
@@ -204,7 +211,7 @@ function TowersPageContent() {
         } finally {
             setIsLoading(false);
         }
-    }, [page, rowsPerPage, filters, globalCountry]);
+    }, [page, rowsPerPage, filters, globalCountry, sortModel]);
 
     // Load towers with pagination and filters
     useEffect(() => {
@@ -431,6 +438,11 @@ function TowersPageContent() {
                             setPage(0);
                         }}
                         onCellEdit={handleCellEdit}
+                        sortModel={sortModel}
+                        onSortChange={(model) => {
+                            setSortModel(model);
+                            setPage(0);
+                        }}
                         onNotesClick={handleNotesClick}
                         onAddOwner={(tower) => setAddOwnerTower(tower)}
                         onExport={handleExport}

@@ -48,6 +48,12 @@ sources/
 
 nul
 
+# scratch scripts and local data dumps
+scratch/
+tmp/
+FAA_DDOF/
+DAILY_DOF_CSV.ZIP
+
 # discovery debug artifacts
 *.log
 antennasearch_*.png

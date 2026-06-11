@@ -492,6 +492,7 @@ export async function GET(request: Request) {
                     const order = (searchParams.get('order') || 'asc') as Prisma.SortOrder;
                     if (sort === 'businessCount') return { businessCount: order };
                     if (sort === 'avgBusinessDistance') return { avgBusinessDistance: order };
+                    if (sort === 'aiTowerScore') return { aiTowerScore: { sort: order, nulls: 'last' } as Prisma.SortOrderInput };
                     return { id: 'asc' as Prisma.SortOrder };
                 })(),
                 skip,

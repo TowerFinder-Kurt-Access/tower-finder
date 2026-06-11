@@ -63,6 +63,8 @@ interface TowerTableSimpleProps {
         minAvgDistance?: string; maxAvgDistance?: string;
     };
     onCellEdit?: (towerId: number, field: string, value: string) => void;
+    sortModel?: { field: string; order: 'asc' | 'desc' } | null;
+    onSortChange?: (model: { field: string; order: 'asc' | 'desc' } | null) => void;
     onNotesClick?: (tower: any) => void;
     onAddOwner?: (tower: any) => void;
     onSelectionChange?: (ids: number[]) => void;
@@ -89,6 +91,8 @@ export default function TowerTableSimple({
     onFilterChange,
     filters = {},
     onCellEdit,
+    sortModel,
+    onSortChange,
     onNotesClick,
     onAddOwner,
     onSelectionChange,
@@ -520,6 +524,26 @@ export default function TowerTableSimple({
             )
         },
         {
+            field: 'aiTowerScore',
+            headerName: 'AI Score',
+            width: 100,
+            type: 'number',
+            renderCell: (params: GridRenderCellParams) => {
+                const score = params.row.aiTowerScore;
+                if (score === null || score === undefined) {
+                    return <Typography variant="body2" color="text.secondary">–</Typography>;
+                }
+                const pct = Math.round(score * 100);
+                return (
+                    <Chip
+                        label={`${pct}%`}
+                        size="small"
+                        color={pct >= 70 ? 'success' : pct >= 40 ? 'warning' : 'default'}
+                    />
+                );
+            }
+        },
+        {
             field: 'notesCount',
             headerName: 'Notes',
             width: 80,
@@ -631,15 +655,29 @@ export default function TowerTableSimple({
         },
     ];
 
+    // Sorting runs server-side; only fields the API can order by are sortable
+    const SERVER_SORTABLE = new Set(['businessCount', 'avgBusinessDistance', 'aiTowerScore']);
+    const sortableColumns = columns.map(c => ({ ...c, sortable: SERVER_SORTABLE.has(c.field) }));
+
     return (
         <Box sx={{ height: '100%', width: '100%', display: 'flex', flexDirection: 'column' }}>
             {externalFiltersBar}
             <DataGrid
                 rows={towers}
-                columns={columns}
+                columns={sortableColumns}
                 rowCount={totalCount}
                 paginationMode="server"
                 filterMode="server"
+                sortingMode="server"
+                sortModel={sortModel ? [{ field: sortModel.field, sort: sortModel.order }] : []}
+                onSortModelChange={(model) => {
+                    if (!onSortChange) return;
+                    if (model.length === 0 || !model[0].sort) {
+                        onSortChange(null);
+                    } else {
+                        onSortChange({ field: model[0].field, order: model[0].sort });
+                    }
+                }}
                 paginationModel={{ page, pageSize: rowsPerPage }}
                 onPaginationModelChange={(model) => {
                     if (model.page !== page) {
