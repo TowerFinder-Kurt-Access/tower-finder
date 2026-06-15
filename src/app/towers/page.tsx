@@ -1,6 +1,6 @@
 'use client';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useState, useEffect, Suspense, useCallback } from 'react';
+import { useState, useEffect, Suspense, useCallback, useRef } from 'react';
 import Box from '@mui/material/Box';
 import axios from 'axios';
 import Link from 'next/link';
@@ -52,10 +52,29 @@ function TowersPageContent() {
     const searchParams = useSearchParams();
     const { country: globalCountry } = useCountry();
 
+    const abortControllerRef = useRef<AbortController | null>(null);
+
     const [towers, setTowers] = useState<Tower[]>([]);
     const [totalCount, setTotalCount] = useState<number>(0);
-    const [page, setPage] = useState<number>(0);
-    const [rowsPerPage, setRowsPerPage] = useState<number>(25);
+
+    // Initialize page/rowsPerPage from localStorage immediately so only one
+    // loadTowers call is made on mount (avoids a race with a later useEffect restore).
+    const [page, setPage] = useState<number>(() => {
+        if (urlIdParam) return 0;
+        try {
+            const saved = typeof window !== 'undefined' ? localStorage.getItem('towersPageSettings') : null;
+            if (saved) return JSON.parse(saved).page ?? 0;
+        } catch {}
+        return 0;
+    });
+    const [rowsPerPage, setRowsPerPage] = useState<number>(() => {
+        if (urlIdParam) return 25;
+        try {
+            const saved = typeof window !== 'undefined' ? localStorage.getItem('towersPageSettings') : null;
+            if (saved) return JSON.parse(saved).rowsPerPage ?? 25;
+        } catch {}
+        return 25;
+    });
     const [isLoading, setIsLoading] = useState<boolean>(false);
     const [isExporting, setIsExporting] = useState<boolean>(false);
     const [selectedTower, setSelectedTower] = useState<Tower | null>(null);
@@ -77,7 +96,7 @@ function TowersPageContent() {
         carriers: { id: number; name: string }[];
         statuses: { id: number; name: string }[];
     }>({ types: [], carriers: [], statuses: [] });
-    // Initialize filters from URL ?id= param immediately so the first loadTowers already has it
+    // Initialize filters from URL ?id= param, falling back to localStorage
     const urlIdParam = searchParams.get('id');
     const [filters, setFilters] = useState<{
         city?: string;
@@ -96,25 +115,15 @@ function TowersPageContent() {
         maxAvgDistance?: string;
         minAiScore?: string;
         maxAiScore?: string;
-    }>(() => urlIdParam ? { id: urlIdParam } : {});
+    }>(() => {
+        if (urlIdParam) return { id: urlIdParam };
+        try {
+            const saved = typeof window !== 'undefined' ? localStorage.getItem('towersPageSettings') : null;
+            if (saved) return JSON.parse(saved).filters ?? {};
+        } catch {}
+        return {};
+    });
     const [sortModel, setSortModel] = useState<{ field: string; order: 'asc' | 'desc' } | null>(null);
-
-    // Load settings from local storage on mount (skip if URL has ?id= param)
-    useEffect(() => {
-        if (urlIdParam) return; // URL id param takes priority over saved settings
-
-        const savedSettings = localStorage.getItem('towersPageSettings');
-        if (savedSettings) {
-            try {
-                const parsed = JSON.parse(savedSettings);
-                if (parsed.page !== undefined) setPage(parsed.page);
-                if (parsed.rowsPerPage) setRowsPerPage(parsed.rowsPerPage);
-                if (parsed.filters) setFilters(parsed.filters);
-            } catch (e) {
-                console.error("Failed to parse saved settings", e);
-            }
-        }
-    }, []);
 
     // Save settings when changed
     useEffect(() => {
@@ -158,6 +167,11 @@ function TowersPageContent() {
 
     // Load towers function
     const loadTowers = useCallback(async () => {
+        // Cancel any in-flight request so stale responses never overwrite fresh data
+        abortControllerRef.current?.abort();
+        const controller = new AbortController();
+        abortControllerRef.current = controller;
+
         setIsLoading(true);
         try {
             // Build query string with filters
@@ -191,7 +205,7 @@ function TowersPageContent() {
                 if (filters.maxAiScore) params.append('maxAiScore', filters.maxAiScore);
             }
 
-            const res = await axios.get(`/api/towers?${params.toString()}`);
+            const res = await axios.get(`/api/towers?${params.toString()}`, { signal: controller.signal });
 
             // API returns plain array when filtering by id, paginated object otherwise
             const rawData = Array.isArray(res.data) ? res.data : (res.data.data || []);
@@ -212,10 +226,13 @@ function TowersPageContent() {
 
             setTowers(flattenedTowers);
             setTotalCount(Array.isArray(res.data) ? flattenedTowers.length : (res.data.total || 0));
-        } catch (error) {
+        } catch (error: any) {
+            // Ignore cancellations — a newer request is already in flight
+            if (axios.isCancel(error) || error?.code === 'ERR_CANCELED') return;
             console.error("Failed to fetch towers:", error);
         } finally {
-            setIsLoading(false);
+            // Only clear the loading spinner if this request wasn't superseded
+            if (!controller.signal.aborted) setIsLoading(false);
         }
     }, [page, rowsPerPage, filters, globalCountry, sortModel]);
 
