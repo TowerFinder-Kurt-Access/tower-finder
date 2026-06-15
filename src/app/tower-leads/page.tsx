@@ -15,6 +15,7 @@ import AddLocationAltIcon from '@mui/icons-material/AddLocationAlt';
 import MapIcon from '@mui/icons-material/Map';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import TerrainIcon from '@mui/icons-material/Terrain';
+import AppleIcon from '@mui/icons-material/Apple';
 import AddOwnerDialog from '@/components/AddOwnerDialog';
 
 import { STATIC_LOCATIONS, ABBR_TO_PROVINCE } from '@/lib/locations';
@@ -339,6 +340,17 @@ function TowerLeadsContent() {
                                 target="_blank"
                             >
                                 <TerrainIcon fontSize="small" />
+                            </IconButton>
+                        </Tooltip>
+
+                        <Tooltip title="Apple Maps">
+                            <IconButton
+                                size="small"
+                                sx={{ color: '#000', bgcolor: '#f5f5f7', border: '1px solid #ccc', '&:hover': { bgcolor: '#e8e8ed' } }}
+                                href={`https://maps.apple.com/?ll=${lead.lat},${lead.lon}&q=${lead.lat},${lead.lon}&t=k`}
+                                target="_blank"
+                            >
+                                <AppleIcon fontSize="small" />
                             </IconButton>
                         </Tooltip>
 

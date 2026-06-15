@@ -36,9 +36,11 @@ async function main() {
     const typeFilter = process.argv.find(a => a.startsWith('--type='))?.split('=')[1]
         || (process.argv.includes('--type') ? process.argv[process.argv.indexOf('--type') + 1] : null);
 
-    console.log('[Worker] Starting AT&T Discovery Worker...');
+    console.log('[Worker] 🚀 Starting AT&T Discovery Worker...');
     if (typeFilter) {
-        console.log(`[Worker] Filtering for job type: ${typeFilter}`);
+        console.log(`[Worker] 🎯 Filtering for job type: ${typeFilter}`);
+    } else {
+        console.log(`[Worker] 🌐 Looking for any and all jobs...`);
     }
 
     // Graceful Shutdown Handler
@@ -60,6 +62,7 @@ async function main() {
         // Pick next job — wrapped in retry for transient DB issues
         let job;
         try {
+            // console.log('[Worker] 🔍 Polling for next job...'); // optional, maybe too much
             job = await withRetry(() => pickNextJob(typeFilter || undefined));
             consecutiveDbErrors = 0; // reset on success
         } catch (err: any) {
@@ -73,6 +76,7 @@ async function main() {
         }
 
         if (!job) {
+            process.stdout.write('.'); // indicator at least
             // Show idle status periodically
             if (processedTotal > 0 && processedTotal % 10 === 0) {
                 try {
@@ -85,11 +89,11 @@ async function main() {
                     }
                 } catch {} // non-critical, just skip progress display
             }
-            await new Promise(res => setTimeout(res, 5000));
+            await new Promise(res => setTimeout(res, 1000));
             continue;
         }
 
-        console.log(`[Worker] Picking up job ${job.id} (${job.jobType})`);
+        console.log(`\n[Worker] 🚀 Picking up Job ${job.id} (${job.jobType})`);
 
         const handler = JOB_HANDLERS[job.jobType];
         if (!handler) {
@@ -99,7 +103,7 @@ async function main() {
         }
 
         try {
-            const result = await handler(job.params as Record<string, any>);
+            const result = await handler(job.params as Record<string, any>, job.id);
             await withRetry(() => markCompleted(job!.id, result));
             processedTotal++;
             console.log(`[Worker] ✅ Job ${job.id} completed. Total processed: ${processedTotal}`);

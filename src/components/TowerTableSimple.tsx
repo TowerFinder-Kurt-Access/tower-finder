@@ -48,19 +48,21 @@ interface TowerTableSimpleProps {
         types: LookupItem[];
         carriers: LookupItem[];
     };
-    onFilterChange: (filters: { 
-        city?: string; state?: string; countyRaw?: string; zip?: string; 
-        type?: string; carrier?: string; status?: string; address?: string; 
+    onFilterChange: (filters: {
+        city?: string; state?: string; county?: string; zip?: string;
+        type?: string; carrier?: string; status?: string; address?: string;
         search?: string;
         minBusinessCount?: string; maxBusinessCount?: string;
         minAvgDistance?: string; maxAvgDistance?: string;
+        minAiScore?: string; maxAiScore?: string;
     }) => void;
-    filters?: { 
-        city?: string; state?: string; countyRaw?: string; zip?: string; 
-        type?: string; carrier?: string; status?: string; address?: string; 
+    filters?: {
+        city?: string; state?: string; county?: string; zip?: string;
+        type?: string; carrier?: string; status?: string; address?: string;
         search?: string;
         minBusinessCount?: string; maxBusinessCount?: string;
         minAvgDistance?: string; maxAvgDistance?: string;
+        minAiScore?: string; maxAiScore?: string;
     };
     onCellEdit?: (towerId: number, field: string, value: string) => void;
     sortModel?: { field: string; order: 'asc' | 'desc' } | null;
@@ -278,17 +280,18 @@ export default function TowerTableSimple({
     };
 
     const handleFilterModelChange = (filterModel: any) => {
-        const newFilters: { city?: string; state?: string; county?: string; countyRaw?: string; zip?: string; type?: string; status?: string; address?: string; search?: string } = { ...filters };
+        const newFilters: { city?: string; state?: string; county?: string; zip?: string; type?: string; carrier?: string; status?: string; address?: string; search?: string } = { ...filters };
 
         if (filterModel.items && filterModel.items.length > 0) {
             filterModel.items.forEach((item: any) => {
                 if (item.value) {
                     switch (item.field) {
                         case 'city': newFilters.city = item.value; break;
-                        case 'county': newFilters.countyRaw = item.value; break;
+                        case 'county': newFilters.county = item.value; break;
                         case 'state': newFilters.state = item.value; break;
                         case 'zip': newFilters.zip = item.value; break;
                         case 'type': newFilters.type = item.value; break;
+                        case 'carrier': newFilters.carrier = item.value; break;
                         case 'status': newFilters.status = item.value; break;
                         case 'address': newFilters.address = item.value; break;
                     }
@@ -319,8 +322,10 @@ export default function TowerTableSimple({
     const activeChips: { field: string; label: string; value: string }[] = [];
     const fieldLabels: Record<string, string> = {
         city: 'City', state: country === 'USA' ? 'State' : 'Province',
+        county: 'County', zip: country === 'USA' ? 'ZIP' : 'Postal Code',
         type: 'Type', status: 'Status', carrier: 'Carrier',
-        minBusinessCount: 'Min Businesses', maxAvgDistance: 'Max Distance'
+        minBusinessCount: 'Min Businesses', maxAvgDistance: 'Max Distance',
+        minAiScore: 'Min AI %', maxAiScore: 'Max AI %'
     };
     for (const [field, label] of Object.entries(fieldLabels)) {
         const val = (filters as any)[field];
@@ -406,6 +411,7 @@ export default function TowerTableSimple({
                 </Tooltip>
                 {renderFilterAutocomplete('state', country === 'USA' ? 'State' : 'Province', filterOptions.states)}
                 {renderFilterAutocomplete('city', 'City', filterOptions.cities)}
+                {filterOptions.counties.length > 0 && renderFilterAutocomplete('county', 'County', filterOptions.counties)}
                 {renderFilterAutocomplete('zip', country === 'USA' ? 'ZIP' : 'Postal Code', filterOptions.zips)}
                 {renderFilterAutocomplete('type', 'Type', filterOptions.types)}
                 {renderFilterAutocomplete('status', 'Status', filterOptions.statuses)}
@@ -426,6 +432,24 @@ export default function TowerTableSimple({
                         type="number"
                         value={filters.maxAvgDistance || ''}
                         onChange={(e) => onFilterChange({ ...filters, maxAvgDistance: e.target.value || undefined })}
+                        sx={{ width: 130 }}
+                    />
+                    <TextField
+                        label="Min AI Score %"
+                        size="small"
+                        type="number"
+                        inputProps={{ min: 0, max: 100 }}
+                        value={filters.minAiScore || ''}
+                        onChange={(e) => onFilterChange({ ...filters, minAiScore: e.target.value || undefined })}
+                        sx={{ width: 130 }}
+                    />
+                    <TextField
+                        label="Max AI Score %"
+                        size="small"
+                        type="number"
+                        inputProps={{ min: 0, max: 100 }}
+                        value={filters.maxAiScore || ''}
+                        onChange={(e) => onFilterChange({ ...filters, maxAiScore: e.target.value || undefined })}
                         sx={{ width: 130 }}
                     />
                 </Box>

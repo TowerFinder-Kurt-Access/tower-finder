@@ -307,15 +307,20 @@ export class FCCService {
     }
 
     /**
-     * Stable Pipeline 2.0: Discover AT&T antennas by searching a whole state by licensee,
-     * then drilling into each license to find matches in a specific county + building structure.
+     * Stable Pipeline 2.3: Discover AT&T antennas by using the FCC Geographic State/County Search.
+     * This bypasses the licensee mailing address trap and coordinates blocking.
      */
-    static async discoverCountyLeads(state: string, county: string, licensee: string = 'NEW CINGULAR WIRELESS PCS, LLC'): Promise<any[]> {
+    static async discoverCountyLeads(
+        state: string, 
+        county: string, 
+        licensee: string = 'NEW CINGULAR WIRELESS PCS, LLC',
+        options: { startPage?: number, onPageProgress?: (page: number) => Promise<void> } = {}
+    ): Promise<any[]> {
         const results: any[] = [];
         const isHeaded = process.env.FCC_HEADED === '1';
+        const startPage = options.startPage || 1;
 
         try {
-            // STEP 0: Establish Browser (Reuse fetchAntennas launch logic)
             if (!this.browser) {
                 const chromePaths = [
                     'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
@@ -332,119 +337,304 @@ export class FCCService {
                 });
             }
 
-            // Fresh context for each county to avoid cookies/state issues
             const context = await this.browser.newContext({ viewport: { width: 1400, height: 800 } });
             const page = await context.newPage();
 
-            console.log(`[FCC-County] Starting discovery for ${licensee} in ${county}, ${state}...`);
-
-            // STEP 1: Search by State + Licensee
-            await page.goto('https://wireless2.fcc.gov/UlsApp/UlsSearch/searchAdvanced.jsp', { waitUntil: 'load', timeout: 45000 });
-            await page.waitForTimeout(1000);
-
-            // Fill Licensee Name
-            const nameInput = page.locator('input[name="fiOwnerName"]').first();
-            await nameInput.type(licensee, { delay: 100 });
-
-            // Select State
-            const stateSelect = page.locator('select[name="ulsState"]').first();
-            await stateSelect.selectOption({ label: state });
-
-            // Select Active status only (to reduce noise)
-            const activeRadio = page.locator('input[name="ulsStatus"][value="A"]').first();
-            if (await activeRadio.count() > 0) await activeRadio.check();
-
-            // Submit
-            const searchBtn = page.locator('input[type="submit"][value="Search"]').first();
-            await this.humanClick(searchBtn);
-            await page.waitForLoadState('load');
-            await page.waitForTimeout(3000);
-
-            // STEP 2: Collect Call Signs (Paginate)
-            const callSigns: { callSign: string; licKey: string }[] = [];
-            for (let pageNum = 1; pageNum <= 10; pageNum++) { // Scan up to 10 pages (~1000 licenses)
-                console.log(`[FCC-County] Collecting call signs from result page ${pageNum}...`);
+            try {
+                // Return to Geographic Search as requested
+                console.log(`[FCC-County] 🌎 Navigating to Geographic Search for ${county}, ${state}...`);
+                if (startPage > 1) console.log(`[FCC-County] ⏩ Resuming from Page ${startPage}.`);
                 
-                const rows = await page.locator('table tr').all();
-                for (const row of rows) {
-                    const text = await row.innerText();
-                    if (text.includes('Active')) {
-                        const link = row.locator('a[href*="licKey="]').first();
-                        if (await link.count() > 0) {
-                            const callSign = (await link.innerText()).trim();
-                            const href = await link.getAttribute('href') || '';
-                            const licKey = (href.match(/licKey=(\d+)/) || [])[1] || '';
-                            if (callSign && licKey) callSigns.push({ callSign, licKey });
-                        }
-                    }
-                }
-
-                const nextBtn = page.locator('a:has-text("Next")').first();
-                if (await nextBtn.isVisible() && pageNum < 10) {
-                    await nextBtn.click();
-                    await page.waitForLoadState('load');
-                    await page.waitForTimeout(2000);
-                } else {
-                    break;
-                }
-            }
-
-            console.log(`[FCC-County] Found ${callSigns.length} Call Signs. Drilling into locations for ${county}...`);
-
-            // STEP 3: Drill into Locations (Parallelize discovery slightly?)
-            // For now, sequentially to avoid session blocks
-            for (const item of callSigns) {
-                const locSummaryUrl = `https://wireless2.fcc.gov/UlsApp/UlsSearch/licenseLocSum.jsp?licKey=${item.licKey}`;
-                await page.goto(locSummaryUrl, { waitUntil: 'load', timeout: 20000 });
+                await page.goto('https://wireless2.fcc.gov/UlsApp/UlsSearch/searchGeographic.jsp', { waitUntil: 'load', timeout: 60000 });
+                
+                // 1. Select State / County Mode
+                const radio = page.locator('input[name="searchType"][value="UGCOUNTY"], input[name="searchType"][value="STC"]').first();
+                await radio.click();
                 await page.waitForTimeout(1000);
 
-                const bodyText = await page.innerText('body');
-                if (bodyText.toUpperCase().includes(county.toUpperCase()) && bodyText.includes('Building')) {
-                    console.log(`[FCC-County] Found potential BUILDING location in ${county} for ${item.callSign}!`);
-                    
-                    // Extract exact location details
-                    const locLinks = await page.locator('a[href*="licenseLocDetail.jsp"]').all();
-                    for (const locLink of locLinks) {
-                        const locHref = await locLink.getAttribute('href') || '';
-                        await page.goto(`https://wireless2.fcc.gov/UlsApp/UlsSearch/${locHref}`);
-                        
-                        const locContent = await page.innerText('body');
-                        const isCountyMatch = locContent.toUpperCase().includes(county.toUpperCase());
-                        const isBuilding = /Building/i.test(locContent);
+                // 2. Select State
+                const stateSelect = page.locator('select[name="countyState"]').first();
+                await stateSelect.selectOption({ label: state });
+                console.log(`[FCC-County] Selected State: ${state}. Waiting for county list...`);
+                await page.waitForTimeout(500); 
 
-                        if (isCountyMatch && isBuilding) {
-                             // Correct Latitude/Longitude from detail page
-                             const latMatch = locContent.match(/Latitude:\s*(\d+)°\s*(\d+)'\s*([\d.]+)"\s*([NS])/i);
-                             const lonMatch = locContent.match(/Longitude:\s*(\d+)°\s*(\d+)'\s*([\d.]+)"\s*([EW])/i);
-                             
-                             if (latMatch && lonMatch) {
-                                 const lat = parseFloat(latMatch[1]) + parseFloat(latMatch[2])/60 + parseFloat(latMatch[3])/3600;
-                                 const lon = (parseFloat(lonMatch[1]) + parseFloat(lonMatch[2])/60 + parseFloat(lonMatch[3])/3600) * (lonMatch[4] === 'W' ? -1 : 1);
-                                 
-                                 results.push({
-                                     registrationId: item.callSign,
-                                     licKey: item.licKey,
-                                     ownerName: licensee,
-                                     lat,
-                                     lon,
-                                     county: county,
-                                     structureType: 'Building',
-                                     source: 'FCC_ULS_COUNTY'
-                                 });
-                             }
+                // 3. Select County
+                const countySelect = page.locator('select[name="ulsCounty"]').first();
+                // Wait for any option other than the default to appear
+                await countySelect.locator('option').nth(2).waitFor({ state: 'attached', timeout: 5000 }).catch(() => {});
+                
+                const countyOptions = await countySelect.locator('option').allInnerTexts();
+                const bestMatch = countyOptions.find(o => o.toUpperCase().includes(county.toUpperCase()));
+                
+                if (bestMatch) {
+                    await countySelect.selectOption({ label: bestMatch });
+                    console.log(`[FCC-County] Selected County: ${bestMatch}.`);
+                } else {
+                    await countySelect.selectOption(new RegExp(county, 'i'));
+                }
+                await page.waitForTimeout(250); 
+
+                // 4. Submit Search
+                console.log(`[FCC-County] Clicking search button...`);
+                await Promise.all([
+                    page.waitForNavigation({ waitUntil: 'load', timeout: 30000 }).catch(() => {}),
+                    page.click('input[type="image"][alt*="Search"]')
+                ]);
+                
+                if (!page.url().includes('results.jsp')) {
+                    // Fallback click if navigation didn't trigger
+                    await page.click('input[type="image"][alt*="Search"]').catch(() => {});
+                    await page.waitForTimeout(1000);
+                }
+                
+                console.log(`[FCC-County] Search submitted. Waiting for results table...`);
+                await page.waitForSelector('table', { timeout: 30000 });
+
+                // 5. Scan Results
+                let pageNum = 1;
+                const processedLicKeys = new Set<string>(); // Global Set for this county scan
+
+                const detailPage = await context.newPage();
+
+                while (pageNum <= 200) { // Safety cap
+                    // ⏩ AGGRESSIVE FAST-FORWARD
+                    if (pageNum < startPage) {
+                        console.log(`[FCC-County] ⏩ Skipping page ${pageNum}...`);
+                        const nextBtn = page.locator('a[title="Next page of results"]').first();
+                        try {
+                            await nextBtn.click({ timeout: 5000 });
+                            // Wait for the URL to change or a short timeout
+                            await Promise.race([
+                                page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 10000 }),
+                                page.waitForTimeout(3000) // Aggressive fallback
+                            ]).catch(() => {});
+                            pageNum++;
+                            continue; 
+                        } catch (e) {
+                            console.log(`[FCC-County] ⚠️ Fast-forward failed at page ${pageNum}. Retrying search...`);
+                            // If we fail to click Next, we might need to re-submit the search
+                            break; 
                         }
-                        // Avoid over-visiting to prevent block
-                        await page.goto(locSummaryUrl); 
+                    }
+
+                    console.log(`[FCC-County] 🔍 Scanning result page ${pageNum} for ${county}...`);
+                    
+                    // ANALYSIS BLOCK
+                    const rows = await page.locator('table tr').all();
+                    const pageCallSigns: { callSign: string; licKey: string }[] = [];
+
+                    for (const row of rows) {
+                        const rowText = await row.innerText();
+                        const match = rowText.match(/AT&T|Cingular|Mobility|New Cingular|Santa Barbara Cellular/i);
+                        if (match) {
+                            const link = row.locator('a[href*="licKey="]').first();
+                            if (await link.count() > 0) {
+                                const callSign = (await link.innerText()).trim();
+                                const href = await link.getAttribute('href') || '';
+                                const licKey = (href.match(/licKey=(\d+)/) || [])[1] || '';
+                                
+                                if (callSign && licKey && !processedLicKeys.has(licKey)) {
+                                    console.log(`  ├─ [Match] Found "${match[0]}" in row ${callSign}.`);
+                                    pageCallSigns.push({ callSign, licKey });
+                                    processedLicKeys.add(licKey);
+                                }
+                            }
+                        }
+                    }
+
+                    if (pageCallSigns.length === 0) {
+                        console.log(`[FCC-County] No NEW AT&T sites on page ${pageNum}. Skipping...`);
+                    } else {
+                        console.log(`[FCC-County] Row Check: Found ${pageCallSigns.length} candidates on page ${pageNum}.`);
+                        
+                        for (const item of pageCallSigns) {
+                            try {
+                                process.stdout.write(`  ├─ [Analyzing] ${item.callSign}... `);
+                                
+                                let targetLicKey = item.licKey;
+                                let isLease = item.callSign.startsWith('L');
+
+                                if (isLease) {
+                                    // LEASE BRIDGE: Find the Parent License
+                                    const leaseUrl = `https://wireless2.fcc.gov/UlsApp/UlsSearch/leaseMain.jsp?licKey=${item.licKey}`;
+                                    await detailPage.goto(leaseUrl, { waitUntil: 'domcontentloaded', timeout: 20000 });
+                                    
+                                    const parentLink = detailPage.locator('a[href*="license.jsp?licKey="], a[href*="licenseMain.jsp?licKey="]').first();
+                                    if (await parentLink.count() > 0) {
+                                        const parentHref = await parentLink.getAttribute('href') || '';
+                                        const parentKeyMatch = parentHref.match(/licKey=(\d+)/);
+                                        if (parentKeyMatch && parentKeyMatch[1]) {
+                                            targetLicKey = parentKeyMatch[1];
+                                        }
+                                    }
+                                }
+
+                                const locSummaryUrl = `https://wireless2.fcc.gov/UlsApp/UlsSearch/licenseLocSum.jsp?licKey=${targetLicKey}`;
+                                await detailPage.goto(locSummaryUrl, { waitUntil: 'domcontentloaded', timeout: 20000 });
+                                
+                                // Detect Market-based licenses (No Locations)
+                                if (await detailPage.locator('text=No Locations found').count() > 0) {
+                                    process.stdout.write("⏩ Skipped: Market-based (No Locations)\n");
+                                    continue;
+                                }
+
+                                // --- START REVISED EXTRACTION ---
+                                const detailText = await detailPage.innerText('body');
+                                let siteFound = false;
+                                let foundLocations: { text: string; structureType: string; directCoords?: string }[] = [];
+
+                                // Check for Format A: Individual links (Standard/IG)
+                                const locLinks = await detailPage.locator('a[href*="licenseLocDetail.jsp"]').all();
+                                
+                                if (locLinks.length > 0) {
+                                    // Process up to 15 links for speed (usually more than enough for tower discovery)
+                                    for (const link of locLinks.slice(0, 15)) {
+                                        const detailUrl = await link.getAttribute('href');
+                                        if (!detailUrl) continue;
+
+                                        await detailPage.goto(`https://wireless2.fcc.gov/UlsApp/UlsSearch/${detailUrl}`, { waitUntil: 'domcontentloaded', timeout: 15000 });
+                                        const subDetailText = await detailPage.innerText('body');
+                                        const structureCell = detailPage.locator('td:has-text("Support Structure Type") + td, td:has-text("Structure Type") + td').first();
+                                        const structureType = (await structureCell.count() > 0) ? (await structureCell.innerText()).trim() : 'Unknown';
+
+                                        foundLocations.push({ text: subDetailText, structureType });
+                                    }
+                                } else {
+                                    // Handle Format B: Direct entry on summary page (Microwave/Common Carrier)
+                                    // We look for nested tables that contain both Coordinates and Support Structure Type
+                                    const tables = await detailPage.locator('table').all();
+                                    for (const table of tables) {
+                                        const tableText = await table.innerText();
+                                        // Specific to CF/Microwave layout where label and value are adjacent
+                                        if (tableText.includes('Coordinates') && (tableText.includes('Support Structure Type') || tableText.includes('Structure Type'))) {
+                                            const structureMatch = tableText.match(/(?:Support )?Structure Type\s+([^\n\r]+)/i);
+                                            const coordsMatch = tableText.match(/Coordinates\s+([^\n\r]+)/i);
+                                            if (coordsMatch) {
+                                                foundLocations.push({ 
+                                                    text: tableText, 
+                                                    structureType: structureMatch ? structureMatch[1].trim() : 'Unknown',
+                                                    directCoords: coordsMatch[1].trim()
+                                                });
+                                            }
+                                        }
+                                    }
+                                }
+
+                                if (foundLocations.length === 0) {
+                                    process.stdout.write("⏩ Skipped: No individual locations listed.\n");
+                                    continue;
+                                }
+
+                                for (const loc of foundLocations) {
+                                    const structureType = loc.structureType;
+                                    const isBuilding = /Building|Rooftop|B - Building|MTOWER - Monopole|TOWER - Free standing|LTOWER - Lattice|POLE - Any type of Pole/i.test(structureType) || /Building|Rooftop/i.test(loc.text);
+                                    
+                                    if (isBuilding) {
+                                        let lat: number | null = null;
+                                        let lon: number | null = null;
+
+                                        // Try various coordinate formats
+                                        if (loc.directCoords) {
+                                            // Format 1: 39-16-41.0 N, 121-01-35.7 W
+                                            const parts = loc.directCoords.match(/(\d+)-(\d+)-([\d.]+)\s*([NS]),\s*(\d+)-(\d+)-([\d.]+)\s*([EW])/);
+                                            if (parts) {
+                                                lat = parseFloat(parts[1]) + parseFloat(parts[2])/60 + parseFloat(parts[3])/3600;
+                                                if (parts[4] === 'S') lat *= -1;
+                                                lon = parseFloat(parts[5]) + parseFloat(parts[6])/60 + parseFloat(parts[7])/3600;
+                                                if (parts[8] === 'W') lon *= -1;
+                                            }
+                                        } 
+                                        
+                                        // Fallback to text parsing (Standard Detail Page)
+                                        if (lat === null) {
+                                            // Format 2: Latitude: 39° 7' 31.0" N
+                                            const latMatch = loc.text.match(/Latitude:\s*(\d+)°\s*(\d+)'\s*([\d.]+)"\s*([NS])/i);
+                                            const lonMatch = loc.text.match(/Longitude:\s*(\d+)°\s*(\d+)'\s*([\d.]+)"\s*([EW])/i);
+                                            
+                                            if (latMatch && lonMatch) {
+                                                lat = parseFloat(latMatch[1]) + parseFloat(latMatch[2])/60 + parseFloat(latMatch[3])/3600;
+                                                if (latMatch[4] === 'S') lat *= -1;
+                                                lon = parseFloat(lonMatch[1]) + parseFloat(lonMatch[2])/60 + parseFloat(lonMatch[3])/3600;
+                                                if (lonMatch[4] === 'W') lon *= -1;
+                                            }
+                                        }
+
+                                        // Format 3: DMS without degrees symbol but with dashes (found in some sub-tables)
+                                        if (lat === null) {
+                                            const dmsMatch = loc.text.match(/(\d+)-(\d+)-([\d.]+)\s*([NS])[\s,]+(\d+)-(\d+)-([\d.]+)\s*([EW])/i);
+                                            if (dmsMatch) {
+                                                lat = parseFloat(dmsMatch[1]) + parseFloat(dmsMatch[2])/60 + parseFloat(dmsMatch[3])/3600;
+                                                if (dmsMatch[4] === 'S') lat *= -1;
+                                                lon = parseFloat(dmsMatch[5]) + parseFloat(dmsMatch[6])/60 + parseFloat(dmsMatch[7])/3600;
+                                                if (dmsMatch[8] === 'W') lon *= -1;
+                                            }
+                                        }
+
+                                        if (lat !== null && lon !== null) {
+                                            results.push({
+                                                registrationId: item.callSign,
+                                                licKey: item.licKey,
+                                                parentLicKey: isLease ? targetLicKey : undefined,
+                                                ownerName: licensee,
+                                                lat,
+                                                lon,
+                                                county: county,
+                                                structureType: structureType || 'Building',
+                                                source: 'FCC_ULS_COUNTY'
+                                            });
+
+                                            process.stdout.write(`✅ MatchFound! (${structureType}) @ ${lat.toFixed(4)}, ${lon.toFixed(4)}\n`);
+                                            siteFound = true;
+                                            break; // Found one location, move to next Call Sign
+                                        }
+                                    }
+                                }
+
+                                if (!siteFound) {
+                                    process.stdout.write(`⏩ No valid sites in ${foundLocations.length} locations examined.\n`);
+                                }
+                                // --- END REVISED EXTRACTION ---
+                            } catch (itemErr) {
+                                process.stdout.write(`❌ Error analyzing ${item.callSign}: ${itemErr.message}\n`);
+                            }
+                        }
+                    }
+
+                    // Call Progress Callback after successful page analysis
+                    if (options.onPageProgress) {
+                        await options.onPageProgress(pageNum);
+                    }
+
+                    const nextBtn = page.locator('a[title="Next page of results"]').first();
+                    if (await nextBtn.isVisible()) {
+                        if (pageNum >= startPage) {
+                            console.log(`[FCC-County] ➡️ Moving to page ${pageNum + 1}...`);
+                        }
+                        await nextBtn.click();
+                        // DomContentLoaded is MUCH faster for ULS which is mostly text
+                        await page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
+                        
+                        // NO SLEEP if fast-forwarding. 100ms if active scanning.
+                        const sleepTime = pageNum < startPage ? 0 : 100;
+                        if (sleepTime > 0) await page.waitForTimeout(sleepTime);
+                        
+                        pageNum++;
+                    } else {
+                        break;
                     }
                 }
+                return results;
+            } finally {
+                try {
+                    if (context && context.browser()?.isConnected()) {
+                        await context.close();
+                    }
+                } catch (e) {}
             }
 
-            await context.close();
-            return results;
-
         } catch (err: any) {
-            console.error(`[FCC-County] Error: ${err.message}`);
-            return results;
+            console.error(`[FCC-County] 🚨 Critical Failure: ${err.message}`);
+            throw err;
         }
     }
 
@@ -502,7 +692,7 @@ export class FCCService {
                     if (await mapTab.isVisible()) {
                         await mapTab.click();
                         await page.waitForSelector('#map', { timeout: 15000 });
-                        await page.waitForTimeout(2000); // Wait for tiles
+                        await page.waitForTimeout(2000); // 2s is better for map tiles
                         screenshotPath = `fcc_map_${callSign}_loc${i+1}_${Date.now()}.png`;
                         await page.screenshot({ path: screenshotPath });
                     }

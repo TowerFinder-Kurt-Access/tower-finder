@@ -85,6 +85,7 @@ function TowersPageContent() {
         county?: string;
         zip?: string;
         type?: string;
+        carrier?: string;
         status?: string;
         address?: string;
         id?: string;
@@ -93,6 +94,8 @@ function TowersPageContent() {
         maxBusinessCount?: string;
         minAvgDistance?: string;
         maxAvgDistance?: string;
+        minAiScore?: string;
+        maxAiScore?: string;
     }>(() => urlIdParam ? { id: urlIdParam } : {});
     const [sortModel, setSortModel] = useState<{ field: string; order: 'asc' | 'desc' } | null>(null);
 
@@ -176,6 +179,7 @@ function TowersPageContent() {
                 if (filters.state) params.append('state', filters.state);
                 if (filters.zip) params.append('zip', filters.zip);
                 if (filters.type) params.append('type', filters.type);
+                if (filters.carrier) params.append('carrier', filters.carrier);
                 if (filters.status) params.append('status', filters.status);
                 if (filters.address) params.append('address', filters.address);
                 if (filters.search) params.append('search', filters.search);
@@ -183,6 +187,8 @@ function TowersPageContent() {
                 if (filters.maxBusinessCount) params.append('maxBusinessCount', filters.maxBusinessCount);
                 if (filters.minAvgDistance) params.append('minAvgDistance', filters.minAvgDistance);
                 if (filters.maxAvgDistance) params.append('maxAvgDistance', filters.maxAvgDistance);
+                if (filters.minAiScore) params.append('minAiScore', filters.minAiScore);
+                if (filters.maxAiScore) params.append('maxAiScore', filters.maxAiScore);
             }
 
             const res = await axios.get(`/api/towers?${params.toString()}`);

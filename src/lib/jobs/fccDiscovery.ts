@@ -24,16 +24,39 @@ async function dbRetry<T>(fn: () => Promise<T>, retries = 3, delayMs = 5000): Pr
  * Processes a single County for a State: runs the 2-step FCC ULS pipeline,
  * saves results as TowerLeads, and updates DiscoveryScan progress.
  */
-export async function processFCCDiscoveryCounty(params: Record<string, any>) {
-    const { state, county, licensee, scanId } = params;
+export async function processFCCDiscoveryCounty(params: Record<string, any>, jobId?: number | string) {
+    const { state, county, licensee, scanId, lastProcessedPage } = params;
 
     console.log(`[FCC-County] Starting work for ${county}, ${state} (${licensee})...`);
+    if (lastProcessedPage > 1) {
+        console.log(`[FCC-County] ⏩ Resuming from checkpoint: Page ${lastProcessedPage}`);
+    }
 
     let foundCount = 0;
 
     try {
-        // Run the stable county discovery
-        const results = await FCCService.discoverCountyLeads(state, county, licensee);
+        // Run the stable county discovery with Checkpointing
+        const results = await FCCService.discoverCountyLeads(state, county, licensee, {
+            startPage: Number(lastProcessedPage) || 1,
+            onPageProgress: async (page: number) => {
+                if (jobId) {
+                    try {
+                        await dbRetry(() => (prisma.jobQueue as any).update({
+                            where: { id: Number(jobId) },
+                            data: {
+                                params: {
+                                    ...params,
+                                    lastProcessedPage: page
+                                }
+                            }
+                        }));
+                        console.log(`[FCC-Job] 💾 Checkpoint saved: Page ${page} for Job ${jobId}`);
+                    } catch (cpErr: any) {
+                        console.warn(`[FCC-Job] ⚠️ Checkpoint FAILED: ${cpErr.message}`);
+                    }
+                }
+            }
+        });
 
         console.log(`[FCC-County] Verification complete. Found ${results.length} building sites in ${county}.`);
 
@@ -69,7 +92,7 @@ export async function processFCCDiscoveryCounty(params: Record<string, any>) {
         
         if (scanId) {
             try {
-                await dbRetry(() => prisma.discoveryScan.update({
+                await dbRetry(() => (prisma.discoveryScan as any).update({
                     where: { id: scanId },
                     data: { failedCounties: { increment: 1 } }
                 }));
@@ -83,7 +106,7 @@ export async function processFCCDiscoveryCounty(params: Record<string, any>) {
     // Update Progress
     if (scanId) {
         try {
-            const scan = await dbRetry(() => prisma.discoveryScan.update({
+            const scan: any = await dbRetry(() => (prisma.discoveryScan as any).update({
                 where: { id: scanId },
                 data: {
                     completedCounties: { increment: 1 },
@@ -95,7 +118,7 @@ export async function processFCCDiscoveryCounty(params: Record<string, any>) {
             console.log(`[FCC-County] Progress: ${scan.completedCounties}/${scan.totalCounties} (${pct}%) — ${scan.foundLeads} rooftops found.`);
 
             if (scan.completedCounties + scan.failedCounties >= scan.totalCounties) {
-                await dbRetry(() => prisma.discoveryScan.update({
+                await dbRetry(() => (prisma.discoveryScan as any).update({
                     where: { id: scanId },
                     data: { status: 'completed', completedAt: new Date() }
                 }));
@@ -110,9 +133,9 @@ export async function processFCCDiscoveryCounty(params: Record<string, any>) {
 }
 
 /** Legacy support or shared entry */
-export async function processFCCDiscovery(params: Record<string, any>) {
+export async function processFCCDiscovery(params: Record<string, any>, jobId?: number | string) {
     if (params.county) {
-        return processFCCDiscoveryCounty(params);
+        return processFCCDiscoveryCounty(params, jobId);
     }
-    // ... rest of old code if needed, but we are moving to county
+    // ... rest of old code if needed
 }

@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
 import { getAuthUser } from '@/lib/auth-helpers';
 import { buildTowerAccessFilter } from '@/lib/tower-access';
-import { ABBR_TO_PROVINCE } from '@/lib/locations';
+import { ABBR_TO_PROVINCE, PROVINCE_TO_ABBR } from '@/lib/locations';
 
 // GET /api/towers - List all towers
 export async function GET(request: Request) {
@@ -34,6 +34,10 @@ export async function GET(request: Request) {
         const maxBusinessCount = searchParams.get('maxBusinessCount');
         const minAvgDistance = searchParams.get('minAvgDistance');
         const maxAvgDistance = searchParams.get('maxAvgDistance');
+
+        // AI score filter (UI sends 0-100, DB stores 0-1)
+        const minAiScore = searchParams.get('minAiScore');
+        const maxAiScore = searchParams.get('maxAiScore');
 
         // Default limit to prevent sending too many towers at once (performance optimization)
         // Use 1000 as default limit if not specified, unless fetching by ID
@@ -234,30 +238,6 @@ export async function GET(request: Request) {
 
         let whereClause: any = {};
 
-        const PROVINCE_MAPPING: Record<string, string> = {
-            'British Columbia': 'BC',
-            'Alberta': 'AB',
-            'Saskatchewan': 'SK',
-            'Manitoba': 'MB',
-            'Ontario': 'ON',
-            'Quebec': 'QC',
-            'New Brunswick': 'NB',
-            'Nova Scotia': 'NS',
-            'Prince Edward Island': 'PE',
-            'Newfoundland and Labrador': 'NL',
-            // Reverse
-            'BC': 'British Columbia',
-            'AB': 'Alberta',
-            'SK': 'Saskatchewan',
-            'MB': 'Manitoba',
-            'ON': 'Ontario',
-            'QC': 'Quebec',
-            'NB': 'New Brunswick',
-            'NS': 'Nova Scotia',
-            'PE': 'Prince Edward Island',
-            'NL': 'Newfoundland and Labrador'
-        };
-
         if (id) {
             whereClause = { id: parseInt(id) };
         } else {
@@ -279,8 +259,12 @@ export async function GET(request: Request) {
                 const terms: string[] = [];
                 stateValues.forEach(sv => {
                     terms.push(sv);
-                    const mapped = PROVINCE_MAPPING[sv];
-                    if (mapped) terms.push(mapped);
+                    // Expand full name → abbreviation (e.g. "California" → "CA", "British Columbia" → "BC")
+                    const abbr = PROVINCE_TO_ABBR[sv];
+                    if (abbr) terms.push(abbr);
+                    // Expand abbreviation → full name (e.g. "CA" → "California", "BC" → "British Columbia")
+                    const fullName = ABBR_TO_PROVINCE[sv];
+                    if (fullName) terms.push(fullName);
                 });
 
                 andConditions.push({
@@ -338,7 +322,14 @@ export async function GET(request: Request) {
 
             if (county) {
                 const countyValues = county.split(',').filter(Boolean);
-                parcelFilters.countyRaw = { in: countyValues, mode: 'insensitive' };
+                andConditions.push({
+                    parcel: {
+                        OR: [
+                            { countyRaw: { in: countyValues, mode: 'insensitive' } },
+                            { countyNormalized: { name: { in: countyValues, mode: 'insensitive' } } }
+                        ]
+                    }
+                });
             }
 
             if (zip) {
@@ -412,6 +403,14 @@ export async function GET(request: Request) {
                 if (minAvgDistance !== null) distFilter.gte = parseFloat(minAvgDistance);
                 if (maxAvgDistance !== null) distFilter.lte = parseFloat(maxAvgDistance);
                 andConditions.push({ avgBusinessDistance: distFilter });
+            }
+
+            // AI score filter (UI sends 0-100%, DB stores 0-1)
+            if (minAiScore !== null || maxAiScore !== null) {
+                const scoreFilter: any = {};
+                if (minAiScore !== null) scoreFilter.gte = parseFloat(minAiScore) / 100;
+                if (maxAiScore !== null) scoreFilter.lte = parseFloat(maxAiScore) / 100;
+                andConditions.push({ aiTowerScore: scoreFilter });
             }
 
             // Add parcel filters as a single condition if any exist

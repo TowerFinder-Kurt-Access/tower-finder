@@ -50,7 +50,8 @@ async function resetAndSeed() {
         params: {
             state: 'California',
             county: county,
-            licensee: 'NEW CINGULAR WIRELESS PCS, LLC'
+            licensee: 'NEW CINGULAR WIRELESS PCS, LLC',
+            scanId: scan.id
         },
         status: 'pending',
         maxAttempts: 3

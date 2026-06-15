@@ -29,8 +29,16 @@ export async function pickNextJob(jobTypeFilter?: string) {
     // Find the oldest pending job that's ready to run
     const job = await prisma.jobQueue.findFirst({
         where: {
-            status: 'pending',
-            runAfter: { lte: now },
+            OR: [
+                {
+                    status: 'pending',
+                    runAfter: { lte: now },
+                },
+                {
+                    status: 'processing',
+                    updatedAt: { lte: new Date(Date.now() - 2 * 60 * 1000) }, // 2m timeout for recovery
+                }
+            ],
             ...(jobTypeFilter ? { jobType: jobTypeFilter } : {}),
         },
         orderBy: { createdAt: 'asc' },
@@ -51,11 +59,15 @@ export async function pickNextJob(jobTypeFilter?: string) {
     const updated = await prisma.jobQueue.updateMany({
         where: {
             id: job.id,
-            status: 'pending', // Only claim if still pending (prevents races)
+            OR: [
+                { status: 'pending' },
+                { status: 'processing', updatedAt: { lte: new Date(Date.now() - 2 * 60 * 1000) } }
+            ]
         },
         data: {
             status: 'processing',
             startedAt: now,
+            updatedAt: now, // Important for heartbeat tracking
             attempts: { increment: 1 },
         },
     });
