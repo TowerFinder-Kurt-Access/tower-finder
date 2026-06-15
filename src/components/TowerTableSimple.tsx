@@ -280,26 +280,31 @@ export default function TowerTableSimple({
     };
 
     const handleFilterModelChange = (filterModel: any) => {
+        // Guard: only propagate when there are actual column-filter items with values.
+        // Without this guard the DataGrid can fire onFilterModelChange spuriously
+        // (e.g. during internal state sync when rows/paginationModel change), which
+        // would unconditionally call onFilterChange → setPage(0) and reset pagination.
+        if (!filterModel.items || filterModel.items.length === 0) return;
+
         const newFilters: { city?: string; state?: string; county?: string; zip?: string; type?: string; carrier?: string; status?: string; address?: string; search?: string } = { ...filters };
+        let changed = false;
 
-        if (filterModel.items && filterModel.items.length > 0) {
-            filterModel.items.forEach((item: any) => {
-                if (item.value) {
-                    switch (item.field) {
-                        case 'city': newFilters.city = item.value; break;
-                        case 'county': newFilters.county = item.value; break;
-                        case 'state': newFilters.state = item.value; break;
-                        case 'zip': newFilters.zip = item.value; break;
-                        case 'type': newFilters.type = item.value; break;
-                        case 'carrier': newFilters.carrier = item.value; break;
-                        case 'status': newFilters.status = item.value; break;
-                        case 'address': newFilters.address = item.value; break;
-                    }
+        filterModel.items.forEach((item: any) => {
+            if (item.value) {
+                switch (item.field) {
+                    case 'city': newFilters.city = item.value; changed = true; break;
+                    case 'county': newFilters.county = item.value; changed = true; break;
+                    case 'state': newFilters.state = item.value; changed = true; break;
+                    case 'zip': newFilters.zip = item.value; changed = true; break;
+                    case 'type': newFilters.type = item.value; changed = true; break;
+                    case 'carrier': newFilters.carrier = item.value; changed = true; break;
+                    case 'status': newFilters.status = item.value; changed = true; break;
+                    case 'address': newFilters.address = item.value; changed = true; break;
                 }
-            });
-        }
+            }
+        });
 
-        onFilterChange(newFilters);
+        if (changed) onFilterChange(newFilters);
     };
 
     // Helper: count how many filter keys have a truthy value
@@ -712,7 +717,6 @@ export default function TowerTableSimple({
                         onPageChange(0);
                     }
                 }}
-                onFilterModelChange={handleFilterModelChange}
                 checkboxSelection
                 rowSelectionModel={selectionModel}
                 onRowSelectionModelChange={handleSelectionChange}
