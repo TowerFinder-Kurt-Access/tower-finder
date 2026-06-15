@@ -6,7 +6,7 @@ import FilterListIcon from '@mui/icons-material/FilterList';
 import ClearIcon from '@mui/icons-material/Clear';
 import CheckBoxOutlineBlankIcon from '@mui/icons-material/CheckBoxOutlineBlank';
 import CheckBoxIcon from '@mui/icons-material/CheckBox';
-import { DataGrid, GridColDef, GridToolbar, GridRenderCellParams, GridCellEditStopReasons, GridFooterContainer, GridPagination, GridSlotsComponentsProps, GridColumnVisibilityModel, GridRowSelectionModel } from '@mui/x-data-grid';
+import { DataGrid, GridColDef, GridToolbar, GridRenderCellParams, GridCellEditStopReasons, GridFooterContainer, GridPagination, GridColumnVisibilityModel, GridRowSelectionModel } from '@mui/x-data-grid';
 import MapIcon from '@mui/icons-material/Map';
 import BusinessIcon from '@mui/icons-material/Business';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
@@ -17,6 +17,42 @@ import InfoIcon from '@mui/icons-material/Info';
 import NotesIcon from '@mui/icons-material/Notes';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
+
+// Defined at module level so MUI DataGrid receives a stable slot reference —
+// a new function on every render causes DataGrid to unmount/remount the footer
+// which can trigger spurious onPaginationModelChange resets.
+interface CustomFooterSlotProps {
+    currentPage: number;
+    jumpPage: string;
+    onJumpPageChange: (val: string) => void;
+    onJumpSubmit: (e: React.FormEvent) => void;
+}
+
+const CustomFooter = React.memo(function CustomFooter(props: any) {
+    const { currentPage, jumpPage, onJumpPageChange, onJumpSubmit } = props as CustomFooterSlotProps;
+    return (
+        <GridFooterContainer>
+            <Box sx={{ flex: 1 }} />
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mr: 2 }}>
+                <form onSubmit={onJumpSubmit} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Typography variant="body2" sx={{ fontSize: '0.875rem' }}>Jump to:</Typography>
+                    <TextField
+                        size="small"
+                        variant="standard"
+                        value={jumpPage}
+                        onChange={(e) => onJumpPageChange(e.target.value)}
+                        placeholder={(currentPage + 1).toString()}
+                        sx={{ width: 70, '& .MuiInputBase-input': { textAlign: 'center' } }}
+                        type="number"
+                        inputProps={{ min: 1 }}
+                    />
+                    <Button type="submit" size="small" sx={{ minWidth: 'auto', p: 0.5 }}>Go</Button>
+                </form>
+            </Box>
+            <GridPagination />
+        </GridFooterContainer>
+    );
+});
 
 interface LookupItem {
     id: number;
@@ -193,33 +229,6 @@ export default function TowerTableSimple({
         }
     };
 
-    // Custom Footer Component
-    const CustomFooter = (props: NonNullable<GridSlotsComponentsProps['footer']>) => {
-        return (
-            <GridFooterContainer>
-                <Box sx={{ flex: 1 }} /> {/* Spacer to push content to right */}
-
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mr: 2 }}>
-                    <form onSubmit={handleJumpToPage} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <Typography variant="body2" sx={{ fontSize: '0.875rem' }}>Jump to:</Typography>
-                        <TextField
-                            size="small"
-                            variant="standard"
-                            value={jumpPage}
-                            onChange={(e) => setJumpPage(e.target.value)}
-                            placeholder={(page + 1).toString()}
-                            sx={{ width: 70, '& .MuiInputBase-input': { textAlign: 'center' } }}
-                            type="number"
-                            inputProps={{ min: 1 }}
-                        />
-                        <Button type="submit" size="small" sx={{ minWidth: 'auto', p: 0.5 }}>Go</Button>
-                    </form>
-                </Box>
-
-                <GridPagination />
-            </GridFooterContainer>
-        );
-    };
 
     const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, tower: any) => {
         event.stopPropagation();
@@ -688,6 +697,18 @@ export default function TowerTableSimple({
     const SERVER_SORTABLE = new Set(['businessCount', 'avgBusinessDistance', 'aiTowerScore']);
     const sortableColumns = columns.map(c => ({ ...c, sortable: SERVER_SORTABLE.has(c.field) }));
 
+    // Stable references for controlled DataGrid props — creating new objects/arrays on
+    // every render causes MUI DataGrid v8 to fire onSortModelChange / onPaginationModelChange
+    // spuriously, which calls setPage(0) and resets the user back to the first page.
+    const sortModelArray = React.useMemo(
+        () => sortModel ? [{ field: sortModel.field, sort: sortModel.order }] : [],
+        [sortModel]
+    );
+    const paginationModelObj = React.useMemo(
+        () => ({ page, pageSize: rowsPerPage }),
+        [page, rowsPerPage]
+    );
+
     return (
         <Box sx={{ height: '100%', width: '100%', display: 'flex', flexDirection: 'column' }}>
             {externalFiltersBar}
@@ -698,16 +719,17 @@ export default function TowerTableSimple({
                 paginationMode="server"
                 filterMode="server"
                 sortingMode="server"
-                sortModel={sortModel ? [{ field: sortModel.field, sort: sortModel.order }] : []}
+                sortModel={sortModelArray}
                 onSortModelChange={(model) => {
                     if (!onSortChange) return;
-                    if (model.length === 0 || !model[0].sort) {
-                        onSortChange(null);
-                    } else {
-                        onSortChange({ field: model[0].field, order: model[0].sort });
-                    }
+                    const newSort = (model.length === 0 || !model[0].sort)
+                        ? null
+                        : { field: model[0].field, order: model[0].sort as 'asc' | 'desc' };
+                    // Guard: skip if sort hasn't actually changed (prevents spurious setPage(0))
+                    if (newSort?.field === sortModel?.field && newSort?.order === sortModel?.order) return;
+                    onSortChange(newSort);
                 }}
-                paginationModel={{ page, pageSize: rowsPerPage }}
+                paginationModel={paginationModelObj}
                 onPaginationModelChange={(model) => {
                     if (model.page !== page) {
                         onPageChange(model.page);
@@ -739,9 +761,13 @@ export default function TowerTableSimple({
                     footer: CustomFooter
                 }}
                 slotProps={{
-                    toolbar: {
-                        showQuickFilter: false,
-                    },
+                    toolbar: { showQuickFilter: false },
+                    footer: {
+                        currentPage: page,
+                        jumpPage,
+                        onJumpPageChange: setJumpPage,
+                        onJumpSubmit: handleJumpToPage,
+                    } as any
                 }}
                 disableRowSelectionOnClick
                 disableColumnFilter

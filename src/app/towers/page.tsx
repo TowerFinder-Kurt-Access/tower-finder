@@ -465,8 +465,9 @@ function TowersPageContent() {
                         onCellEdit={handleCellEdit}
                         sortModel={sortModel}
                         onSortChange={(model) => {
+                            const changed = model?.field !== sortModel?.field || model?.order !== sortModel?.order;
                             setSortModel(model);
-                            setPage(0);
+                            if (changed) setPage(0);
                         }}
                         onNotesClick={handleNotesClick}
                         onAddOwner={(tower) => setAddOwnerTower(tower)}
