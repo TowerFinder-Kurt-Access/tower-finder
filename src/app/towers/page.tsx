@@ -54,6 +54,9 @@ function TowersPageContent() {
 
     const abortControllerRef = useRef<AbortController | null>(null);
 
+    // Must be declared before the state lazy initializers that reference it
+    const urlIdParam = searchParams.get('id');
+
     const [towers, setTowers] = useState<Tower[]>([]);
     const [totalCount, setTotalCount] = useState<number>(0);
 
@@ -97,7 +100,6 @@ function TowersPageContent() {
         statuses: { id: number; name: string }[];
     }>({ types: [], carriers: [], statuses: [] });
     // Initialize filters from URL ?id= param, falling back to localStorage
-    const urlIdParam = searchParams.get('id');
     const [filters, setFilters] = useState<{
         city?: string;
         state?: string;
