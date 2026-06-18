@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Paper from '@mui/material/Paper';
@@ -52,8 +52,20 @@ export default function OwnersPage() {
         state?: string;
         county?: string;
         zip?: string;
+        search?: string;
     }>({});
+    const searchRef = useRef<HTMLInputElement>(null);
     const router = useRouter();
+
+    const submitSearch = () => {
+        const val = (searchRef.current?.value || '').trim();
+        setFilters(prev => {
+            const next = { ...prev };
+            if (val) next.search = val; else delete next.search;
+            return next;
+        });
+        setPaginationModel(prev => ({ ...prev, page: 0 }));
+    };
     const { country: globalCountry } = useCountry();
 
     // Load distinct filter values (re-fetch when country changes)
@@ -89,6 +101,7 @@ export default function OwnersPage() {
                 if (filters.county) params.append('county', filters.county);
                 if (filters.state) params.append('state', filters.state);
                 if (filters.zip) params.append('zip', filters.zip);
+                if (filters.search) params.append('search', filters.search);
 
                 const res = await axios.get(`/api/owners?${params.toString()}`);
 
@@ -297,6 +310,33 @@ export default function OwnersPage() {
 
     const ExternalFiltersBar = () => (
         <Box sx={{ borderBottom: '1px solid #e0e0e0', mb: 1 }}>
+            <Box
+                component="form"
+                onSubmit={(e) => { e.preventDefault(); submitSearch(); }}
+                sx={{ pb: 1, display: 'flex', gap: 1 }}
+            >
+                <TextField
+                    fullWidth
+                    size="small"
+                    placeholder="Search owners by name, address, city, county, phone…"
+                    defaultValue={filters.search || ''}
+                    inputRef={searchRef}
+                    sx={{ bgcolor: 'white' }}
+                />
+                <Button type="submit" variant="contained" color="primary" sx={{ minWidth: 100 }}>
+                    Search
+                </Button>
+                {filters.search && (
+                    <Button
+                        variant="outlined"
+                        color="inherit"
+                        onClick={() => { if (searchRef.current) searchRef.current.value = ''; submitSearch(); }}
+                        sx={{ textTransform: 'none' }}
+                    >
+                        Clear
+                    </Button>
+                )}
+            </Box>
             <Box sx={{ pb: 1, display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center' }}>
                 <Badge badgeContent={activeFilterCount} color="primary" sx={{ mr: 0.5 }}>
                     <FilterListIcon color={activeFilterCount > 0 ? 'primary' : 'action'} />

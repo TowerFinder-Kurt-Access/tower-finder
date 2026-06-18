@@ -195,6 +195,28 @@ export async function GET(request: Request) {
             }
         };
 
+        // Global text search across owner + parcel fields (each term must match)
+        const search = searchParams.get('search');
+        if (search) {
+            const terms = search.split(/\s+/).filter(Boolean);
+            ownersWhere.AND = terms.map(term => ({
+                OR: [
+                    { name: { contains: term, mode: 'insensitive' } },
+                    { address: { contains: term, mode: 'insensitive' } },
+                    { type: { contains: term, mode: 'insensitive' } },
+                    { contacts: { some: { value: { contains: term, mode: 'insensitive' } } } },
+                    { parcels: { some: { address: { contains: term, mode: 'insensitive' } } } },
+                    { parcels: { some: { cityRaw: { contains: term, mode: 'insensitive' } } } },
+                    { parcels: { some: { city: { name: { contains: term, mode: 'insensitive' } } } } },
+                    { parcels: { some: { countyRaw: { contains: term, mode: 'insensitive' } } } },
+                    { parcels: { some: { provinceRaw: { contains: term, mode: 'insensitive' } } } },
+                    { parcels: { some: { stateRaw: { contains: term, mode: 'insensitive' } } } },
+                    { parcels: { some: { postalCode: { contains: term, mode: 'insensitive' } } } },
+                    { parcels: { some: { zip: { contains: term, mode: 'insensitive' } } } },
+                ],
+            }));
+        }
+
         // Get owners with their parcels and towers
         const owners = await prisma.owner.findMany({
             where: ownersWhere,

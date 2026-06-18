@@ -4,7 +4,7 @@ import { MapContainer, TileLayer, CircleMarker, Popup, Polygon, useMap } from 'r
 import MarkerClusterGroup from 'react-leaflet-cluster';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { Typography } from '@mui/material';
 import type { LatLngExpression } from 'leaflet';
 
@@ -59,6 +59,7 @@ interface MapProps {
         distance: number;
         rawData: any;
     }[];
+    selectedBusinessId?: number | null;
     onBoundsChange?: (bounds: { north: number, south: number, east: number, west: number }) => void;
     userPosition?: { lat: number; lon: number; accuracy?: number } | null;
 }
@@ -125,8 +126,17 @@ function MapEvents({ onBoundsChange }: { onBoundsChange?: (bounds: any) => void 
 
 export default function Map({
     center, zoom, bounds, towers, towerLeads = [], businessesNearby = [],
-    onTowerSelect, selectedTower, onBoundsChange, userPosition
+    onTowerSelect, selectedTower, selectedBusinessId, onBoundsChange, userPosition
 }: MapProps) {
+
+    // Open the selected business's popup when it changes
+    const bizRefs = useRef<Record<number, any>>({});
+    useEffect(() => {
+        if (selectedBusinessId != null) {
+            const m = bizRefs.current[selectedBusinessId];
+            if (m) m.openPopup();
+        }
+    }, [selectedBusinessId]);
 
     // Debug logging for selected tower geometry
     useEffect(() => {
@@ -366,17 +376,20 @@ export default function Map({
                 if (!coords || coords.length < 2) return null;
                 const bizLat = coords[1];
                 const bizLon = coords[0];
+                const isSelectedBiz = selectedBusinessId === biz.id;
 
                 return (
                     <CircleMarker
                         key={`biz-${biz.id}`}
+                        ref={(r) => { if (r) bizRefs.current[biz.id] = r; }}
                         center={[bizLat, bizLon] as LatLngExpression}
                         pathOptions={{
-                            color: '#9c27b0', // Purple
-                            fillColor: '#ba68c8',
-                            fillOpacity: 0.7
+                            color: isSelectedBiz ? '#e65100' : '#9c27b0',
+                            fillColor: isSelectedBiz ? '#ff9800' : '#ba68c8',
+                            fillOpacity: isSelectedBiz ? 0.95 : 0.7,
+                            weight: isSelectedBiz ? 3 : 1,
                         }}
-                        radius={6}
+                        radius={isSelectedBiz ? 11 : 6}
                     >
                         <Popup>
                             <div style={{ minWidth: '150px' }}>

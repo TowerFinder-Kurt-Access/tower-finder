@@ -24,6 +24,7 @@ import {
     DialogContent,
     DialogActions,
     Chip,
+    Stack,
     Toolbar,
     AppBar,
     Tooltip
@@ -175,6 +176,8 @@ export default function TowerDetailPage({ params }: PageProps) {
     const [mounted, setMounted] = useState(false);
     const [streetViewUrl, setStreetViewUrl] = useState('');
     const [isEditingStreetView, setIsEditingStreetView] = useState(false);
+    const [selectedBizId, setSelectedBizId] = useState<number | null>(null);
+    const [mapCenter, setMapCenter] = useState<[number, number] | null>(null);
     const [isSavingStreetView, setIsSavingStreetView] = useState(false);
     const [isNormalizing, setIsNormalizing] = useState(false);
 
@@ -302,6 +305,37 @@ export default function TowerDetailPage({ params }: PageProps) {
         if (tower) {
             window.open(`https://www.google.com/maps/@${tower.lat},${tower.lon},20z/data=!3m1!1e3`, '_blank');
         }
+    };
+
+    // --- Nearby business helpers ---
+    const bizCoords = (biz: any): [number, number] | null => {
+        const c = biz?.rawData?.geometry?.coordinates;
+        if (Array.isArray(c) && c.length >= 2) return [c[1], c[0]];
+        const p = biz?.rawData?.properties;
+        if (p?.lat != null && p?.lon != null) return [p.lat, p.lon];
+        return null;
+    };
+
+    const bizAddress = (biz: any): string => {
+        const p = biz?.rawData?.properties || {};
+        if (p.formatted) return p.formatted;
+        const line1 = [p.housenumber, p.street].filter(Boolean).join(' ');
+        const parts = [line1 || p.address_line1, p.suburb || p.district, p.city, p.state]
+            .filter(Boolean);
+        return parts.join(', ');
+    };
+
+    const handleSelectBizOnMap = (biz: any) => {
+        const c = bizCoords(biz);
+        if (!c) return;
+        setSelectedBizId(biz.id);
+        setMapCenter(c);
+        document.getElementById('tower-location-map')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    };
+
+    const handleBizSatellite = (biz: any) => {
+        const c = bizCoords(biz);
+        if (c) window.open(`https://www.google.com/maps/@${c[0]},${c[1]},20z/data=!3m1!1e3`, '_blank');
     };
 
     const handleOpenBingMaps = () => {
@@ -1204,11 +1238,30 @@ export default function TowerDetailPage({ params }: PageProps) {
                             </Typography>
                         ) : (
                             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: '1fr 1fr 1fr' }, gap: 2 }}>
-                                {tower.businessesNearby.map((biz) => (
-                                    <Paper key={biz.id} variant="outlined" sx={{ p: 2, bgcolor: '#fafafa' }}>
+                                {tower.businessesNearby.map((biz) => {
+                                    const addr = bizAddress(biz);
+                                    const hasCoords = !!bizCoords(biz);
+                                    const isSelected = selectedBizId === biz.id;
+                                    return (
+                                    <Paper
+                                        key={biz.id}
+                                        variant="outlined"
+                                        sx={{
+                                            p: 2,
+                                            bgcolor: isSelected ? 'primary.50' : '#fafafa',
+                                            borderColor: isSelected ? 'primary.main' : undefined,
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                        }}
+                                    >
                                         <Typography variant="subtitle1" sx={{ fontWeight: 600, color: 'primary.dark' }}>
                                             {biz.name}
                                         </Typography>
+                                        {addr && (
+                                            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                                                {addr}
+                                            </Typography>
+                                        )}
                                         <Typography variant="body2" sx={{ mt: 0.5 }}>
                                             Distance: <strong>{Math.round(biz.distance)}m</strong>
                                         </Typography>
@@ -1217,8 +1270,31 @@ export default function TowerDetailPage({ params }: PageProps) {
                                                 📞 {biz.phone}
                                             </Typography>
                                         )}
+                                        {hasCoords && (
+                                            <Stack direction="row" spacing={1} sx={{ mt: 1.5 }}>
+                                                <Button
+                                                    size="small"
+                                                    variant="outlined"
+                                                    startIcon={<StreetviewIcon />}
+                                                    onClick={() => handleBizSatellite(biz)}
+                                                    sx={{ textTransform: 'none' }}
+                                                >
+                                                    Satellite
+                                                </Button>
+                                                <Button
+                                                    size="small"
+                                                    variant={isSelected ? 'contained' : 'outlined'}
+                                                    startIcon={<MapIcon />}
+                                                    onClick={() => handleSelectBizOnMap(biz)}
+                                                    sx={{ textTransform: 'none' }}
+                                                >
+                                                    Show on map
+                                                </Button>
+                                            </Stack>
+                                        )}
                                     </Paper>
-                                ))}
+                                    );
+                                })}
                             </Box>
                         )}
                     </Paper>
@@ -1231,15 +1307,16 @@ export default function TowerDetailPage({ params }: PageProps) {
                                 Location Map
                             </Typography>
                         </Box>
-                        <Box sx={{ height: 400, position: 'relative' }}>
+                        <Box id="tower-location-map" sx={{ height: 400, position: 'relative' }}>
                             {mounted ? (
                                 <Map
-                                    center={[tower.lat, tower.lon]}
-                                    zoom={15}
+                                    center={mapCenter ?? [tower.lat, tower.lon]}
+                                    zoom={selectedBizId ? 17 : 15}
                                     towers={[tower]}
                                     businessesNearby={tower.businessesNearby || []}
                                     onTowerSelect={() => { }}
                                     selectedTower={tower}
+                                    selectedBusinessId={selectedBizId}
                                 />
                             ) : (
                                 <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
