@@ -40,6 +40,10 @@ interface OwnerTower {
     city: string;
     state: string;
     notesCount: number;
+    dataSource?: string | null;
+    ihunterCloseupUrl?: string | null;
+    ihunterOverlayUrl?: string | null;
+    ihunterScrapedAt?: string | null;
 }
 
 interface Owner {
@@ -408,6 +412,53 @@ export default function OwnerDetailPage({ params }: PageProps) {
                         </Typography>
                     )}
                 </Paper>
+
+                {/* iHunter Landowner Map screenshots (for verifying OCR'd names) */}
+                {owner.towers?.some(t => t.ihunterCloseupUrl || t.ihunterOverlayUrl) && (
+                    <Paper sx={{ p: 3, mb: 3 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                            <Typography variant="h6">iHunter Landowner Map</Typography>
+                            <Chip label="OCR suggestion — verify" size="small" color="warning" />
+                        </Box>
+                        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                            This owner name was read from the iHunter map by OCR/AI. Check it against the
+                            screenshots below; if it&apos;s wrong, click &quot;Edit Details&quot; above to correct the name.
+                        </Typography>
+                        <Divider sx={{ mb: 2 }} />
+                        {owner.towers!.filter(t => t.ihunterCloseupUrl || t.ihunterOverlayUrl).map(t => (
+                            <Box key={t.id} sx={{ mb: 3 }}>
+                                <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                                    Tower {t.id}{t.address ? ` — ${t.address}` : ''}
+                                    {t.ihunterScrapedAt && (
+                                        <Typography component="span" variant="caption" color="text.secondary" sx={{ ml: 1 }}>
+                                            (captured {new Date(t.ihunterScrapedAt).toLocaleDateString()})
+                                        </Typography>
+                                    )}
+                                </Typography>
+                                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
+                                    {t.ihunterCloseupUrl && (
+                                        <Box>
+                                            <Typography variant="caption" color="text.secondary">Close-up (owner)</Typography>
+                                            <a href={t.ihunterCloseupUrl} target="_blank" rel="noopener noreferrer">
+                                                <Box component="img" src={t.ihunterCloseupUrl} alt="iHunter close-up"
+                                                    sx={{ width: '100%', borderRadius: 1, border: '1px solid #e0e0e0', display: 'block', mt: 0.5 }} />
+                                            </a>
+                                        </Box>
+                                    )}
+                                    {t.ihunterOverlayUrl && (
+                                        <Box>
+                                            <Typography variant="caption" color="text.secondary">Surrounding owners (overlay)</Typography>
+                                            <a href={t.ihunterOverlayUrl} target="_blank" rel="noopener noreferrer">
+                                                <Box component="img" src={t.ihunterOverlayUrl} alt="iHunter overlay"
+                                                    sx={{ width: '100%', borderRadius: 1, border: '1px solid #e0e0e0', display: 'block', mt: 0.5 }} />
+                                            </a>
+                                        </Box>
+                                    )}
+                                </Box>
+                            </Box>
+                        ))}
+                    </Paper>
+                )}
             </Box>
         </Box>
     );

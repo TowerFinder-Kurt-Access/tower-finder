@@ -51,7 +51,11 @@ export async function GET(
                 address: p.address || '',
                 city: typeof p.city === 'object' && p.city ? p.city.name : (p.cityRaw || ''),
                 state: typeof p.province === 'object' && p.province ? p.province.name : (p.provinceRaw || p.stateRaw || ''),
-                notesCount: p.tower._count?.notes || 0
+                notesCount: p.tower._count?.notes || 0,
+                dataSource: p.dataSource || null,
+                ihunterCloseupUrl: p.ihunterCloseupUrl || null,
+                ihunterOverlayUrl: p.ihunterOverlayUrl || null,
+                ihunterScrapedAt: p.ihunterScrapedAt || null
             }));
 
         return NextResponse.json({

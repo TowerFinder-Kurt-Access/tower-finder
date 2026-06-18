@@ -25,6 +25,7 @@
  *   overlay : zoomed-out a few steps so surrounding owner names are visible
  */
 
+import 'dotenv/config';
 import { PrismaClient } from '@prisma/client';
 import { chromium } from 'playwright-extra';
 import { chromium as pwChromium } from 'playwright';
