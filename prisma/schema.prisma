@@ -116,6 +116,9 @@ model Parcel {
   rawData          Json?
   dataSource       String?
   geometry         Json?
+  ihunterCloseupUrl String?
+  ihunterOverlayUrl String?
+  ihunterScrapedAt DateTime?
   towerId          Int       @unique
   ownerId          Int?
   cityId           Int?
@@ -326,6 +329,25 @@ model DiscoveryScan {
   updatedAt      DateTime  @updatedAt
 
   @@unique([state, country])
+  @@index([status])
+}
+
+model IHunterMapRun {
+  id              Int       @id @default(autoincrement())
+  county          String
+  province        String    @default("AB")
+  status          String    @default("registered") // registered, running, completed, failed
+  timesRun        Int       @default(0)
+  towersTotal     Int       @default(0)
+  towersProcessed Int       @default(0)
+  towersMatched   Int       @default(0)
+  towersMissed    Int       @default(0)
+  lastRunAt       DateTime?
+  lastError       String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@unique([county, province])
   @@index([status])
 }
 

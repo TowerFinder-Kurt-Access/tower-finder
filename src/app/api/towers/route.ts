@@ -27,6 +27,7 @@ export async function GET(request: Request) {
         const statusFilter = searchParams.get('status');
         const address = searchParams.get('address');
         const owner = searchParams.get('owner');
+        const hasOwnerName = searchParams.get('hasOwnerName'); // 'true' | 'false'
         const search = searchParams.get('search'); // Global search across text fields
 
         // Business filters
@@ -389,6 +390,18 @@ export async function GET(request: Request) {
                 });
             }
 
+            // Has-owner-name filter (derived from parcel.ownerId)
+            if (hasOwnerName === 'true') {
+                andConditions.push({ parcel: { ownerId: { not: null } } });
+            } else if (hasOwnerName === 'false') {
+                andConditions.push({
+                    OR: [
+                        { parcel: { is: null } },
+                        { parcel: { ownerId: null } }
+                    ]
+                });
+            }
+
             // Business count filter
             if (minBusinessCount !== null || maxBusinessCount !== null) {
                 const countFilter: any = {};
@@ -492,6 +505,7 @@ export async function GET(request: Request) {
                     if (sort === 'businessCount') return { businessCount: order };
                     if (sort === 'avgBusinessDistance') return { avgBusinessDistance: order };
                     if (sort === 'aiTowerScore') return { aiTowerScore: { sort: order, nulls: 'last' } as Prisma.SortOrderInput };
+                    if (sort === 'hasOwnerName') return { parcel: { ownerId: order } } as Prisma.TowerOrderByWithRelationInput;
                     return { id: 'asc' as Prisma.SortOrder };
                 })(),
                 skip,
@@ -503,17 +517,23 @@ export async function GET(request: Request) {
         const limitApplied = limit !== undefined ? ` (limit: ${limit}, page: ${page || 0})` : '';
         console.log(`[API /api/towers] Returning ${towers.length} towers${limitApplied}${totalCount !== undefined ? ` of ${totalCount} total` : ''}`);
 
+        // Expose a derived hasOwnerName flag (sortable/filterable above)
+        const withFlags = towers.map(t => ({
+            ...t,
+            hasOwnerName: !!(t.parcel && t.parcel.ownerId)
+        }));
+
         // If pagination was used, return both data and count
         if (needsCount) {
             return NextResponse.json({
-                data: towers,
+                data: withFlags,
                 total: totalCount,
                 page: page,
                 limit: limit
             });
         }
 
-        return NextResponse.json(towers);
+        return NextResponse.json(withFlags);
     } catch (error) {
         if (error instanceof Error && error.message === 'Unauthorized') {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

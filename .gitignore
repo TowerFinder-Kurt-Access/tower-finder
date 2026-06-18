@@ -34,6 +34,14 @@ yarn-error.log*
 .env*
 !.env.example
 
+# iHunter scraper artifacts
+scripts/ihunter_screenshots/
+scripts/.ihunter-profile/
+scripts/.ihunter-chrome/
+public/ihunter/
+eng.traineddata
+*.traineddata
+
 # vercel
 .vercel
 

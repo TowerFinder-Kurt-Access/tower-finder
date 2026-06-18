@@ -117,6 +117,7 @@ function TowersPageContent() {
         maxAvgDistance?: string;
         minAiScore?: string;
         maxAiScore?: string;
+        hasOwnerName?: string;
     }>(() => {
         if (urlIdParam) return { id: urlIdParam };
         try {
@@ -205,6 +206,7 @@ function TowersPageContent() {
                 if (filters.maxAvgDistance) params.append('maxAvgDistance', filters.maxAvgDistance);
                 if (filters.minAiScore) params.append('minAiScore', filters.minAiScore);
                 if (filters.maxAiScore) params.append('maxAiScore', filters.maxAiScore);
+                if (filters.hasOwnerName) params.append('hasOwnerName', filters.hasOwnerName);
             }
 
             const res = await axios.get(`/api/towers?${params.toString()}`, { signal: controller.signal });

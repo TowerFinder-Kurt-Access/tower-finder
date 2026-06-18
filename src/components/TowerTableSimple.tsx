@@ -91,6 +91,7 @@ interface TowerTableSimpleProps {
         minBusinessCount?: string; maxBusinessCount?: string;
         minAvgDistance?: string; maxAvgDistance?: string;
         minAiScore?: string; maxAiScore?: string;
+        hasOwnerName?: string;
     }) => void;
     filters?: {
         city?: string; state?: string; county?: string; zip?: string;
@@ -99,6 +100,7 @@ interface TowerTableSimpleProps {
         minBusinessCount?: string; maxBusinessCount?: string;
         minAvgDistance?: string; maxAvgDistance?: string;
         minAiScore?: string; maxAiScore?: string;
+        hasOwnerName?: string;
     };
     onCellEdit?: (towerId: number, field: string, value: string) => void;
     sortModel?: { field: string; order: 'asc' | 'desc' } | null;
@@ -466,6 +468,20 @@ export default function TowerTableSimple({
                         onChange={(e) => onFilterChange({ ...filters, maxAiScore: e.target.value || undefined })}
                         sx={{ width: 130 }}
                     />
+                    <TextField
+                        select
+                        label="Owner Name"
+                        size="small"
+                        value={filters.hasOwnerName || ''}
+                        onChange={(e) => onFilterChange({ ...filters, hasOwnerName: e.target.value || undefined })}
+                        sx={{ width: 130 }}
+                        SelectProps={{ native: true }}
+                        InputLabelProps={{ shrink: true }}
+                    >
+                        <option value="">Any</option>
+                        <option value="true">Has owner</option>
+                        <option value="false">No owner</option>
+                    </TextField>
                 </Box>
 
                 <Box sx={{ ml: 'auto', display: 'flex', gap: 1 }}>
@@ -582,6 +598,22 @@ export default function TowerTableSimple({
             }
         },
         {
+            field: 'hasOwnerName',
+            headerName: 'Owner Name',
+            width: 120,
+            renderCell: (params: GridRenderCellParams) => {
+                const has = params.row.hasOwnerName ?? !!(params.row.parcel && params.row.parcel.ownerId);
+                const name = params.row.parcel?.owner?.name;
+                return has ? (
+                    <Tooltip title={name || ''}>
+                        <Chip label="Yes" size="small" color="success" />
+                    </Tooltip>
+                ) : (
+                    <Typography variant="body2" color="text.secondary">–</Typography>
+                );
+            }
+        },
+        {
             field: 'notesCount',
             headerName: 'Notes',
             width: 80,
@@ -694,7 +726,7 @@ export default function TowerTableSimple({
     ];
 
     // Sorting runs server-side; only fields the API can order by are sortable
-    const SERVER_SORTABLE = new Set(['businessCount', 'avgBusinessDistance', 'aiTowerScore']);
+    const SERVER_SORTABLE = new Set(['businessCount', 'avgBusinessDistance', 'aiTowerScore', 'hasOwnerName']);
     const sortableColumns = columns.map(c => ({ ...c, sortable: SERVER_SORTABLE.has(c.field) }));
 
     // Stable references for controlled DataGrid props — creating new objects/arrays on

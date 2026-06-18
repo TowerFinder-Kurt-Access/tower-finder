@@ -118,6 +118,9 @@ interface Tower {
         parcelId?: string;
         dataSource?: string;
         rawData?: any;
+        ihunterCloseupUrl?: string | null;
+        ihunterOverlayUrl?: string | null;
+        ihunterScrapedAt?: string | null;
         owner?: {
             id?: number;
             name?: string;
@@ -1078,6 +1081,47 @@ export default function TowerDetailPage({ params }: PageProps) {
                                                 </Box>
                                             )}
                                         </>
+                                    )}
+                                    {(tower.parcel?.ihunterCloseupUrl || tower.parcel?.ihunterOverlayUrl) && (
+                                        <Box sx={{ gridColumn: { xs: '1', md: '1 / -1' } }}>
+                                            <Divider sx={{ my: 1 }} />
+                                            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                                                iHunter Landowner Map
+                                                {tower.parcel?.ihunterScrapedAt && (
+                                                    <Typography component="span" variant="caption" color="text.secondary" sx={{ ml: 1 }}>
+                                                        (captured {new Date(tower.parcel.ihunterScrapedAt).toLocaleDateString()})
+                                                    </Typography>
+                                                )}
+                                            </Typography>
+                                            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
+                                                {tower.parcel?.ihunterCloseupUrl && (
+                                                    <Box>
+                                                        <Typography variant="caption" color="text.secondary">Close-up (owner)</Typography>
+                                                        <a href={tower.parcel.ihunterCloseupUrl} target="_blank" rel="noopener noreferrer">
+                                                            <Box
+                                                                component="img"
+                                                                src={tower.parcel.ihunterCloseupUrl}
+                                                                alt="iHunter close-up of parcel owner"
+                                                                sx={{ width: '100%', borderRadius: 1, border: '1px solid #e0e0e0', display: 'block', mt: 0.5 }}
+                                                            />
+                                                        </a>
+                                                    </Box>
+                                                )}
+                                                {tower.parcel?.ihunterOverlayUrl && (
+                                                    <Box>
+                                                        <Typography variant="caption" color="text.secondary">Surrounding owners (overlay)</Typography>
+                                                        <a href={tower.parcel.ihunterOverlayUrl} target="_blank" rel="noopener noreferrer">
+                                                            <Box
+                                                                component="img"
+                                                                src={tower.parcel.ihunterOverlayUrl}
+                                                                alt="iHunter overlay of surrounding owners"
+                                                                sx={{ width: '100%', borderRadius: 1, border: '1px solid #e0e0e0', display: 'block', mt: 0.5 }}
+                                                            />
+                                                        </a>
+                                                    </Box>
+                                                )}
+                                            </Box>
+                                        </Box>
                                     )}
                                 </Box>
                             )
