@@ -5,6 +5,7 @@ import { getAuthUser } from '@/lib/auth-helpers';
 import { buildTowerAccessFilter } from '@/lib/tower-access';
 import { ABBR_TO_PROVINCE, PROVINCE_TO_ABBR } from '@/lib/locations';
 import { dedupeDisplayValues } from '@/lib/normalize';
+import { filterOfficialCanadianCities, filterCanadianPostalCodes, isCanada } from '@/lib/official-cities';
 
 // Expand a province/state value into all equivalent search terms (full name +
 // abbreviation), lower-cased, so distinct-city/zip filtering matches whether the
@@ -129,7 +130,8 @@ export async function GET(request: Request) {
                 WHERE name IS NOT NULL AND name != ''
                 ORDER BY name
              `;
-            return NextResponse.json(dedupeDisplayValues(result.map(r => r.city)));
+            const cities = dedupeDisplayValues(result.map(r => r.city));
+            return NextResponse.json(isCanada(country) ? filterOfficialCanadianCities(cities) : cities);
         }
 
         if (distinct === 'zips') {
@@ -158,7 +160,8 @@ export async function GET(request: Request) {
                 WHERE name IS NOT NULL AND name != ''
                 ORDER BY name
             `;
-            return NextResponse.json(dedupeDisplayValues(result.map(r => r.zip)));
+            const zips = dedupeDisplayValues(result.map(r => r.zip));
+            return NextResponse.json(isCanada(country) ? filterCanadianPostalCodes(zips) : zips);
         }
 
         if (distinct === 'filters') {
@@ -229,11 +232,14 @@ export async function GET(request: Request) {
                 statesSet.add(fullName);
             });
 
+            const isCA = isCanada(country);
+            const cities = dedupeDisplayValues(citiesResult.map(r => r.city));
+            const zips = dedupeDisplayValues(zipsResult.map(r => r.zip));
             return NextResponse.json({
-                cities: dedupeDisplayValues(citiesResult.map(r => r.city)),
+                cities: isCA ? filterOfficialCanadianCities(cities) : cities,
                 states: dedupeDisplayValues(Array.from(statesSet)),
                 counties: dedupeDisplayValues(countiesResult.map(r => r.county)),
-                zips: dedupeDisplayValues(zipsResult.map(r => r.zip))
+                zips: isCA ? filterCanadianPostalCodes(zips) : zips
             });
         }
 

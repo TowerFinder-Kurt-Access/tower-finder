@@ -1,6 +1,17 @@
 import { prisma } from '@/lib/prisma';
 import { STATE_CODE_TO_NAME, USA_STATES, CANADA_PROVINCES } from '@/lib/constants';
 import canadianCities from '@/lib/canadian_cities.json' with { type: 'json' };
+import { ABBR_TO_PROVINCE } from '@/lib/locations';
+import { buildOfficialLookup, extractCity, extractPostalCode, provinceCodeFrom } from '@/lib/extract-location';
+
+// Cache the per-province official-municipality lookups (built from canadian_cities.json).
+const officialLookups = new Map<string, Map<string, string>>();
+function officialLookupFor(code: string): Map<string, string> {
+    if (!officialLookups.has(code)) {
+        officialLookups.set(code, buildOfficialLookup((canadianCities as Record<string, string[]>)[code] || []));
+    }
+    return officialLookups.get(code)!;
+}
 
 export interface NormalizedLocation {
     city?: string;
@@ -156,6 +167,29 @@ export class LocationNormalizationService {
         });
 
         if (!parcel) return;
+
+        // Preferred path: deterministically recover the city + postal code from the
+        // full geocoded address, validated against the official municipality list.
+        if (parcel.address && (parcel.country || '').toLowerCase() === 'canada') {
+            const code = provinceCodeFrom(parcel.provinceRaw || parcel.stateRaw, parcel.address);
+            if (code) {
+                const officialCity = extractCity(parcel.address, officialLookupFor(code), ABBR_TO_PROVINCE[code]);
+                const postal = extractPostalCode(parcel.address);
+                if (officialCity) {
+                    const provinceId = (await prisma.province.upsert({
+                        where: { code }, update: { name: ABBR_TO_PROVINCE[code] }, create: { code, name: ABBR_TO_PROVINCE[code] },
+                    })).id;
+                    const cityId = (await prisma.city.upsert({
+                        where: { name_provinceId: { name: officialCity, provinceId } }, update: {}, create: { name: officialCity, provinceId },
+                    })).id;
+                    await prisma.parcel.update({
+                        where: { id: parcelId },
+                        data: { cityId, cityRaw: officialCity, provinceId, ...(postal ? { postalCode: postal } : {}) },
+                    });
+                    return { city: officialCity, provinceCode: code, province: ABBR_TO_PROVINCE[code], country: 'Canada' };
+                }
+            }
+        }
 
         // Try to normalize using existing raw strings
         const cityStr = parcel.cityRaw;
