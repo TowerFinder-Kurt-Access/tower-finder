@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
 import { ABBR_TO_PROVINCE } from '@/lib/locations';
 import { dedupeDisplayValues } from '@/lib/normalize';
-import { filterOfficialCanadianCities, filterCanadianPostalCodes, isCanada } from '@/lib/official-cities';
+import { filterOfficialCanadianCities, filterOfficialCanadianCounties, filterCanadianPostalCodes, isCanada } from '@/lib/official-cities';
 
 // GET /api/owners - List all owners grouped by parcel
 export async function GET(request: Request) {
@@ -87,11 +87,12 @@ export async function GET(request: Request) {
 
             const isCA = isCanada(countryParam);
             const cities = dedupeDisplayValues(citiesResult.map(r => r.city));
+            const counties = dedupeDisplayValues(countiesResult.map(r => r.county));
             const zips = dedupeDisplayValues(zipsResult.map(r => r.zip));
             return NextResponse.json({
                 cities: isCA ? filterOfficialCanadianCities(cities) : cities,
                 states: dedupeDisplayValues(Array.from(statesSet)),
-                counties: dedupeDisplayValues(countiesResult.map(r => r.county)),
+                counties: isCA ? filterOfficialCanadianCounties(counties) : counties,
                 zips: isCA ? filterCanadianPostalCodes(zips) : zips
             });
         }

@@ -5,7 +5,7 @@ import { getAuthUser } from '@/lib/auth-helpers';
 import { buildTowerAccessFilter } from '@/lib/tower-access';
 import { ABBR_TO_PROVINCE, PROVINCE_TO_ABBR } from '@/lib/locations';
 import { dedupeDisplayValues } from '@/lib/normalize';
-import { filterOfficialCanadianCities, filterCanadianPostalCodes, isCanada } from '@/lib/official-cities';
+import { filterOfficialCanadianCities, filterOfficialCanadianCounties, filterCanadianPostalCodes, isCanada } from '@/lib/official-cities';
 
 // Expand a province/state value into all equivalent search terms (full name +
 // abbreviation), lower-cased, so distinct-city/zip filtering matches whether the
@@ -234,11 +234,12 @@ export async function GET(request: Request) {
 
             const isCA = isCanada(country);
             const cities = dedupeDisplayValues(citiesResult.map(r => r.city));
+            const counties = dedupeDisplayValues(countiesResult.map(r => r.county));
             const zips = dedupeDisplayValues(zipsResult.map(r => r.zip));
             return NextResponse.json({
                 cities: isCA ? filterOfficialCanadianCities(cities) : cities,
                 states: dedupeDisplayValues(Array.from(statesSet)),
-                counties: dedupeDisplayValues(countiesResult.map(r => r.county)),
+                counties: isCA ? filterOfficialCanadianCounties(counties) : counties,
                 zips: isCA ? filterCanadianPostalCodes(zips) : zips
             });
         }

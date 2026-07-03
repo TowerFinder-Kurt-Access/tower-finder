@@ -99,3 +99,51 @@ export function extractCity(
     }
     return null;
 }
+
+// --- Counties (census divisions) ---
+// SGC stores bare division names ("York", "Thunder Bay"); addresses dress them up
+// ("York Region", "Thunder Bay District", "Colchester County"), so strip those
+// status words from both sides before matching.
+const COUNTY_PREFIXES = [
+    'united counties of ', 'county of ', 'regional municipality of ',
+    'municipalite regionale de comte de ', "mrc d'", 'mrc de ', 'comte de ', 'the ',
+];
+const COUNTY_SUFFIXES = [
+    ' regional district', ' regional municipality', ' census division',
+    ' counties', ' county', ' region', ' district', ' (mrc)', ' mrc',
+];
+
+export function normalizeCountyName(s: string): string {
+    let v = stripDiacritics(s.trim().toLowerCase());
+    for (const p of COUNTY_PREFIXES) if (v.startsWith(p)) { v = v.slice(p.length); break; }
+    for (const suf of COUNTY_SUFFIXES) if (v.endsWith(suf)) { v = v.slice(0, -suf.length); break; }
+    return v.trim();
+}
+
+export function buildCountyLookup(counties: string[]): Map<string, string> {
+    const m = new Map<string, string>();
+    for (const c of counties) {
+        const k = normalizeCountyName(c);
+        if (k && !m.has(k)) m.set(k, c);
+    }
+    return m;
+}
+
+/** Pick the county (census division) token from the address, leftmost match wins. */
+export function extractCounty(
+    address: string,
+    countyLookup: Map<string, string>,
+    provinceName?: string | null
+): string | null {
+    const tokens = address.split(',').map(t => t.trim()).filter(Boolean);
+    const provKey = provinceName ? normalizeCountyName(provinceName) : null;
+    for (const t of tokens) {
+        if (POSTAL_FULL_RE.test(t) || POSTAL_FSA_RE.test(t)) continue;
+        if (t.toLowerCase() === 'canada') continue;
+        const key = normalizeCountyName(t);
+        if (provKey && key === provKey) continue;
+        const canonical = countyLookup.get(key);
+        if (canonical) return canonical;
+    }
+    return null;
+}

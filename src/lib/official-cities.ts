@@ -5,6 +5,8 @@
  * raw parcel columns.
  */
 import canadianCities from '@/lib/canadian_cities.json' with { type: 'json' };
+import canadianCounties from '@/lib/canadian_counties.json' with { type: 'json' };
+import { normalizeCountyName } from '@/lib/extract-location';
 
 function key(s: string): string {
     return s.normalize('NFD').replace(/[̀-ͯ]/g, '').trim().toLowerCase();
@@ -13,6 +15,11 @@ function key(s: string): string {
 const officialCitySet = new Set<string>();
 for (const names of Object.values(canadianCities as Record<string, string[]>)) {
     for (const name of names) officialCitySet.add(key(name));
+}
+
+const officialCountySet = new Set<string>();
+for (const names of Object.values(canadianCounties as Record<string, string[]>)) {
+    for (const name of names) officialCountySet.add(normalizeCountyName(name));
 }
 
 /** Full Canadian postal code "A1A 1A1" or the 3-char forward sortation area "A1A". */
@@ -25,6 +32,15 @@ export function isOfficialCanadianCity(name: string): boolean {
 /** Keep only values that are real Canadian municipalities. */
 export function filterOfficialCanadianCities(names: string[]): string[] {
     return names.filter(isOfficialCanadianCity);
+}
+
+export function isOfficialCanadianCounty(name: string): boolean {
+    return officialCountySet.has(normalizeCountyName(name));
+}
+
+/** Keep only values that are real Canadian counties / census divisions. */
+export function filterOfficialCanadianCounties(names: string[]): string[] {
+    return names.filter(isOfficialCanadianCounty);
 }
 
 /** Keep only values that look like a Canadian postal code / FSA. */

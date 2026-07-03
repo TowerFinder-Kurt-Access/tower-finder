@@ -1,16 +1,25 @@
 import { prisma } from '@/lib/prisma';
 import { STATE_CODE_TO_NAME, USA_STATES, CANADA_PROVINCES } from '@/lib/constants';
 import canadianCities from '@/lib/canadian_cities.json' with { type: 'json' };
+import canadianCounties from '@/lib/canadian_counties.json' with { type: 'json' };
 import { ABBR_TO_PROVINCE } from '@/lib/locations';
-import { buildOfficialLookup, extractCity, extractPostalCode, provinceCodeFrom } from '@/lib/extract-location';
+import { buildOfficialLookup, buildCountyLookup, extractCity, extractCounty, extractPostalCode, provinceCodeFrom } from '@/lib/extract-location';
 
-// Cache the per-province official-municipality lookups (built from canadian_cities.json).
+// Cache the per-province official lookups (built from the SGC lists).
 const officialLookups = new Map<string, Map<string, string>>();
 function officialLookupFor(code: string): Map<string, string> {
     if (!officialLookups.has(code)) {
         officialLookups.set(code, buildOfficialLookup((canadianCities as Record<string, string[]>)[code] || []));
     }
     return officialLookups.get(code)!;
+}
+
+const countyLookups = new Map<string, Map<string, string>>();
+function countyLookupFor(code: string): Map<string, string> {
+    if (!countyLookups.has(code)) {
+        countyLookups.set(code, buildCountyLookup((canadianCounties as Record<string, string[]>)[code] || []));
+    }
+    return countyLookups.get(code)!;
 }
 
 export interface NormalizedLocation {
@@ -173,20 +182,30 @@ export class LocationNormalizationService {
         if (parcel.address && (parcel.country || '').toLowerCase() === 'canada') {
             const code = provinceCodeFrom(parcel.provinceRaw || parcel.stateRaw, parcel.address);
             if (code) {
-                const officialCity = extractCity(parcel.address, officialLookupFor(code), ABBR_TO_PROVINCE[code]);
+                const provName = ABBR_TO_PROVINCE[code];
+                const officialCity = extractCity(parcel.address, officialLookupFor(code), provName);
+                const officialCounty = extractCounty(parcel.address, countyLookupFor(code), provName);
                 const postal = extractPostalCode(parcel.address);
-                if (officialCity) {
+                if (officialCity || officialCounty) {
                     const provinceId = (await prisma.province.upsert({
-                        where: { code }, update: { name: ABBR_TO_PROVINCE[code] }, create: { code, name: ABBR_TO_PROVINCE[code] },
+                        where: { code }, update: { name: provName }, create: { code, name: provName },
                     })).id;
-                    const cityId = (await prisma.city.upsert({
-                        where: { name_provinceId: { name: officialCity, provinceId } }, update: {}, create: { name: officialCity, provinceId },
-                    })).id;
-                    await prisma.parcel.update({
-                        where: { id: parcelId },
-                        data: { cityId, cityRaw: officialCity, provinceId, ...(postal ? { postalCode: postal } : {}) },
-                    });
-                    return { city: officialCity, provinceCode: code, province: ABBR_TO_PROVINCE[code], country: 'Canada' };
+                    const data: Record<string, unknown> = { provinceId };
+                    if (officialCity) {
+                        data.cityId = (await prisma.city.upsert({
+                            where: { name_provinceId: { name: officialCity, provinceId } }, update: {}, create: { name: officialCity, provinceId },
+                        })).id;
+                        data.cityRaw = officialCity;
+                    }
+                    if (officialCounty) {
+                        data.countyId = (await prisma.county.upsert({
+                            where: { name_provinceId: { name: officialCounty, provinceId } }, update: {}, create: { name: officialCounty, provinceId },
+                        })).id;
+                        data.countyRaw = officialCounty;
+                    }
+                    if (postal) data.postalCode = postal;
+                    await prisma.parcel.update({ where: { id: parcelId }, data });
+                    return { city: officialCity || undefined, county: officialCounty || undefined, provinceCode: code, province: provName, country: 'Canada' };
                 }
             }
         }
