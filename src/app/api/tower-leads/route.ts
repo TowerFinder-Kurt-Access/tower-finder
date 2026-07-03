@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { getAuthUser } from '@/lib/auth-helpers';
 
 import { PROVINCE_TO_ABBR, ABBR_TO_PROVINCE } from '@/lib/locations';
+import { dedupeDisplayValues } from '@/lib/normalize';
 
 // GET /api/tower-leads - Fetch leads with pagination and filters
 export async function GET(request: Request) {
@@ -33,7 +34,7 @@ export async function GET(request: Request) {
                 provinces.add(fullName);
             });
 
-            return NextResponse.json(Array.from(provinces).sort());
+            return NextResponse.json(dedupeDisplayValues(Array.from(provinces)));
         }
 
         if (distinct === 'cities') {
@@ -56,7 +57,7 @@ export async function GET(request: Request) {
                 select: { city: true },
                 orderBy: { city: 'asc' }
             });
-            return NextResponse.json(result.map(r => r.city).filter(Boolean));
+            return NextResponse.json(dedupeDisplayValues(result.map(r => r.city)));
         }
 
         if (distinct === 'sources') {
@@ -68,7 +69,7 @@ export async function GET(request: Request) {
                 select: { source: true },
                 orderBy: { source: 'asc' }
             });
-            return NextResponse.json(result.map(r => r.source).filter(Boolean));
+            return NextResponse.json(dedupeDisplayValues(result.map(r => r.source)));
         }
 
         if (distinct === 'types') {
@@ -80,7 +81,7 @@ export async function GET(request: Request) {
                 select: { type: true },
                 orderBy: { type: 'asc' }
             });
-            return NextResponse.json(result.map(r => r.type).filter(Boolean));
+            return NextResponse.json(dedupeDisplayValues(result.map(r => r.type)));
         }
 
         const page = parseInt(searchParams.get('page') || '0');

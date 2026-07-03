@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { requireAdmin } from '@/lib/auth-helpers';
+import { getAuthUser } from '@/lib/auth-helpers';
 
 export async function POST(request: Request) {
     try {
-        await requireAdmin();
+        await getAuthUser();
         const body = await request.json();
         const { type, name } = body;
 
@@ -15,23 +15,27 @@ export async function POST(request: Request) {
             );
         }
 
+        const trimmedName = name.trim();
+
+        // Reuse an existing lookup that only differs by case/whitespace instead of
+        // creating a near-duplicate row (the names have no DB unique constraint).
+        const findExisting = (model: typeof prisma.towerType | typeof prisma.carrier | typeof prisma.towerStatus) =>
+            (model as any).findFirst({ where: { name: { equals: trimmedName, mode: 'insensitive' } } });
+
         let result;
 
         switch (type) {
             case 'type':
-                result = await prisma.towerType.create({
-                    data: { name: name.trim() }
-                });
+                result = await findExisting(prisma.towerType)
+                    ?? await prisma.towerType.create({ data: { name: trimmedName } });
                 break;
             case 'carrier':
-                result = await prisma.carrier.create({
-                    data: { name: name.trim() }
-                });
+                result = await findExisting(prisma.carrier)
+                    ?? await prisma.carrier.create({ data: { name: trimmedName } });
                 break;
             case 'status':
-                result = await prisma.towerStatus.create({
-                    data: { name: name.trim() }
-                });
+                result = await findExisting(prisma.towerStatus)
+                    ?? await prisma.towerStatus.create({ data: { name: trimmedName } });
                 break;
             default:
                 return NextResponse.json(

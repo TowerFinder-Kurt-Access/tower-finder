@@ -42,6 +42,7 @@ import PersonIcon from '@mui/icons-material/Person';
 import PhoneIcon from '@mui/icons-material/Phone';
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
+import DeleteIcon from '@mui/icons-material/Delete';
 import SaveIcon from '@mui/icons-material/Save';
 import CancelIcon from '@mui/icons-material/Cancel';
 import NotesPanel from '@/components/NotesPanel';
@@ -196,6 +197,14 @@ export default function TowerDetailPage({ params }: PageProps) {
     const [addDialogType, setAddDialogType] = useState<'type' | 'carrier' | 'status'>('type');
     const [addDialogValue, setAddDialogValue] = useState('');
     const [addDialogSaving, setAddDialogSaving] = useState(false);
+
+    // Inline lookup management (rename/delete options directly from the dropdowns)
+    const [typeMenuOpen, setTypeMenuOpen] = useState(false);
+    const [carrierMenuOpen, setCarrierMenuOpen] = useState(false);
+    const [statusMenuOpen, setStatusMenuOpen] = useState(false);
+    const [editLookupDialog, setEditLookupDialog] = useState<{ open: boolean; type: 'type' | 'carrier' | 'status'; id: number }>({ open: false, type: 'type', id: 0 });
+    const [editLookupValue, setEditLookupValue] = useState('');
+    const [lookupActionSaving, setLookupActionSaving] = useState(false);
 
     // Editable address fields
     const [editingAddress, setEditingAddress] = useState(false);
@@ -499,6 +508,108 @@ export default function TowerDetailPage({ params }: PageProps) {
         }
     };
 
+    const closeLookupMenu = (type: 'type' | 'carrier' | 'status') => {
+        if (type === 'type') setTypeMenuOpen(false);
+        else if (type === 'carrier') setCarrierMenuOpen(false);
+        else setStatusMenuOpen(false);
+    };
+
+    const openEditLookup = (type: 'type' | 'carrier' | 'status', item: LookupItem) => {
+        closeLookupMenu(type);
+        setEditLookupDialog({ open: true, type, id: item.id });
+        setEditLookupValue(item.name);
+    };
+
+    const handleEditLookupSave = async () => {
+        const name = editLookupValue.trim();
+        if (!name) return;
+        const { type, id } = editLookupDialog;
+        setLookupActionSaving(true);
+        try {
+            const res = await axios.put(`/api/lookups/${type}/${id}`, { name });
+            const updatedName = res.data?.name ?? name;
+            const apply = (prev: LookupItem[]) =>
+                prev.map(i => (i.id === id ? { ...i, name: updatedName } : i))
+                    .sort((a, b) => a.name.localeCompare(b.name));
+            if (type === 'type') setTypes(apply);
+            else if (type === 'carrier') setCarriers(apply);
+            else {
+                setStatuses(apply);
+                if (selectedStatusId === id) setStatus(updatedName);
+            }
+            setEditLookupDialog(d => ({ ...d, open: false }));
+            loadTower();
+        } catch (error: any) {
+            alert(error.response?.data?.error || 'Failed to rename');
+        } finally {
+            setLookupActionSaving(false);
+        }
+    };
+
+    const handleDeleteLookup = async (type: 'type' | 'carrier' | 'status', item: LookupItem) => {
+        closeLookupMenu(type);
+        if (!window.confirm(`Delete "${item.name}"? This can't be undone.`)) return;
+        setLookupActionSaving(true);
+        try {
+            await axios.delete(`/api/lookups/${type}/${item.id}`);
+            const apply = (prev: LookupItem[]) => prev.filter(i => i.id !== item.id);
+            if (type === 'type') {
+                setTypes(apply);
+                if (selectedTypeId === item.id) setSelectedTypeId('');
+            } else if (type === 'carrier') {
+                setCarriers(apply);
+                if (selectedCarrierId === item.id) setSelectedCarrierId('');
+            } else {
+                setStatuses(apply);
+                if (selectedStatusId === item.id) { setSelectedStatusId(''); setStatus(''); }
+            }
+        } catch (error: any) {
+            alert(error.response?.data?.error || 'Failed to delete — it may be in use by a tower.');
+        } finally {
+            setLookupActionSaving(false);
+        }
+    };
+
+    // Renders lookup options with inline rename/delete controls. Status uses a string
+    // value to match its Select; type/carrier use the numeric id.
+    const renderLookupMenuItems = (type: 'type' | 'carrier' | 'status', items: LookupItem[]) =>
+        items.map(item => (
+            <MenuItem
+                key={item.id}
+                value={type === 'status' ? String(item.id) : item.id}
+                sx={{ display: 'flex', alignItems: 'center', pr: 1 }}
+            >
+                <Box component="span" sx={{ flexGrow: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {item.name}
+                </Box>
+                <Box
+                    sx={{ display: 'flex', gap: 0.25, ml: 1 }}
+                    onClick={e => e.stopPropagation()}
+                    onMouseDown={e => e.stopPropagation()}
+                >
+                    <Tooltip title="Rename">
+                        <IconButton
+                            size="small"
+                            onClick={e => { e.stopPropagation(); openEditLookup(type, item); }}
+                            onMouseDown={e => e.stopPropagation()}
+                        >
+                            <EditIcon fontSize="inherit" />
+                        </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Delete">
+                        <IconButton
+                            size="small"
+                            color="error"
+                            onClick={e => { e.stopPropagation(); handleDeleteLookup(type, item); }}
+                            onMouseDown={e => e.stopPropagation()}
+                        >
+                            <DeleteIcon fontSize="inherit" />
+                        </IconButton>
+                    </Tooltip>
+                </Box>
+            </MenuItem>
+        ));
+
     const handleNotesChange = () => {
         loadTower();
     };
@@ -727,6 +838,10 @@ export default function TowerDetailPage({ params }: PageProps) {
                                 <Select
                                     value={selectedTypeId}
                                     label="Type"
+                                    open={typeMenuOpen}
+                                    onOpen={() => setTypeMenuOpen(true)}
+                                    onClose={() => setTypeMenuOpen(false)}
+                                    renderValue={(val) => types.find(t => t.id === val)?.name || ''}
                                     onChange={(e) => {
                                         const val = String(e.target.value);
                                         if (val === ADD_NEW_VALUE) {
@@ -738,9 +853,7 @@ export default function TowerDetailPage({ params }: PageProps) {
                                     }}
                                     disabled={saving}
                                 >
-                                    {types.map(t => (
-                                        <MenuItem key={t.id} value={t.id}>{t.name}</MenuItem>
-                                    ))}
+                                    {renderLookupMenuItems('type', types)}
                                     <Divider />
                                     <MenuItem value={ADD_NEW_VALUE}>
                                         <AddIcon fontSize="small" sx={{ mr: 1 }} /> Add New Type
@@ -756,6 +869,10 @@ export default function TowerDetailPage({ params }: PageProps) {
                                 <Select
                                     value={selectedCarrierId}
                                     label="Carrier"
+                                    open={carrierMenuOpen}
+                                    onOpen={() => setCarrierMenuOpen(true)}
+                                    onClose={() => setCarrierMenuOpen(false)}
+                                    renderValue={(val) => carriers.find(c => c.id === val)?.name || ''}
                                     onChange={(e) => {
                                         const val = String(e.target.value);
                                         if (val === ADD_NEW_VALUE) {
@@ -767,9 +884,7 @@ export default function TowerDetailPage({ params }: PageProps) {
                                     }}
                                     disabled={saving}
                                 >
-                                    {carriers.map(c => (
-                                        <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>
-                                    ))}
+                                    {renderLookupMenuItems('carrier', carriers)}
                                     <Divider />
                                     <MenuItem value={ADD_NEW_VALUE}>
                                         <AddIcon fontSize="small" sx={{ mr: 1 }} /> Add New Carrier
@@ -794,14 +909,14 @@ export default function TowerDetailPage({ params }: PageProps) {
                             <Select
                                 value={String(selectedStatusId)}
                                 label="Status"
+                                open={statusMenuOpen}
+                                onOpen={() => setStatusMenuOpen(true)}
+                                onClose={() => setStatusMenuOpen(false)}
+                                renderValue={(val) => statuses.find(s => String(s.id) === val)?.name || ''}
                                 onChange={handleStatusChange}
                                 disabled={saving}
                             >
-                                {statuses.map((option) => (
-                                    <MenuItem key={option.id} value={String(option.id)}>
-                                        {option.name}
-                                    </MenuItem>
-                                ))}
+                                {renderLookupMenuItems('status', statuses)}
                                 <Divider />
                                 <MenuItem value={ADD_NEW_VALUE}>
                                     <AddIcon fontSize="small" sx={{ mr: 1 }} /> Add New Status
@@ -1413,6 +1528,45 @@ export default function TowerDetailPage({ params }: PageProps) {
                         disabled={addDialogSaving || !addDialogValue.trim()}
                     >
                         {addDialogSaving ? <CircularProgress size={20} /> : 'Add'}
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
+            {/* Rename Lookup Dialog */}
+            <Dialog
+                open={editLookupDialog.open}
+                onClose={() => !lookupActionSaving && setEditLookupDialog(d => ({ ...d, open: false }))}
+                maxWidth="sm"
+                fullWidth
+            >
+                <DialogTitle>
+                    Rename {editLookupDialog.type === 'type' ? 'Tower Type' : editLookupDialog.type === 'carrier' ? 'Carrier' : 'Status'}
+                </DialogTitle>
+                <DialogContent>
+                    <TextField
+                        autoFocus
+                        label="Name"
+                        fullWidth
+                        value={editLookupValue}
+                        onChange={(e) => setEditLookupValue(e.target.value)}
+                        sx={{ mt: 1 }}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter' && editLookupValue.trim()) {
+                                handleEditLookupSave();
+                            }
+                        }}
+                    />
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setEditLookupDialog(d => ({ ...d, open: false }))} disabled={lookupActionSaving}>
+                        Cancel
+                    </Button>
+                    <Button
+                        onClick={handleEditLookupSave}
+                        variant="contained"
+                        disabled={lookupActionSaving || !editLookupValue.trim()}
+                    >
+                        {lookupActionSaving ? <CircularProgress size={20} /> : 'Save'}
                     </Button>
                 </DialogActions>
             </Dialog>

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
 import { ABBR_TO_PROVINCE } from '@/lib/locations';
+import { dedupeDisplayValues } from '@/lib/normalize';
 
 // GET /api/owners - List all owners grouped by parcel
 export async function GET(request: Request) {
@@ -84,10 +85,10 @@ export async function GET(request: Request) {
             });
 
             return NextResponse.json({
-                cities: citiesResult.map(r => r.city),
-                states: Array.from(statesSet).sort(),
-                counties: countiesResult.map(r => r.county),
-                zips: zipsResult.map(r => r.zip)
+                cities: dedupeDisplayValues(citiesResult.map(r => r.city)),
+                states: dedupeDisplayValues(Array.from(statesSet)),
+                counties: dedupeDisplayValues(countiesResult.map(r => r.county)),
+                zips: dedupeDisplayValues(zipsResult.map(r => r.zip))
             });
         }
 

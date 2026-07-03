@@ -4,6 +4,19 @@ import { Prisma } from '@prisma/client';
 import { getAuthUser } from '@/lib/auth-helpers';
 import { buildTowerAccessFilter } from '@/lib/tower-access';
 import { ABBR_TO_PROVINCE, PROVINCE_TO_ABBR } from '@/lib/locations';
+import { dedupeDisplayValues } from '@/lib/normalize';
+
+// Expand a province/state value into all equivalent search terms (full name +
+// abbreviation), lower-cased, so distinct-city/zip filtering matches whether the
+// data stores "ON" or "Ontario".
+function provinceSearchTerms(state: string): string[] {
+    const terms = new Set<string>([state]);
+    const abbr = PROVINCE_TO_ABBR[state];
+    if (abbr) terms.add(abbr);
+    const full = ABBR_TO_PROVINCE[state];
+    if (full) terms.add(full);
+    return Array.from(terms, (t) => t.toLowerCase());
+}
 
 // GET /api/towers - List all towers
 export async function GET(request: Request) {
@@ -85,7 +98,7 @@ export async function GET(request: Request) {
                 const fullName = ABBR_TO_PROVINCE[r.state] || r.state;
                 provinces.add(fullName);
             });
-            return NextResponse.json(Array.from(provinces).sort());
+            return NextResponse.json(dedupeDisplayValues(Array.from(provinces)));
         }
 
         if (distinct === 'cities') {
@@ -94,10 +107,12 @@ export async function GET(request: Request) {
 
             let stateFilter = Prisma.sql``;
             if (state) {
+                const terms = provinceSearchTerms(state);
                 stateFilter = Prisma.sql`AND (
-                    p."stateRaw" = ${state} OR 
-                    p."provinceRaw" = ${state} OR 
-                    EXISTS (SELECT 1 FROM "Province" pr WHERE pr.id = p."provinceId" AND pr.name = ${state})
+                    LOWER(p."stateRaw") IN (${Prisma.join(terms)}) OR
+                    LOWER(p."provinceRaw") IN (${Prisma.join(terms)}) OR
+                    EXISTS (SELECT 1 FROM "Province" pr WHERE pr.id = p."provinceId"
+                        AND (LOWER(pr.name) IN (${Prisma.join(terms)}) OR LOWER(pr.code) IN (${Prisma.join(terms)})))
                  )`;
             }
 
@@ -114,17 +129,19 @@ export async function GET(request: Request) {
                 WHERE name IS NOT NULL AND name != ''
                 ORDER BY name
              `;
-            return NextResponse.json(result.map(r => r.city));
+            return NextResponse.json(dedupeDisplayValues(result.map(r => r.city)));
         }
 
         if (distinct === 'zips') {
             const countryFilter = country ? Prisma.sql`AND p.country = ${country}` : Prisma.sql``;
             let stateFilter = Prisma.sql``;
             if (state) {
+                const terms = provinceSearchTerms(state);
                 stateFilter = Prisma.sql`AND (
-                    p."stateRaw" = ${state} OR 
-                    p."provinceRaw" = ${state} OR 
-                    EXISTS (SELECT 1 FROM "Province" pr WHERE pr.id = p."provinceId" AND pr.name = ${state})
+                    LOWER(p."stateRaw") IN (${Prisma.join(terms)}) OR
+                    LOWER(p."provinceRaw") IN (${Prisma.join(terms)}) OR
+                    EXISTS (SELECT 1 FROM "Province" pr WHERE pr.id = p."provinceId"
+                        AND (LOWER(pr.name) IN (${Prisma.join(terms)}) OR LOWER(pr.code) IN (${Prisma.join(terms)})))
                  )`;
             }
 
@@ -141,7 +158,7 @@ export async function GET(request: Request) {
                 WHERE name IS NOT NULL AND name != ''
                 ORDER BY name
             `;
-            return NextResponse.json(result.map(r => r.zip));
+            return NextResponse.json(dedupeDisplayValues(result.map(r => r.zip)));
         }
 
         if (distinct === 'filters') {
@@ -213,10 +230,10 @@ export async function GET(request: Request) {
             });
 
             return NextResponse.json({
-                cities: citiesResult.map(r => r.city),
-                states: Array.from(statesSet).sort(),
-                counties: countiesResult.map(r => r.county),
-                zips: zipsResult.map(r => r.zip)
+                cities: dedupeDisplayValues(citiesResult.map(r => r.city)),
+                states: dedupeDisplayValues(Array.from(statesSet)),
+                counties: dedupeDisplayValues(countiesResult.map(r => r.county)),
+                zips: dedupeDisplayValues(zipsResult.map(r => r.zip))
             });
         }
 
@@ -456,7 +473,8 @@ export async function GET(request: Request) {
                             { legacyStatus: { contains: searchTermStr, mode: 'insensitive' } },
                             { status: { name: { contains: searchTermStr, mode: 'insensitive' } } },
                             { type: { name: { contains: searchTermStr, mode: 'insensitive' } } },
-                            { carrier: { name: { contains: searchTermStr, mode: 'insensitive' } } }
+                            { carrier: { name: { contains: searchTermStr, mode: 'insensitive' } } },
+                            { notes: { some: { content: { contains: searchTermStr, mode: 'insensitive' } } } }
                         ]
                     });
                 });
@@ -557,27 +575,20 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Latitude and Longitude are required' }, { status: 400 });
         }
 
-        // Manual findOrCreate for type and status since names are no longer unique
+        // Manual findOrCreate for type and status since names are no longer unique.
+        // Match case-insensitively on the trimmed name so we reuse an existing lookup
+        // rather than spawning "New" / "new" / "New " duplicates.
         let typeId = undefined;
-        if (type) {
-            const existingType = await prisma.towerType.findFirst({ where: { name: type } });
-            if (existingType) {
-                typeId = existingType.id;
-            } else {
-                const newType = await prisma.towerType.create({ data: { name: type } });
-                typeId = newType.id;
-            }
+        if (type && type.trim()) {
+            const typeName = type.trim();
+            const existingType = await prisma.towerType.findFirst({ where: { name: { equals: typeName, mode: 'insensitive' } } });
+            typeId = existingType?.id ?? (await prisma.towerType.create({ data: { name: typeName } })).id;
         }
 
         let statusId = undefined;
-        const statusName = status || 'New';
-        const existingStatus = await prisma.towerStatus.findFirst({ where: { name: statusName } });
-        if (existingStatus) {
-            statusId = existingStatus.id;
-        } else {
-            const newStatus = await prisma.towerStatus.create({ data: { name: statusName } });
-            statusId = newStatus.id;
-        }
+        const statusName = (status && status.trim()) || 'New';
+        const existingStatus = await prisma.towerStatus.findFirst({ where: { name: { equals: statusName, mode: 'insensitive' } } });
+        statusId = existingStatus?.id ?? (await prisma.towerStatus.create({ data: { name: statusName } })).id;
 
         const resolvedSource = typeof source === 'string' && source.length > 0 ? source : undefined;
 

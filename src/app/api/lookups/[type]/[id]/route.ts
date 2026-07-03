@@ -1,13 +1,13 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { requireAdmin } from '@/lib/auth-helpers';
+import { getAuthUser } from '@/lib/auth-helpers';
 
 export async function PUT(
     request: Request,
     { params }: { params: Promise<{ type: string; id: string }> }
 ) {
     try {
-        await requireAdmin();
+        await getAuthUser();
         const { type, id } = await params;
         const numericId = parseInt(id, 10);
         if (isNaN(numericId)) return NextResponse.json({ error: 'Invalid ID' }, { status: 400 });
@@ -48,7 +48,7 @@ export async function DELETE(
     { params }: { params: Promise<{ type: string; id: string }> }
 ) {
     try {
-        await requireAdmin();
+        await getAuthUser();
         const { type, id } = await params;
         const numericId = parseInt(id, 10);
         if (isNaN(numericId)) return NextResponse.json({ error: 'Invalid ID' }, { status: 400 });
