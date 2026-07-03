@@ -126,17 +126,27 @@ function TowersPageContent() {
         } catch {}
         return {};
     });
-    const [sortModel, setSortModel] = useState<{ field: string; order: 'asc' | 'desc' } | null>(null);
+    // Restore sort from localStorage too, so sorting (e.g. AI Score) survives
+    // navigating into a tower and back — same as filters/page.
+    const [sortModel, setSortModel] = useState<{ field: string; order: 'asc' | 'desc' } | null>(() => {
+        if (urlIdParam) return null;
+        try {
+            const saved = typeof window !== 'undefined' ? localStorage.getItem('towersPageSettings') : null;
+            if (saved) return JSON.parse(saved).sortModel ?? null;
+        } catch {}
+        return null;
+    });
 
-    // Save settings when changed
+    // Save settings when changed (filters, pagination AND sort)
     useEffect(() => {
         const settings = {
             page,
             rowsPerPage,
-            filters
+            filters,
+            sortModel
         };
         localStorage.setItem('towersPageSettings', JSON.stringify(settings));
-    }, [page, rowsPerPage, filters]);
+    }, [page, rowsPerPage, filters, sortModel]);
 
     // Load distinct filter values (re-fetch when global country changes)
     useEffect(() => {
