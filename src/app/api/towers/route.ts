@@ -19,6 +19,70 @@ function provinceSearchTerms(state: string): string[] {
     return Array.from(terms, (t) => t.toLowerCase());
 }
 
+// --- Faceted-filter SQL helpers ---
+// Each dropdown's options are computed with every OTHER active filter applied, so the
+// lists cascade (pick a city -> counties narrow to that city, etc.). Conditions
+// reference the Parcel alias `p` and Tower alias `t`.
+const lc = (a: string[]) => a.map(s => s.toLowerCase());
+
+function cityCond(v: string[]) {
+    const x = Prisma.join(lc(v));
+    return Prisma.sql`(LOWER(p."cityRaw") IN (${x}) OR EXISTS (SELECT 1 FROM "City" xci WHERE xci.id = p."cityId" AND LOWER(xci.name) IN (${x})))`;
+}
+function countyCond(v: string[]) {
+    const x = Prisma.join(lc(v));
+    return Prisma.sql`(LOWER(p."county") IN (${x}) OR EXISTS (SELECT 1 FROM "County" xco WHERE xco.id = p."countyId" AND LOWER(xco.name) IN (${x})))`;
+}
+function zipCond(v: string[]) {
+    const x = Prisma.join(lc(v));
+    return Prisma.sql`(LOWER(p."postalCode") IN (${x}) OR LOWER(p.zip) IN (${x}))`;
+}
+function stateCond(v: string[]) {
+    const terms = new Set<string>();
+    v.forEach(s => provinceSearchTerms(s).forEach(t => terms.add(t)));
+    const x = Prisma.join(Array.from(terms));
+    return Prisma.sql`(LOWER(p."stateRaw") IN (${x}) OR LOWER(p."provinceRaw") IN (${x}) OR EXISTS (SELECT 1 FROM "Province" xpv WHERE xpv.id = p."provinceId" AND (LOWER(xpv.name) IN (${x}) OR LOWER(xpv.code) IN (${x}))))`;
+}
+function typeCond(v: string[]) {
+    return Prisma.sql`t."typeId" IN (SELECT id FROM "TowerType" WHERE LOWER(name) IN (${Prisma.join(lc(v))}))`;
+}
+function carrierCond(v: string[]) {
+    return Prisma.sql`t."carrierId" IN (SELECT id FROM "Carrier" WHERE LOWER(name) IN (${Prisma.join(lc(v))}))`;
+}
+function statusCond(v: string[]) {
+    return Prisma.sql`t."statusId" IN (SELECT id FROM "TowerStatus" WHERE LOWER(name) IN (${Prisma.join(lc(v))}))`;
+}
+
+interface FacetFilters {
+    country: string | null;
+    city: string[]; state: string[]; county: string[]; zip: string[];
+    type: string[]; carrier: string[]; status: string[];
+}
+
+// AND-conditions for every active filter except `exclude` (so a facet never constrains itself).
+function facetConds(f: FacetFilters, exclude: keyof FacetFilters | null): Prisma.Sql[] {
+    const c: Prisma.Sql[] = [];
+    if (f.country) c.push(Prisma.sql`p.country = ${f.country}`);
+    if (exclude !== 'city' && f.city.length) c.push(cityCond(f.city));
+    if (exclude !== 'state' && f.state.length) c.push(stateCond(f.state));
+    if (exclude !== 'county' && f.county.length) c.push(countyCond(f.county));
+    if (exclude !== 'zip' && f.zip.length) c.push(zipCond(f.zip));
+    if (exclude !== 'type' && f.type.length) c.push(typeCond(f.type));
+    if (exclude !== 'carrier' && f.carrier.length) c.push(carrierCond(f.carrier));
+    if (exclude !== 'status' && f.status.length) c.push(statusCond(f.status));
+    return c;
+}
+
+function whereFrom(conds: Prisma.Sql[], extra?: Prisma.Sql): Prisma.Sql {
+    const all = extra ? [extra, ...conds] : conds;
+    return all.length ? Prisma.sql`WHERE ${Prisma.join(all, ' AND ')}` : Prisma.empty;
+}
+
+// Lookup-facet queries only need the Parcel join when a condition references `p`.
+function needsParcel(f: FacetFilters): boolean {
+    return !!f.country || !!(f.city.length || f.state.length || f.county.length || f.zip.length);
+}
+
 // GET /api/towers - List all towers
 export async function GET(request: Request) {
     try {
@@ -165,65 +229,88 @@ export async function GET(request: Request) {
         }
 
         if (distinct === 'filters') {
-            const countryFilter = country ? Prisma.sql`AND p.country = ${country}` : Prisma.sql``;
+            // Parse the currently-selected filters so each dropdown can narrow by the others.
+            const parse = (k: string) => (searchParams.get(k) || '').split(',').map(s => s.trim()).filter(Boolean);
+            const f: FacetFilters = {
+                country,
+                city: parse('city'), state: parse('state'), county: parse('county'), zip: parse('zip'),
+                type: parse('type'), carrier: parse('carrier'), status: parse('status'),
+            };
+            const lj = needsParcel(f) ? Prisma.sql`JOIN "Parcel" p ON p."towerId" = t.id` : Prisma.empty;
 
-            const [citiesResult, statesResult, countiesResult, zipsResult] = await Promise.all([
+            const [citiesResult, statesResult, countiesResult, zipsResult, typesResult, carriersResult, statusesResult] = await Promise.all([
                 prisma.$queryRaw<{ city: string }[]>`
                     SELECT DISTINCT name as city FROM (
-                        SELECT c."name" FROM "City" c
-                        JOIN "Parcel" p ON p."cityId" = c.id
-                        WHERE 1=1 ${countryFilter}
+                        SELECT fc."name" as name FROM "City" fc
+                            JOIN "Parcel" p ON p."cityId" = fc.id
+                            JOIN "Tower" t ON t.id = p."towerId"
+                            ${whereFrom(facetConds(f, 'city'))}
                         UNION
                         SELECT p."cityRaw" as name FROM "Parcel" p
-                        WHERE p."cityRaw" IS NOT NULL AND p."cityRaw" != ''
-                        ${countryFilter}
-                    ) combined
-                    WHERE name IS NOT NULL AND name != ''
-                    ORDER BY name
+                            JOIN "Tower" t ON t.id = p."towerId"
+                            ${whereFrom(facetConds(f, 'city'), Prisma.sql`p."cityRaw" IS NOT NULL AND p."cityRaw" <> ''`)}
+                    ) combined WHERE name IS NOT NULL AND name <> '' ORDER BY name
                 `,
                 prisma.$queryRaw<{ state: string }[]>`
                     SELECT DISTINCT name as state FROM (
-                        SELECT pr."name" FROM "Province" pr
-                        JOIN "Parcel" p ON p."provinceId" = pr.id
-                        WHERE 1=1 ${countryFilter}
+                        SELECT fpr."name" as name FROM "Province" fpr
+                            JOIN "Parcel" p ON p."provinceId" = fpr.id
+                            JOIN "Tower" t ON t.id = p."towerId"
+                            ${whereFrom(facetConds(f, 'state'))}
                         UNION
                         SELECT p."stateRaw" as name FROM "Parcel" p
-                        WHERE p."stateRaw" IS NOT NULL AND p."stateRaw" != ''
-                        ${countryFilter}
+                            JOIN "Tower" t ON t.id = p."towerId"
+                            ${whereFrom(facetConds(f, 'state'), Prisma.sql`p."stateRaw" IS NOT NULL AND p."stateRaw" <> ''`)}
                         UNION
                         SELECT p."provinceRaw" as name FROM "Parcel" p
-                        WHERE p."provinceRaw" IS NOT NULL AND p."provinceRaw" != ''
-                        ${countryFilter}
-                    ) combined
-                    WHERE name IS NOT NULL AND name != ''
-                    ORDER BY name
+                            JOIN "Tower" t ON t.id = p."towerId"
+                            ${whereFrom(facetConds(f, 'state'), Prisma.sql`p."provinceRaw" IS NOT NULL AND p."provinceRaw" <> ''`)}
+                    ) combined WHERE name IS NOT NULL AND name <> '' ORDER BY name
                 `,
                 prisma.$queryRaw<{ county: string }[]>`
                     SELECT DISTINCT name as county FROM (
-                        SELECT c."name" FROM "County" c
-                        JOIN "Parcel" p ON p."countyId" = c.id
-                        WHERE 1=1 ${countryFilter}
+                        SELECT fco."name" as name FROM "County" fco
+                            JOIN "Parcel" p ON p."countyId" = fco.id
+                            JOIN "Tower" t ON t.id = p."towerId"
+                            ${whereFrom(facetConds(f, 'county'))}
                         UNION
                         SELECT p."county" as name FROM "Parcel" p
-                        WHERE p."county" IS NOT NULL AND p."county" != ''
-                        ${countryFilter}
-                    ) combined
-                    WHERE name IS NOT NULL AND name != ''
-                    ORDER BY name
+                            JOIN "Tower" t ON t.id = p."towerId"
+                            ${whereFrom(facetConds(f, 'county'), Prisma.sql`p."county" IS NOT NULL AND p."county" <> ''`)}
+                    ) combined WHERE name IS NOT NULL AND name <> '' ORDER BY name
                 `,
                 prisma.$queryRaw<{ zip: string }[]>`
                     SELECT DISTINCT name as zip FROM (
                         SELECT p."postalCode" as name FROM "Parcel" p
-                        WHERE p."postalCode" IS NOT NULL AND p."postalCode" != ''
-                        ${countryFilter}
+                            JOIN "Tower" t ON t.id = p."towerId"
+                            ${whereFrom(facetConds(f, 'zip'), Prisma.sql`p."postalCode" IS NOT NULL AND p."postalCode" <> ''`)}
                         UNION
                         SELECT p.zip as name FROM "Parcel" p
-                        WHERE p.zip IS NOT NULL AND p.zip != ''
-                        ${countryFilter}
-                    ) combined
-                    WHERE name IS NOT NULL AND name != ''
-                    ORDER BY name
-                `
+                            JOIN "Tower" t ON t.id = p."towerId"
+                            ${whereFrom(facetConds(f, 'zip'), Prisma.sql`p.zip IS NOT NULL AND p.zip <> ''`)}
+                    ) combined WHERE name IS NOT NULL AND name <> '' ORDER BY name
+                `,
+                prisma.$queryRaw<{ name: string }[]>`
+                    SELECT DISTINCT ft.name FROM "TowerType" ft
+                        JOIN "Tower" t ON t."typeId" = ft.id
+                        ${lj}
+                        ${whereFrom(facetConds(f, 'type'))}
+                    ORDER BY ft.name
+                `,
+                prisma.$queryRaw<{ name: string }[]>`
+                    SELECT DISTINCT fca.name FROM "Carrier" fca
+                        JOIN "Tower" t ON t."carrierId" = fca.id
+                        ${lj}
+                        ${whereFrom(facetConds(f, 'carrier'))}
+                    ORDER BY fca.name
+                `,
+                prisma.$queryRaw<{ name: string }[]>`
+                    SELECT DISTINCT fst.name FROM "TowerStatus" fst
+                        JOIN "Tower" t ON t."statusId" = fst.id
+                        ${lj}
+                        ${whereFrom(facetConds(f, 'status'))}
+                    ORDER BY fst.name
+                `,
             ]);
 
             const statesSet = new Set<string>();
@@ -240,7 +327,10 @@ export async function GET(request: Request) {
                 cities: isCA ? filterOfficialCanadianCities(cities) : cities,
                 states: dedupeDisplayValues(Array.from(statesSet)),
                 counties: isCA ? filterOfficialCanadianCounties(counties) : counties,
-                zips: isCA ? filterCanadianPostalCodes(zips) : zips
+                zips: isCA ? filterCanadianPostalCodes(zips) : zips,
+                types: dedupeDisplayValues(typesResult.map(r => r.name)),
+                carriers: dedupeDisplayValues(carriersResult.map(r => r.name)),
+                statuses: dedupeDisplayValues(statusesResult.map(r => r.name)),
             });
         }
 

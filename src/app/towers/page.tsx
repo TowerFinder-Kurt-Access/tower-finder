@@ -148,35 +148,45 @@ function TowersPageContent() {
         localStorage.setItem('towersPageSettings', JSON.stringify(settings));
     }, [page, rowsPerPage, filters, sortModel]);
 
-    // Load distinct filter values (re-fetch when global country changes)
+    // Full lookup lists (all types/carriers/statuses) — used for in-table cell editing,
+    // which must always offer every option regardless of the current filters.
+    useEffect(() => {
+        axios.get('/api/towers?distinct=lookups')
+            .then(res => setLookups({
+                types: res.data.types || [],
+                carriers: res.data.carriers || [],
+                statuses: res.data.statuses || [],
+            }))
+            .catch(err => console.error('Failed to fetch lookups:', err));
+    }, []);
+
+    // Faceted filter options: re-fetch whenever the country or any categorical filter
+    // changes so each dropdown narrows to values compatible with the others (cascade).
     useEffect(() => {
         const loadFilterOptions = async () => {
             try {
-                const countryParam = globalCountry ? `&country=${encodeURIComponent(globalCountry)}` : '';
-                const [filtersRes, lookupsRes] = await Promise.all([
-                    axios.get(`/api/towers?distinct=filters${countryParam}`),
-                    axios.get('/api/towers?distinct=lookups')
-                ]);
-                const typesData = lookupsRes.data.types || [];
-                const carriersData = lookupsRes.data.carriers || [];
-                const statusesData = lookupsRes.data.statuses || [];
-                setLookups({ types: typesData, carriers: carriersData, statuses: statusesData });
-                setFilterOptions(prev => ({
-                    ...prev,
-                    cities: filtersRes.data.cities || [],
-                    states: filtersRes.data.states || [],
-                    counties: filtersRes.data.counties || [],
-                    zips: filtersRes.data.zips || [],
-                    types: typesData.map((t: any) => t.name),
-                    carriers: carriersData.map((c: any) => c.name),
-                    statuses: statusesData.map((s: any) => s.name),
-                }));
+                const params = new URLSearchParams({ distinct: 'filters' });
+                if (globalCountry) params.set('country', globalCountry);
+                (['city', 'state', 'county', 'zip', 'type', 'carrier', 'status'] as const).forEach(k => {
+                    const val = (filters as any)[k];
+                    if (val) params.set(k, val);
+                });
+                const res = await axios.get(`/api/towers?${params.toString()}`);
+                setFilterOptions({
+                    cities: res.data.cities || [],
+                    states: res.data.states || [],
+                    counties: res.data.counties || [],
+                    zips: res.data.zips || [],
+                    types: res.data.types || [],
+                    carriers: res.data.carriers || [],
+                    statuses: res.data.statuses || [],
+                });
             } catch (error) {
                 console.error("Failed to fetch filter options:", error);
             }
         };
         loadFilterOptions();
-    }, [globalCountry]);
+    }, [globalCountry, filters.city, filters.state, filters.county, filters.zip, filters.type, filters.carrier, filters.status]);
 
     // Load towers function
     const loadTowers = useCallback(async () => {

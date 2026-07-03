@@ -83,6 +83,7 @@ interface TowerTableSimpleProps {
     lookups?: {
         types: LookupItem[];
         carriers: LookupItem[];
+        statuses: LookupItem[];
     };
     onFilterChange: (filters: {
         city?: string; state?: string; county?: string; zip?: string;
@@ -548,12 +549,16 @@ export default function TowerTableSimple({
         </Box>
     );
 
+    // In-cell editing must offer the full type/status lists, not the narrowed filter options.
+    const editTypeOptions = (lookups?.types || []).map(t => t.name);
+    const editStatusOptions = (lookups?.statuses || []).map(s => s.name);
+
     const columns: GridColDef[] = [
         {
             field: 'type', headerName: 'Type', width: 120,
             type: 'singleSelect',
             editable: !!onCellEdit,
-            valueOptions: filterOptions.types,
+            valueOptions: editTypeOptions,
             valueGetter: (value: any) => (value && typeof value === 'object') ? value.name : (value || '')
         },
         {
@@ -562,7 +567,7 @@ export default function TowerTableSimple({
             width: 180,
             type: 'singleSelect',
             editable: !!onCellEdit,
-            valueOptions: filterOptions.statuses,
+            valueOptions: editStatusOptions,
             valueGetter: (value: any, row: any) => {
                 if (value && typeof value === 'object') return value.name || '';
                 if (value === undefined || value === null) return row.legacyStatus || '';
