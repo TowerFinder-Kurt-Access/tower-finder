@@ -51,9 +51,4 @@ node scripts/create_admin.js
 - NextAuth v5
 - Leaflet Maps
 - TypeScript
-
-## ⚖️ License
-
-This project is released under the MIT License, giving you the freedom to use, modify, and distribute the code with minimal restrictions.
-
-For the full legal text, see the [MIT](LICENSE) file.
+-
