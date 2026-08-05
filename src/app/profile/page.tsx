@@ -10,6 +10,7 @@ import Button from '@mui/material/Button';
 import Alert from '@mui/material/Alert';
 import Divider from '@mui/material/Divider';
 import { validatePassword } from '@/lib/password-policy';
+import { PasswordField } from '@/components/PasswordField';
 
 export default function ProfilePage() {
     const { data: session, update } = useSession();
@@ -157,16 +158,14 @@ export default function ProfilePage() {
             <Paper sx={{ p: 3, mb: 3 }}>
                 <Typography variant="h6" sx={{ mb: 2 }}>Change Password</Typography>
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                    <TextField
+                    <PasswordField
                         label="Current Password"
-                        type="password"
                         value={passwordData.currentPassword}
                         onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
                         fullWidth
                     />
-                    <TextField
+                    <PasswordField
                         label="New Password"
-                        type="password"
                         value={passwordData.newPassword}
                         onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
                         fullWidth
@@ -177,9 +176,8 @@ export default function ProfilePage() {
                                 : 'At least 10 characters, with upper, lower, number, and special characters'
                         }
                     />
-                    <TextField
+                    <PasswordField
                         label="Confirm New Password"
-                        type="password"
                         value={passwordData.confirmPassword}
                         onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
                         fullWidth

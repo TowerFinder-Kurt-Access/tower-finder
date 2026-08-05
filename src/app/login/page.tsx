@@ -9,6 +9,7 @@ import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
 import Alert from '@mui/material/Alert';
 import Snackbar from '@mui/material/Snackbar';
+import { PasswordField } from '@/components/PasswordField';
 
 function LoginPageContent() {
     const router = useRouter();
@@ -89,10 +90,9 @@ function LoginPageContent() {
                         autoComplete="email"
                     />
 
-                    <TextField
+                    <PasswordField
                         fullWidth
                         label="Password"
-                        type="password"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                         sx={{ mb: 3 }}

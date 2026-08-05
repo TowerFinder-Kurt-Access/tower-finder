@@ -23,6 +23,7 @@ import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 import Checkbox from '@mui/material/Checkbox';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { validatePassword } from '@/lib/password-policy';
+import { PasswordField } from '@/components/PasswordField';
 
 interface User {
     id: number;
@@ -434,9 +435,8 @@ export default function AdminUserDetailPage({ params }: PageProps) {
                         <Alert severity="warning">
                             This will immediately change the user&apos;s password. They will need to use the new password to log in.
                         </Alert>
-                        <TextField
+                        <PasswordField
                             label="New Password"
-                            type="password"
                             value={newPassword}
                             onChange={(e) => setNewPassword(e.target.value)}
                             fullWidth

@@ -25,6 +25,7 @@ import { Role } from '@prisma/client';
 import AddIcon from '@mui/icons-material/Add';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import { validatePassword } from '@/lib/password-policy';
+import { PasswordField } from '@/components/PasswordField';
 import DeleteIcon from '@mui/icons-material/Delete';
 
 interface User {
@@ -266,9 +267,8 @@ export default function AdminUsersPage() {
                             fullWidth
                             required
                         />
-                        <TextField
+                        <PasswordField
                             label="Password"
-                            type="password"
                             value={formData.password}
                             onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                             fullWidth
