@@ -21,15 +21,11 @@ function LoginPageContent() {
     const [error, setError] = useState(searchParams.get('error') === 'session-revoked'
         ? 'Your session has ended. Please sign in again.'
         : '');
-    // Snackbar visibility is separate from `error` so dismissing the toast
-    // (auto or manual) keeps the inline card alert until the next submit.
-    const [toastOpen, setToastOpen] = useState(searchParams.get('error') === 'session-revoked');
     const [loading, setLoading] = useState(false);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
-        setToastOpen(false);
         setLoading(true);
 
         try {
@@ -43,17 +39,14 @@ function LoginPageContent() {
             // (URL ?error=CredentialsSignin&code=account_locked).
             if (result?.code === 'account_locked') {
                 setError('Account temporarily locked after too many failed attempts. Try again in about 15 minutes.');
-                setToastOpen(true);
             } else if (result?.error) {
                 setError('Invalid email or password');
-                setToastOpen(true);
             } else {
                 router.push('/');
                 router.refresh();
             }
         } catch (err) {
             setError('An error occurred. Please try again.');
-            setToastOpen(true);
         } finally {
             setLoading(false);
         }
@@ -71,12 +64,6 @@ function LoginPageContent() {
                 <Typography variant="h4" sx={{ mb: 3, textAlign: 'center', fontWeight: 600 }}>
                     Tower Finder 4900 kurt
                 </Typography>
-
-                {error && (
-                    <Alert severity="error" sx={{ mb: 2 }}>
-                        {error}
-                    </Alert>
-                )}
 
                 <form onSubmit={handleSubmit}>
                     <TextField
@@ -116,14 +103,14 @@ function LoginPageContent() {
                 </Typography>
             </Paper>
 
-            {/* Toast the same error the card shows inline. */}
+            {/* Errors toast here; the card stays clean. */}
             <Snackbar
-                open={toastOpen}
+                open={!!error}
                 autoHideDuration={6000}
-                onClose={() => setToastOpen(false)}
+                onClose={() => setError('')}
                 anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
             >
-                <Alert severity="error" variant="filled" onClose={() => setToastOpen(false)}>
+                <Alert severity="error" variant="filled" onClose={() => setError('')}>
                     {error}
                 </Alert>
             </Snackbar>
