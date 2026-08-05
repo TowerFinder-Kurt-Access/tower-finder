@@ -1,7 +1,7 @@
 'use client';
-import { useState } from 'react';
+import { useState, Suspense } from 'react';
 import { signIn } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import TextField from '@mui/material/TextField';
@@ -9,11 +9,16 @@ import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
 import Alert from '@mui/material/Alert';
 
-export default function LoginPage() {
+function LoginPageContent() {
     const router = useRouter();
+    const searchParams = useSearchParams();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
-    const [error, setError] = useState('');
+    // Middleware bounces revoked (deactivated / password-reset) sessions here
+    // via ?error=session-revoked.
+    const [error, setError] = useState(searchParams.get('error') === 'session-revoked'
+        ? 'Your session has ended. Please sign in again.'
+        : '');
     const [loading, setLoading] = useState(false);
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -28,7 +33,11 @@ export default function LoginPage() {
                 redirect: false
             });
 
-            if (result?.error) {
+            // NextAuth surfaces custom CredentialsSignin codes via result.code
+            // (URL ?error=CredentialsSignin&code=account_locked).
+            if (result?.code === 'account_locked') {
+                setError('Account temporarily locked after too many failed attempts. Try again in about 15 minutes.');
+            } else if (result?.error) {
                 setError('Invalid email or password');
             } else {
                 router.push('/');
@@ -51,7 +60,7 @@ export default function LoginPage() {
         }}>
             <Paper sx={{ p: 4, maxWidth: 400, width: '100%' }}>
                 <Typography variant="h4" sx={{ mb: 3, textAlign: 'center', fontWeight: 600 }}>
-                    Tower Finder 4900
+                    Tower Finder 4900 kurt
                 </Typography>
 
                 {error && (
@@ -99,5 +108,13 @@ export default function LoginPage() {
                 </Typography>
             </Paper>
         </Box>
+    );
+}
+
+export default function LoginPage() {
+    return (
+        <Suspense fallback={null}>
+            <LoginPageContent />
+        </Suspense>
     );
 }

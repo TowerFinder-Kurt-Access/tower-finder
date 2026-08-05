@@ -9,6 +9,7 @@ import TextField from '@mui/material/TextField';
 import Button from '@mui/material/Button';
 import Alert from '@mui/material/Alert';
 import Divider from '@mui/material/Divider';
+import { validatePassword } from '@/lib/password-policy';
 
 export default function ProfilePage() {
     const { data: session, update } = useSession();
@@ -55,9 +56,10 @@ export default function ProfilePage() {
             return;
         }
 
-        if (passwordData.newPassword.length < 8) {
+        const policyError = validatePassword(passwordData.newPassword);
+        if (policyError) {
             setMessageType('error');
-            setMessage('Password must be at least 8 characters');
+            setMessage(policyError);
             return;
         }
 
@@ -86,6 +88,12 @@ export default function ProfilePage() {
     return (
         <Box sx={{ p: 3, maxWidth: 800, mx: 'auto' }}>
             <Typography variant="h4" sx={{ mb: 3, fontWeight: 600 }}>Profile Settings</Typography>
+
+            {session?.user?.mustChangePassword && (
+                <Alert severity="warning" sx={{ mb: 3 }}>
+                    Your password is over 180 days old. Please change it below to continue.
+                </Alert>
+            )}
 
             {message && (
                 <Alert severity={messageType} sx={{ mb: 3 }}>
@@ -156,7 +164,7 @@ export default function ProfilePage() {
                         value={passwordData.newPassword}
                         onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
                         fullWidth
-                        helperText="Must be at least 8 characters"
+                        helperText="At least 10 characters, with upper, lower, number, and special characters"
                     />
                     <TextField
                         label="Confirm New Password"

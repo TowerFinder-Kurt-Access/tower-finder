@@ -24,6 +24,7 @@ import { useSession } from 'next-auth/react';
 import { Role } from '@prisma/client';
 import AddIcon from '@mui/icons-material/Add';
 import VisibilityIcon from '@mui/icons-material/Visibility';
+import { validatePassword } from '@/lib/password-policy';
 import DeleteIcon from '@mui/icons-material/Delete';
 
 interface User {
@@ -256,7 +257,7 @@ export default function AdminUsersPage() {
                             onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                             fullWidth
                             required
-                            helperText="Must be at least 8 characters"
+                            helperText="At least 10 characters, with upper, lower, number, and special characters"
                         />
                         <FormControl fullWidth>
                             <InputLabel>Role</InputLabel>
@@ -287,7 +288,7 @@ export default function AdminUsersPage() {
                     <Button
                         onClick={handleCreateUser}
                         variant="contained"
-                        disabled={!formData.email || !formData.name || !formData.password || formData.password.length < 8}
+                        disabled={!formData.email || !formData.name || !!validatePassword(formData.password)}
                     >
                         Create User
                     </Button>
