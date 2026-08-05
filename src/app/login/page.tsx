@@ -121,7 +121,7 @@ function LoginPageContent() {
                 open={toastOpen}
                 autoHideDuration={6000}
                 onClose={() => setToastOpen(false)}
-                anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+                anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
             >
                 <Alert severity="error" variant="filled" onClose={() => setToastOpen(false)}>
                     {error}
