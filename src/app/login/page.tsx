@@ -1,5 +1,5 @@
 'use client';
-import { useState, Suspense } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { signIn } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Box from '@mui/material/Box';
@@ -22,6 +22,21 @@ function LoginPageContent() {
         ? 'Your session has ended. Please sign in again.'
         : '');
     const [loading, setLoading] = useState(false);
+    const [secondsLeft, setSecondsLeft] = useState(0);
+    const TOAST_AUTO_HIDE_SECONDS = 6;
+
+    // Starts the tick-down whenever a new error appears.
+    useEffect(() => {
+        if (!error) return;
+        setSecondsLeft(TOAST_AUTO_HIDE_SECONDS);
+        const id = setInterval(() => setSecondsLeft((s) => Math.max(0, s - 1)), 1000);
+        return () => clearInterval(id);
+    }, [error]);
+
+    // Auto-dismisses the toast when the countdown hits zero.
+    useEffect(() => {
+        if (error && secondsLeft === 0) setError('');
+    }, [error, secondsLeft]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -62,7 +77,7 @@ function LoginPageContent() {
         }}>
             <Paper sx={{ p: 4, maxWidth: 400, width: '100%' }}>
                 <Typography variant="h4" sx={{ mb: 3, textAlign: 'center', fontWeight: 600 }}>
-                    Tower Finder 4900 kurt
+                    Tower Finder 4900
                 </Typography>
 
                 <form onSubmit={handleSubmit}>
@@ -106,12 +121,20 @@ function LoginPageContent() {
             {/* Errors toast here; the card stays clean. */}
             <Snackbar
                 open={!!error}
-                autoHideDuration={6000}
                 onClose={() => setError('')}
                 anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
             >
                 <Alert severity="error" variant="filled" onClose={() => setError('')}>
-                    {error}
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                        <Box sx={{ flex: 1 }}>{error}</Box>
+                        <Typography
+                            variant="caption"
+                            component="span"
+                            sx={{ opacity: 0.9, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}
+                        >
+                            {secondsLeft}s
+                        </Typography>
+                    </Box>
                 </Alert>
             </Snackbar>
         </Box>
