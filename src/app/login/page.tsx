@@ -11,6 +11,13 @@ import Alert from '@mui/material/Alert';
 import Snackbar from '@mui/material/Snackbar';
 import { PasswordField } from '@/components/PasswordField';
 
+/** "15m 30s" or just "30s" below one minute. */
+function formatLockTime(totalSeconds: number): string {
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s`;
+}
+
 function LoginPageContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -22,25 +29,24 @@ function LoginPageContent() {
         ? 'Your session has ended. Please sign in again.'
         : '');
     const [loading, setLoading] = useState(false);
-    const [secondsLeft, setSecondsLeft] = useState(0);
-    const TOAST_AUTO_HIDE_SECONDS = 6;
+    // Real seconds left in the account lockout (null = not a lockout error).
+    // Ticks down every second so the message shows live remaining time.
+    const [lockSecondsLeft, setLockSecondsLeft] = useState<number | null>(null);
 
-    // Starts the tick-down whenever a new error appears.
+    const ticking = lockSecondsLeft !== null && lockSecondsLeft > 0;
     useEffect(() => {
-        if (!error) return;
-        setSecondsLeft(TOAST_AUTO_HIDE_SECONDS);
-        const id = setInterval(() => setSecondsLeft((s) => Math.max(0, s - 1)), 1000);
+        if (!ticking) return;
+        const id = setInterval(
+            () => setLockSecondsLeft((s) => (s === null || s <= 0 ? 0 : s - 1)),
+            1000
+        );
         return () => clearInterval(id);
-    }, [error]);
-
-    // Auto-dismisses the toast when the countdown hits zero.
-    useEffect(() => {
-        if (error && secondsLeft === 0) setError('');
-    }, [error, secondsLeft]);
+    }, [ticking]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
+        setLockSecondsLeft(null);
         setLoading(true);
 
         try {
@@ -53,7 +59,17 @@ function LoginPageContent() {
             // NextAuth surfaces custom CredentialsSignin codes via result.code
             // (URL ?error=CredentialsSignin&code=account_locked).
             if (result?.code === 'account_locked') {
-                setError('Account temporarily locked after too many failed attempts. Try again in about 15 minutes.');
+                setError('Account temporarily locked after too many failed attempts.');
+                // Show the real remaining lockout time, not a canned "15 minutes".
+                try {
+                    const res = await fetch(
+                        `/api/auth/lockout-status?email=${encodeURIComponent(email)}`
+                    );
+                    const data = (await res.json()) as { remainingSeconds?: number };
+                    setLockSecondsLeft(Math.max(0, Math.round(data.remainingSeconds ?? 0)));
+                } catch {
+                    setLockSecondsLeft(null); // fall back to the static message
+                }
             } else if (result?.error) {
                 setError('Invalid email or password');
             } else {
@@ -67,6 +83,12 @@ function LoginPageContent() {
         }
     };
 
+    const lockMessage = lockSecondsLeft !== null
+        ? lockSecondsLeft > 0
+            ? `Account temporarily locked after too many failed attempts. Try again in ${formatLockTime(lockSecondsLeft)}.`
+            : 'Account unlocked. You can try signing in now.'
+        : error;
+
     return (
         <Box sx={{
             display: 'flex',
@@ -77,7 +99,7 @@ function LoginPageContent() {
         }}>
             <Paper sx={{ p: 4, maxWidth: 400, width: '100%' }}>
                 <Typography variant="h4" sx={{ mb: 3, textAlign: 'center', fontWeight: 600 }}>
-                    Tower Finder 4900
+                    Tower Finder 4900 kurt
                 </Typography>
 
                 <form onSubmit={handleSubmit}>
@@ -118,23 +140,16 @@ function LoginPageContent() {
                 </Typography>
             </Paper>
 
-            {/* Errors toast here; the card stays clean. */}
+            {/* Errors toast here; lockouts stay until dismissed so the
+                countdown stays visible. */}
             <Snackbar
                 open={!!error}
+                autoHideDuration={lockSecondsLeft !== null ? null : 6000}
                 onClose={() => setError('')}
                 anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
             >
                 <Alert severity="error" variant="filled" onClose={() => setError('')}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                        <Box sx={{ flex: 1 }}>{error}</Box>
-                        <Typography
-                            variant="caption"
-                            component="span"
-                            sx={{ opacity: 0.9, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}
-                        >
-                            {secondsLeft}s
-                        </Typography>
-                    </Box>
+                    {lockMessage}
                 </Alert>
             </Snackbar>
         </Box>

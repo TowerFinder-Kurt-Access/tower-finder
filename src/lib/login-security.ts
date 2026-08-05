@@ -41,3 +41,22 @@ export async function isLockedOut(email: string): Promise<boolean> {
     });
     return recentFailures >= MAX_FAILED_ATTEMPTS;
 }
+
+/** Seconds until the lockout lifts (0 when not locked). Mirrors the sliding
+ *  window in isLockedOut: the 5th-newest failure plus the window is when the
+ *  failure count finally drops below MAX_FAILED_ATTEMPTS. */
+export async function getLockoutRemainingSeconds(email: string): Promise<number> {
+    const recent = await prisma.loginEvent.findMany({
+        where: {
+            email,
+            type: LoginEventType.LOGIN_FAILED,
+            createdAt: { gte: new Date(Date.now() - LOCKOUT_WINDOW_MS) },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: MAX_FAILED_ATTEMPTS,
+        select: { createdAt: true },
+    });
+    if (recent.length < MAX_FAILED_ATTEMPTS) return 0;
+    const unlockAt = recent[MAX_FAILED_ATTEMPTS - 1].createdAt.getTime() + LOCKOUT_WINDOW_MS;
+    return Math.max(0, Math.ceil((unlockAt - Date.now()) / 1000));
+}
