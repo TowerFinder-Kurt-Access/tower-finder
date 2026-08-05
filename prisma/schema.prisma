@@ -159,14 +159,42 @@ model User {
   password         String
   role             Role              @default(CALLER)
   isActive         Boolean           @default(true)
+  emailVerified    DateTime?
+  image            String?
+  passwordChangedAt DateTime         @default(now())
+  sessionVersion    Int               @default(0)
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
   lastLogin        DateTime?
   notes            Note[]
   towerAssignments TowerAssignment[]
+  loginEvents      LoginEvent[]
 
   @@index([email])
   @@index([role])
+}
+
+enum LoginEventType {
+  LOGIN_SUCCESS
+  LOGIN_FAILED
+  LOGIN_LOCKED
+  PASSWORD_CHANGED
+  PASSWORD_RESET
+  ACCOUNT_DEACTIVATED
+}
+
+model LoginEvent {
+  id        Int             @id @default(autoincrement())
+  email     String
+  userId    Int?
+  type      LoginEventType
+  ip        String?
+  userAgent String?
+  createdAt DateTime        @default(now())
+  user      User?           @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([email, createdAt])
+  @@index([userId])
 }
 
 model TowerAssignment {
