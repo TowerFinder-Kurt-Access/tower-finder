@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAdmin } from '@/lib/auth-helpers';
 import bcrypt from 'bcryptjs';
+import { LoginEventType } from '@prisma/client';
+import { validatePassword } from '@/lib/password-policy';
+import { recordLoginEvent, requestIp } from '@/lib/login-security';
 
 interface RouteParams {
     params: Promise<{ id: string }>;
@@ -22,8 +25,9 @@ export async function POST(request: Request, { params }: RouteParams) {
             return NextResponse.json({ error: 'New password is required' }, { status: 400 });
         }
 
-        if (newPassword.length < 8) {
-            return NextResponse.json({ error: 'Password must be at least 8 characters' }, { status: 400 });
+        const policyError = validatePassword(newPassword);
+        if (policyError) {
+            return NextResponse.json({ error: policyError }, { status: 400 });
         }
 
         // Check if user exists
@@ -38,10 +42,19 @@ export async function POST(request: Request, { params }: RouteParams) {
         // Hash the new password
         const hashedPassword = await bcrypt.hash(newPassword, 10);
 
-        // Update the password
+        // Update the password — bump sessionVersion to sign the user out everywhere.
         await prisma.user.update({
             where: { id: userId },
-            data: { password: hashedPassword }
+            data: { password: hashedPassword, passwordChangedAt: new Date(), sessionVersion: { increment: 1 } }
+        });
+
+        const ip = requestIp(request);
+        await recordLoginEvent({
+            email: user.email,
+            userId: user.id,
+            type: LoginEventType.PASSWORD_RESET,
+            ip,
+            userAgent: request.headers.get('user-agent'),
         });
 
         console.log(`Admin ${admin.id} reset password for user ${userId}`);

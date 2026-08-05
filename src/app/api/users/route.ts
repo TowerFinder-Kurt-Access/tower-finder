@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAdmin, getAuthUser } from '@/lib/auth-helpers';
 import bcrypt from 'bcryptjs';
+import { validatePassword } from '@/lib/password-policy';
 
 // GET /api/users - List all users (admin only)
 export async function GET(request: Request) {
@@ -77,11 +78,9 @@ export async function POST(request: Request) {
             );
         }
 
-        if (password.length < 8) {
-            return NextResponse.json(
-                { error: 'Password must be at least 8 characters' },
-                { status: 400 }
-            );
+        const policyError = validatePassword(password);
+        if (policyError) {
+            return NextResponse.json({ error: policyError }, { status: 400 });
         }
 
         // Check if user already exists
@@ -106,7 +105,8 @@ export async function POST(request: Request) {
                 name,
                 password: hashedPassword,
                 role: role || 'CALLER',
-                isActive: isActive !== undefined ? isActive : true
+                isActive: isActive !== undefined ? isActive : true,
+                passwordChangedAt: new Date()
             },
             select: {
                 id: true,
