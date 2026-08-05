@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import axios from 'axios';
+import axios, { AxiosError } from 'axios';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
@@ -43,6 +43,8 @@ export default function AdminUsersPage() {
     const [users, setUsers] = useState<User[]>([]);
     const [loading, setLoading] = useState(true);
     const [dialogOpen, setDialogOpen] = useState(false);
+    const [creating, setCreating] = useState(false);
+    const [dialogError, setDialogError] = useState('');
     const [formData, setFormData] = useState({
         email: '',
         name: '',
@@ -74,9 +76,9 @@ export default function AdminUsersPage() {
             setLoading(true);
             const res = await axios.get('/api/users');
             setUsers(res.data);
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('Failed to load users:', error);
-            if (error.response?.status === 403) {
+            if (error instanceof AxiosError && error.response?.status === 403) {
                 setMessage('Access denied. Admin privileges required.');
                 setMessageType('error');
             }
@@ -86,7 +88,8 @@ export default function AdminUsersPage() {
     };
 
     const handleCreateUser = async () => {
-        setMessage('');
+        setDialogError('');
+        setCreating(true);
         try {
             await axios.post('/api/users', formData);
             setMessage('User created successfully');
@@ -100,9 +103,14 @@ export default function AdminUsersPage() {
                 isActive: true
             });
             loadUsers();
-        } catch (error: any) {
-            setMessageType('error');
-            setMessage(error.response?.data?.error || 'Failed to create user');
+        } catch (error: unknown) {
+            // Errors render inside the dialog (page-level alerts sit behind the overlay).
+            const message = error instanceof AxiosError
+                ? error.response?.data?.error || 'Failed to create user'
+                : 'Failed to create user';
+            setDialogError(message);
+        } finally {
+            setCreating(false);
         }
     };
 
@@ -116,9 +124,12 @@ export default function AdminUsersPage() {
             setMessage('User deleted successfully');
             setMessageType('success');
             loadUsers();
-        } catch (error: any) {
+        } catch (error: unknown) {
             setMessageType('error');
-            setMessage(error.response?.data?.error || 'Failed to delete user');
+            const message = error instanceof AxiosError
+                ? error.response?.data?.error || 'Failed to delete user'
+                : 'Failed to delete user';
+            setMessage(message);
         }
     };
 
@@ -205,7 +216,7 @@ export default function AdminUsersPage() {
                 <Button
                     variant="contained"
                     startIcon={<AddIcon />}
-                    onClick={() => setDialogOpen(true)}
+                    onClick={() => { setDialogOpen(true); setDialogError(''); }}
                 >
                     Create User
                 </Button>
@@ -235,6 +246,11 @@ export default function AdminUsersPage() {
                 <DialogTitle>Create New User</DialogTitle>
                 <DialogContent>
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2 }}>
+                        {dialogError && (
+                            <Alert severity="error" onClose={() => setDialogError('')}>
+                                {dialogError}
+                            </Alert>
+                        )}
                         <TextField
                             label="Name"
                             value={formData.name}
@@ -257,7 +273,12 @@ export default function AdminUsersPage() {
                             onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                             fullWidth
                             required
-                            helperText="At least 10 characters, with upper, lower, number, and special characters"
+                            error={!!formData.password && !!validatePassword(formData.password)}
+                            helperText={
+                                formData.password && validatePassword(formData.password)
+                                    ? validatePassword(formData.password)
+                                    : 'At least 10 characters, with upper, lower, number, and special characters'
+                            }
                         />
                         <FormControl fullWidth>
                             <InputLabel>Role</InputLabel>
@@ -288,9 +309,9 @@ export default function AdminUsersPage() {
                     <Button
                         onClick={handleCreateUser}
                         variant="contained"
-                        disabled={!formData.email || !formData.name || !!validatePassword(formData.password)}
+                        disabled={creating || !formData.email || !formData.name || !!validatePassword(formData.password)}
                     >
-                        Create User
+                        {creating ? 'Creating...' : 'Create User'}
                     </Button>
                 </DialogActions>
             </Dialog>

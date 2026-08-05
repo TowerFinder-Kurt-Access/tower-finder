@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useSession, signOut } from 'next-auth/react';
-import axios from 'axios';
+import axios, { AxiosError } from 'axios';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
@@ -41,9 +41,12 @@ export default function ProfilePage() {
             setMessage('Profile updated successfully');
             // Update session with new data
             await update({ name: profile.name, email: profile.email });
-        } catch (error: any) {
+        } catch (error: unknown) {
             setMessageType('error');
-            setMessage(error.response?.data?.error || 'Failed to update profile');
+            const message = error instanceof AxiosError
+                ? error.response?.data?.error || 'Failed to update profile'
+                : 'Failed to update profile';
+            setMessage(message);
         } finally {
             setLoading(false);
         }
@@ -77,9 +80,12 @@ export default function ProfilePage() {
             setTimeout(() => {
                 signOut({ callbackUrl: '/login' });
             }, 2000);
-        } catch (error: any) {
+        } catch (error: unknown) {
             setMessageType('error');
-            setMessage(error.response?.data?.error || 'Failed to change password');
+            const message = error instanceof AxiosError
+                ? error.response?.data?.error || 'Failed to change password'
+                : 'Failed to change password';
+            setMessage(message);
         } finally {
             setLoading(false);
         }
@@ -164,7 +170,12 @@ export default function ProfilePage() {
                         value={passwordData.newPassword}
                         onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
                         fullWidth
-                        helperText="At least 10 characters, with upper, lower, number, and special characters"
+                        error={!!passwordData.newPassword && !!validatePassword(passwordData.newPassword)}
+                        helperText={
+                            passwordData.newPassword && validatePassword(passwordData.newPassword)
+                                ? validatePassword(passwordData.newPassword)
+                                : 'At least 10 characters, with upper, lower, number, and special characters'
+                        }
                     />
                     <TextField
                         label="Confirm New Password"
@@ -172,6 +183,12 @@ export default function ProfilePage() {
                         value={passwordData.confirmPassword}
                         onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
                         fullWidth
+                        error={!!passwordData.confirmPassword && passwordData.confirmPassword !== passwordData.newPassword}
+                        helperText={
+                            passwordData.confirmPassword && passwordData.confirmPassword !== passwordData.newPassword
+                                ? 'Passwords do not match'
+                                : undefined
+                        }
                     />
                     <Button
                         variant="contained"
