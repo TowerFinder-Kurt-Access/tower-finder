@@ -3,18 +3,9 @@ import { authConfig } from '@/lib/auth.config';
 
 const { auth } = NextAuth(authConfig);
 
-interface MiddlewareUser {
-    id: string;
-    email: string;
-    name: string;
-    role: string;
-    mustChangePassword?: boolean;
-}
-
 export default auth(async (req: any) => {
     const isLoggedIn = !!req.auth?.user;
     const { pathname } = req.nextUrl;
-    const user = req.auth?.user as MiddlewareUser | undefined;
 
     // 1. Auth API routes always pass through (the login flow needs them).
     if (pathname.startsWith('/api/auth')) {
@@ -61,12 +52,7 @@ export default auth(async (req: any) => {
         return;
     }
 
-    // 5. Passwords older than 180 days must be changed: pin users to /profile
-    if (isLoggedIn && user?.mustChangePassword && pathname !== '/profile') {
-        return Response.redirect(new URL('/profile?changePassword=1', req.url));
-    }
-
-    // 6. Protect everything else (the login page itself always renders)
+    // 5. Protect everything else (the login page itself always renders)
     if (!isLoggedIn && pathname !== '/login') {
         const loginUrl = new URL('/login', req.url);
         loginUrl.searchParams.set('callbackUrl', pathname);

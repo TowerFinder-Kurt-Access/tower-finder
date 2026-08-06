@@ -6,6 +6,7 @@ import NavRail from '@/components/NavRail';
 import ContentArea from '@/components/ContentArea';
 import { SessionProvider } from 'next-auth/react';
 import { CountryProvider } from '@/lib/country-context';
+import { PasswordChangeReminder } from '@/components/PasswordChangeReminder';
 
 export const metadata: Metadata = {
   title: "Tower Finder 4900",
@@ -27,6 +28,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                   <ContentArea>
                     {children}
                   </ContentArea>
+                  <PasswordChangeReminder />
                 </Box>
               ) : (
                 children
