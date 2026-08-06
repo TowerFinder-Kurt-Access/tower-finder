@@ -37,9 +37,9 @@ Follows the [Airbnb JavaScript Style Guide](https://github.com/airbnb/javascript
 
 ## Styling
 
-- Prefer inline Tailwind classes over custom CSS
+- Prefer inline Material UI classes over custom CSS
 - No box-shadows or glows — only `shadow-sm` or `shadow-md`
-- Use Lucide icons instead of custom `<svg />` when available
+- Use @mui/icons-material instead of custom `<svg />` when available
 - All Google Fonts must use `api.fonts.coollabs.io` — never `fonts.googleapis.com`
 
 ---
