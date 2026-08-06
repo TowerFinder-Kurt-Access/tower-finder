@@ -1,6 +1,6 @@
 import type { NextAuthConfig } from 'next-auth';
 import type { Role } from '@prisma/client';
-import { PASSWORD_MAX_AGE_DAYS, passwordAgeDays } from '@/lib/security-policy';
+import { passwordIsExpired } from '@/lib/security-policy';
 
 interface SignInUser {
     id: string;
@@ -27,8 +27,7 @@ export const authConfig = {
                 token.email = signInUser.email;
                 token.name = signInUser.name;
                 token.sessionVersion = signInUser.sessionVersion;
-                token.mustChangePassword =
-                    passwordAgeDays(signInUser.passwordChangedAt) >= PASSWORD_MAX_AGE_DAYS;
+                token.mustChangePassword = passwordIsExpired(signInUser.passwordChangedAt);
             }
             return token;
         },
