@@ -9,6 +9,8 @@ export async function sendEmail(to: string, subject: string, html: string): Prom
         console.log(`[dev-email] TO=${to}\nSUBJECT=${subject}\n${html}`);
     }
     if (!apiKey) return;
+    const from =
+        process.env.EMAIL_FROM ?? 'Tower Finder <no-reply@towerfinder.com>';
     const res = await fetch('https://api.resend.com/emails', {
         method: 'POST',
         headers: {
@@ -16,7 +18,7 @@ export async function sendEmail(to: string, subject: string, html: string): Prom
             'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-            from: 'Tower Finder <no-reply@towerfinder.com>',
+            from,
             to,
             subject,
             html,
