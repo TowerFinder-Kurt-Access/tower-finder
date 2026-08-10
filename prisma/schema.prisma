@@ -160,6 +160,7 @@ model User {
   role             Role              @default(CALLER)
   isActive         Boolean           @default(true)
   emailVerified    DateTime?
+  twoFactorEnabled Boolean           @default(false)
   image            String?
   passwordChangedAt DateTime         @default(now())
   sessionVersion    Int               @default(0)
