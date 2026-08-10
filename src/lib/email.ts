@@ -33,6 +33,7 @@ export function signInCodeEmailHtml({ code, expiresInMinutes, expiresAt }: SignI
     </div>
     <div style="border-top:1px solid #e2e8ef;padding:16px 28px;background:#fafbfc">
       <p style="margin:0;font-size:12px;color:#0f2a43;font-weight:700;letter-spacing:0.3px">Cell Waves | Tower Finder</p>
+      <p style="margin:4px 0 0;font-size:11px"><a href="https://tower-finder.vercel.app/" style="color:#2b6cb0;text-decoration:none">tower-finder.vercel.app</a></p>
       <p style="margin:6px 0 0;font-size:11px;color:#8a97a5">© ${year} | All rights reserved</p>
     </div>
   </div>
