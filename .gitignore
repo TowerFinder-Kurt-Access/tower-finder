@@ -62,6 +62,7 @@ tmp/
 FAA_DDOF/
 DAILY_DOF_CSV.ZIP
 *.pdf
+graphify-out
 
 # discovery debug artifacts
 *.log
