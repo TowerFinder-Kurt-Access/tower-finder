@@ -10,6 +10,7 @@ import Button from '@mui/material/Button';
 import Switch from '@mui/material/Switch';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import Alert from '@mui/material/Alert';
+import Snackbar from '@mui/material/Snackbar';
 import Divider from '@mui/material/Divider';
 import { validatePassword } from '@/lib/password-policy';
 import { PasswordField } from '@/components/PasswordField';
@@ -29,6 +30,11 @@ export default function ProfilePage() {
     const [pendingEnableCode, setPendingEnableCode] = useState(false);
     const [enableCode, setEnableCode] = useState('');
     const [twoFactorBusy, setTwoFactorBusy] = useState(false);
+    const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
+        open: false,
+        message: '',
+        severity: 'success'
+    });
 
     useEffect(() => {
         if (session?.user) {
@@ -109,14 +115,17 @@ export default function ProfilePage() {
             await axios.post('/api/profile/two-factor', { action: 'enable' });
             setPendingEnableCode(true);
             setEnableCode('');
-            setMessageType('success');
-            setMessage(`A 6-digit code was sent to ${session?.user?.email}. Enter it below to turn 2FA on.`);
+            setSnackbar({
+                open: true,
+                message: `We've sent a 6-digit code to ${session?.user?.email ?? 'your email'} — check your inbox.`,
+                severity: 'success'
+            });
         } catch (error: unknown) {
-            setMessageType('error');
-            const message = error instanceof AxiosError
+            // Server errors (cooldown, send failure, network) land here.
+            const errMessage = error instanceof AxiosError
                 ? error.response?.data?.error || 'Could not send the code. Please try again.'
                 : 'Could not send the code. Please try again.';
-            setMessage(message);
+            setSnackbar({ open: true, message: errMessage, severity: 'error' });
         } finally {
             setTwoFactorBusy(false);
         }
@@ -130,14 +139,13 @@ export default function ProfilePage() {
             setTwoFactorEnabled(res.data?.twoFactorEnabled === true);
             setPendingEnableCode(false);
             setEnableCode('');
-            setMessageType('success');
-            setMessage('Two-factor authentication enabled.');
+            setSnackbar({ open: true, message: 'Two-factor authentication enabled.', severity: 'success' });
         } catch (error: unknown) {
-            setMessageType('error');
-            const message = error instanceof AxiosError
+            // Wrong / expired / exhausted codes come back from the server here.
+            const errMessage = error instanceof AxiosError
                 ? error.response?.data?.error || 'Could not verify the code. Try again.'
                 : 'Could not verify the code. Try again.';
-            setMessage(message);
+            setSnackbar({ open: true, message: errMessage, severity: 'error' });
         } finally {
             setTwoFactorBusy(false);
         }
@@ -150,14 +158,12 @@ export default function ProfilePage() {
             const res = await axios.post('/api/profile/two-factor', { action: 'disable' });
             setTwoFactorEnabled(res.data?.twoFactorEnabled === true);
             setPendingEnableCode(false);
-            setMessageType('success');
-            setMessage('Two-factor authentication disabled.');
+            setSnackbar({ open: true, message: 'Two-factor authentication disabled.', severity: 'success' });
         } catch (error: unknown) {
-            setMessageType('error');
-            const message = error instanceof AxiosError
+            const errMessage = error instanceof AxiosError
                 ? error.response?.data?.error || 'Could not disable two-factor authentication.'
                 : 'Could not disable two-factor authentication.';
-            setMessage(message);
+            setSnackbar({ open: true, message: errMessage, severity: 'error' });
         } finally {
             setTwoFactorBusy(false);
         }
@@ -337,6 +343,24 @@ export default function ProfilePage() {
                     Sign Out
                 </Button>
             </Paper>
+
+            {/* Two-factor feedback toast: code sent to [email], enable/disable
+                results, and any server error (cooldown / send failed / wrong
+                code) surfaces here. */}
+            <Snackbar
+                open={snackbar.open}
+                autoHideDuration={6000}
+                onClose={() => setSnackbar((s) => ({ ...s, open: false }))}
+                anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+            >
+                <Alert
+                    severity={snackbar.severity}
+                    variant="filled"
+                    onClose={() => setSnackbar((s) => ({ ...s, open: false }))}
+                >
+                    {snackbar.message}
+                </Alert>
+            </Snackbar>
         </Box>
     );
 }
