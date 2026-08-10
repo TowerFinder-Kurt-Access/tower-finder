@@ -23,6 +23,7 @@ export function signInCodeEmailHtml({ code, expiresInMinutes, expiresAt }: SignI
     const year = new Date().getFullYear();
     const expiryTime = formatExpiryTime(expiresAt);
     return `<div style="font-family:Arial,Helvetica,sans-serif;background:#f2f5f8;padding:24px 16px">
+  <div style="display:none;font-size:1px;color:#f2f5f8;line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;mso-hide:all">Use this code to finish signing in to Cell Waves | Tower Finder — it expires in ${expiresInMinutes} minutes.</div>
   <div style="max-width:520px;margin:0 auto;background:#ffffff;border-radius:10px;overflow:hidden;border:1px solid #e2e8ef">
     <div style="background:#0f2a43;padding:20px 28px">
       <span style="color:#ffffff;font-size:18px;font-weight:700">Cell Waves <span style="color:#7cc4f0">|</span> Tower Finder</span>
