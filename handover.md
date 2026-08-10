@@ -1,10 +1,16 @@
 # Handover — Email OTP (2FA) + Email Magic Link
 
-> **Status:** Planned — NOT implemented. This file is the implementation handover, written
-> on branch `feat/auth-credentials` (PR #1) after the login-security round shipped
-> (password policy, lockout, 7-day sessions, instant revocation, 180-day rotation dialog,
-> audit trail). Read it end-to-end before starting; it replaces the PDF's
-> authenticator-app 2FA idea (no QR, no TOTP library, no recovery codes).
+> **Status:** Email OTP **implemented & verified** on branch `feat/auth-credentials` (PR #1):
+> `LoginOtp` schema + migration `20260811031542_login_otp`, `src/lib/email.ts` (Resend
+> wrapper + console fallback), `src/lib/otp.ts` (issue/verify, constant-time, 10-min TTL,
+> 3 attempts, 60s resend cooldown), two-step `authorize()` in `src/lib/auth.ts` (custom
+> `CredentialsSignin` codes: `otp_required / otp_cooldown / otp_send_failed /
+> otp_invalid / otp_expired / otp_max_attempts`, failures feed the lockout window), and
+> the OTP step UI in `src/app/login/page.tsx` (6-digit field, resend countdown, Back).
+> **Magic link is still planned** — Phase C below is the active spec. **TOTP is kept for
+> future reference only** (no QR, no secret storage). Browser-verified end-to-end:
+> happy path, wrong ×3 + 4th rejected, reuse blocked (row deleted), lockout interplay,
+> cooldown + resend, send-failure surface. Read Phase C before starting the magic link.
 
 ---
 
@@ -60,60 +66,18 @@ in `.env` locally and in Vercel env. Free cap of 100/day is fine for login traff
 
 ## 3. Implementation plan
 
-### Phase A — Email infra (≈1 h)
-1. Create Resend account, verify domain (TXT records), copy API key.
-2. `src/lib/email.ts` — single wrapper:
-   ```ts
-   export async function sendEmail(to: string, subject: string, html: string): Promise<void>
-   ```
-   Uses `fetch('https://api.resend.com/emails', { method: 'POST', headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}` }, body: { from: 'Tower Finder <no-reply@yourdomain>', to, subject, html } })`.
-   Throw on non-2xx; log via existing patterns (no new logging framework).
-3. Env: `RESEND_API_KEY` in `.env` + Vercel. Never commit it.
+### Phase A — Email infra (≈1 h) — ✅ DONE
+1. ~~Create Resend account, verify domain (TXT records), copy API key~~ — key is in `.env`; **domain `towerfinder.com` still unverified in the Resend dashboard** (403 until SPF/DKIM TXT added).
+2. `src/lib/email.ts` — shipped as specced, plus: non-prod always logs the message (`[dev-email]` — OTP readable from the server log), and in dev a Resend 4xx logs a warning and falls back to the console path instead of failing the flow. Production throws (`otp_send_failed`).
+3. Env: `RESEND_API_KEY` in `.env` (real) + `.env.example` (placeholder) + Vercel env for prod. Never commit the real key.
 
-### Phase B — Email OTP as the second factor (≈8–10 h)
-**Data:** extend Prisma — new model (preferred; do NOT pollute `User`):
-```prisma
-model LoginOtp {
-  id        Int      @id @default(autoincrement())
-  email     String   @unique
-  otpHash   String   // sha256(otp) — never store plaintext
-  expiresAt DateTime
-  attempts  Int      @default(0)
-  createdAt DateTime @default(now())
-}
-```
-Also extend `LoginEventType` with `OTP_SENT`, `OTP_VERIFIED`, `OTP_FAILED`.
-One migration: `npx prisma migrate dev --name login_otp` (model + enum; no other schema
-changes).
-
-**Flow (two-step, stateless):**
-1. User submits email+password (+ OTP field empty). Inside the existing `authorize()`:
-   - run current password/lockout checks as-is (reuse `getLockoutRemainingSeconds`),
-   - if password OK: generate 6-digit OTP, store `sha256` + 10-min TTL, upsert
-     `LoginOtp`, send email, return a marker error like `"OTP_REQUIRED"` (KEEP the user's
-     email in the login form; never confirm account existence across step boundaries —
-     return the same step marker whether or not the account exists).
-   - Cooldown: refuse re-send within 60 s (needs `sentAt`/`createdAt` check) — prevents
-     mail-bombing; count abuse toward the same lockout window (reuse
-     `recordLoginEvent` + lockout helpers so OTP brute-force shares the 15-min window).
-2. Login page transitions to an OTP step (same page, second form mode, countdown,
-   "Resend code" button honoring the 60 s cooldown).
-3. User submits code: second `signIn('credentials', { email, password, otp })`;
-   `authorize()` sees `otp`:
-   - verify `LoginOtp`: exists, unexpired, `attempts < 3` (increment on each fail;
-     at 3 → delete row + record `OTP_FAILED` + treat as failed attempt in the lockout
-     coordinator),
-   - constant-time compare (`crypto.timingSafeEqual` on digests),
-   - success → delete row, `recordLoginEvent(LOGIN_SUCCESS)` (also set `lastLogin`),
-     proceed to the normal JWT mint (mustChangePassword logic untouched).
-4. Edge cases to cover: OTP reuse (deleted on first success), expiry mid-flow, email
-   changed between steps, user deleted/locked between steps, concurrent tabs (one OTP
-   per email — last-write-wins), Resend failure (surface "couldn't send code — try
-   again", do NOT write OTP), lockout during OTP stage counts once per login attempt.
-
-**Reuse map (copy, don't reinvent):** lockout math + `getLockoutRemainingSeconds`,
-`recordLoginEvent`, Snackbar surface, `PasswordField`, `/api/auth/*` middleware
-allow-tree (OTP send/verify endpoints live under `/api/auth/` so they pass through).
+### Phase B — Email OTP as the second factor (≈8–10 h) — ✅ DONE
+Implemented as specced below (schema, migration, flow, edge cases verified). Notes on deltas:
+- `LoginEventType` now has 9 values: `LOGIN_SUCCESS LOGIN_FAILED LOGIN_LOCKED PASSWORD_CHANGED PASSWORD_RESET ACCOUNT_DEACTIVATED OTP_SENT OTP_VERIFIED OTP_FAILED`.
+- Error contract (login page reads `result.code`): `otp_required`, `otp_cooldown`, `otp_send_failed`, `otp_invalid`, `otp_expired`, `otp_max_attempts` — plus the existing `account_locked`.
+- **Max-attempts semantics**: attempts increment per wrong code; verify is allowed while `attempts < 3`, so the 3rd wrong shows "Incorrect code", the 4th submit trips `otp_max_attempts` (row deleted).
+- OTP issuance order: cooldown check → upsert row → send email → throw `otp_required` (dev fallback keeps the flow testable while the domain is unverified).
+- Migration applied to the live DB via `npx prisma db execute` (hosted Postgres has no shadow DB for `migrate dev`); migration folder `prisma/migrations/20260811031542_login_otp/` is committed.
 
 ### Phase C — Magic link (≈4–6 h, independent of Phase B)
 1. Add `EmailProvider` from `next-auth/providers/email` to `authConfig.providers`
@@ -134,18 +98,20 @@ allow-tree (OTP send/verify endpoints live under `/api/auth/` so they pass throu
    product decision; default recommendation: magic link = full login (no extra OTP),
    OTP = the 2FA step for password flow.
 
-### Phase D — Verification checklist (≈2–3 h)
-- `npm run build` green; no new `any`/suppressions; Airbnb/TS strict patterns.
+### Phase D — Verification checklist (≈2–3 h) — mostly ✅ for OTP; regression + magic-link items pending
+- `npm run build` green; no new `any`/suppressions; Airbnb/TS strict patterns — ✅.
 - Curl-level: OTP send (check DB row + Resend dashboard), 3 failed codes → row
   deleted + lockout engaged (`/api/auth/lockout-status` reflects it), correct code →
-  session cookie set, OTP reuse after success → rejected.
+  session cookie set, OTP reuse after success → rejected — ✅ (browser-verified;
+  Resend dashboard delivery check pending domain verification).
 - Browser-level: password+OTP happy path; wrong code → inline error; "Resend" honors
   cooldown; OTP step survives page reload (re-prompt, don't resend); lockout countdown
-  visible in OTP step; magic link lands on `/` signed in; inactive user rejected.
+  visible in OTP step; magic link lands on `/` signed in; inactive user rejected —
+  first five ✅, magic-link items pending.
 - Regression: password policy, 180-day dialog (flip `PASSWORD_MAX_AGE_MS` to `60_000`
-  as documented in code), revocation flow still pass.
+  as documented in code), revocation flow still pass — **pending; run before merging**.
 - Clean up any test rows (`node -e` with Prisma: delete `LoginOtp`/`LoginEvent` for
-  smoke emails).
+  smoke emails) — **pending for the test account** (locked at the time of writing).
 
 **Estimates:** Phase A 1 h + B 8–10 h + C 4–6 h + D 2–3 h ≈ **15–20 h total**
 (OTP-only sub-path ≈ 12–15 h). Replaces the 31 h TOTP row.
@@ -154,13 +120,11 @@ allow-tree (OTP send/verify endpoints live under `/api/auth/` so they pass throu
 
 ## 4. Open product decisions (ask before/while implementing)
 
-1. Keep authenticator TOTP as a future option, or drop the 2FA row entirely once OTP ships?
-2. OTP TTL (recommend 10 min) / attempts (3) / resend cooldown (60 s) — confirm.
-3. Magic link: additional login method next to password, or also usable as the
-   password-recovery channel? (It naturally doubles as "forgot password".)
-4. Should magic link skip the OTP second step? (Recommendation: yes.)
-5. Auto-purge `LoginOtp` rows (e.g. delete expired rows on each send — cheap `deleteMany`
-   where `expiresAt < now`).
+1. ~~Keep authenticator TOTP as a future option, or drop the 2FA row entirely once OTP ships?~~ — **Resolved: TOTP kept for future reference, not planned** (documented in PR #1 + issue #2).
+2. ~~OTP TTL / attempts / cooldown~~ — **Confirmed during implementation: 10 min / 3 attempts (4th submit trips max) / 60 s cooldown.**
+3. Magic link: additional login method next to password, or also usable as the password-recovery channel? (It naturally doubles as "forgot password".) — **Open.**
+4. Should magic link skip the OTP second step? (Recommendation: yes.) — **Open.**
+5. Auto-purge `LoginOtp` rows (e.g. delete expired rows on each send — cheap `deleteMany` where `expiresAt < now`). — **Open** (rows are deleted on success/expiry/max-attempts; long-expired leftovers are cleaned by the next issue for the same email).
 
 ---
 
