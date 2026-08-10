@@ -181,6 +181,9 @@ enum LoginEventType {
   PASSWORD_CHANGED
   PASSWORD_RESET
   ACCOUNT_DEACTIVATED
+  OTP_SENT
+  OTP_VERIFIED
+  OTP_FAILED
 }
 
 model LoginEvent {
@@ -195,6 +198,17 @@ model LoginEvent {
 
   @@index([email, createdAt])
   @@index([userId])
+}
+
+model LoginOtp {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  otpHash   String
+  expiresAt DateTime
+  attempts  Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([expiresAt])
 }
 
 model TowerAssignment {
