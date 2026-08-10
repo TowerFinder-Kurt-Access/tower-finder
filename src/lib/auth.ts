@@ -74,7 +74,25 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             return null
           }
 
-          // -------- Second factor: email OTP --------
+          const sessionUser = {
+            id: user.id.toString(),
+            email: user.email,
+            name: user.name,
+            role: user.role,
+            sessionVersion: user.sessionVersion,
+            passwordChangedAt: user.passwordChangedAt
+          }
+
+          // Single-step login unless the user opted into the OTP second factor
+          // on their profile. twoFactorEnabled defaults false — nobody is
+          // forced into the code step.
+          if (!user.twoFactorEnabled) {
+            await recordLoginEvent({ email, userId: user.id, type: LoginEventType.LOGIN_SUCCESS, ip, userAgent }).catch(() => {})
+            await prisma.user.update({ where: { id: user.id }, data: { lastLogin: new Date() } })
+            return sessionUser
+          }
+
+          // -------- Second factor: email OTP (opt-in) --------
           if (!otp) {
             // Step 1: password passed — email a one-time code.
             let issued
@@ -108,14 +126,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           await recordLoginEvent({ email, userId: user.id, type: LoginEventType.LOGIN_SUCCESS, ip, userAgent }).catch(() => {})
           await prisma.user.update({ where: { id: user.id }, data: { lastLogin: new Date() } })
 
-          return {
-            id: user.id.toString(),
-            email: user.email,
-            name: user.name,
-            role: user.role,
-            sessionVersion: user.sessionVersion,
-            passwordChangedAt: user.passwordChangedAt
-          }
+          return sessionUser
         } catch (err) {
           // Account lockout and OTP step codes propagate so the login page can
           // show the right state; transient DB errors become failed logins.
