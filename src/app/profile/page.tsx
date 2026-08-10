@@ -7,6 +7,8 @@ import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
 import TextField from '@mui/material/TextField';
 import Button from '@mui/material/Button';
+import Switch from '@mui/material/Switch';
+import FormControlLabel from '@mui/material/FormControlLabel';
 import Alert from '@mui/material/Alert';
 import Divider from '@mui/material/Divider';
 import { validatePassword } from '@/lib/password-policy';
@@ -23,6 +25,10 @@ export default function ProfilePage() {
     const [message, setMessage] = useState('');
     const [messageType, setMessageType] = useState<'success' | 'error'>('success');
     const [loading, setLoading] = useState(false);
+    const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
+    const [pendingEnableCode, setPendingEnableCode] = useState(false);
+    const [enableCode, setEnableCode] = useState('');
+    const [twoFactorBusy, setTwoFactorBusy] = useState(false);
 
     useEffect(() => {
         if (session?.user) {
@@ -30,6 +36,10 @@ export default function ProfilePage() {
                 name: session.user.name || '',
                 email: session.user.email || ''
             });
+            axios
+                .get('/api/profile/two-factor')
+                .then((res) => setTwoFactorEnabled(res.data?.twoFactorEnabled === true))
+                .catch(() => { /* keep the switch off on failure */ });
         }
     }, [session]);
 
@@ -89,6 +99,67 @@ export default function ProfilePage() {
             setMessage(message);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleEnableTwoFactor = async () => {
+        setTwoFactorBusy(true);
+        setMessage('');
+        try {
+            await axios.post('/api/profile/two-factor', { action: 'enable' });
+            setPendingEnableCode(true);
+            setEnableCode('');
+            setMessageType('success');
+            setMessage(`A 6-digit code was sent to ${session?.user?.email}. Enter it below to turn 2FA on.`);
+        } catch (error: unknown) {
+            setMessageType('error');
+            const message = error instanceof AxiosError
+                ? error.response?.data?.error || 'Could not send the code. Please try again.'
+                : 'Could not send the code. Please try again.';
+            setMessage(message);
+        } finally {
+            setTwoFactorBusy(false);
+        }
+    };
+
+    const handleVerifyEnableTwoFactor = async () => {
+        setTwoFactorBusy(true);
+        setMessage('');
+        try {
+            const res = await axios.post('/api/profile/two-factor', { action: 'verify', code: enableCode });
+            setTwoFactorEnabled(res.data?.twoFactorEnabled === true);
+            setPendingEnableCode(false);
+            setEnableCode('');
+            setMessageType('success');
+            setMessage('Two-factor authentication enabled.');
+        } catch (error: unknown) {
+            setMessageType('error');
+            const message = error instanceof AxiosError
+                ? error.response?.data?.error || 'Could not verify the code. Try again.'
+                : 'Could not verify the code. Try again.';
+            setMessage(message);
+        } finally {
+            setTwoFactorBusy(false);
+        }
+    };
+
+    const handleDisableTwoFactor = async () => {
+        setTwoFactorBusy(true);
+        setMessage('');
+        try {
+            const res = await axios.post('/api/profile/two-factor', { action: 'disable' });
+            setTwoFactorEnabled(res.data?.twoFactorEnabled === true);
+            setPendingEnableCode(false);
+            setMessageType('success');
+            setMessage('Two-factor authentication disabled.');
+        } catch (error: unknown) {
+            setMessageType('error');
+            const message = error instanceof AxiosError
+                ? error.response?.data?.error || 'Could not disable two-factor authentication.'
+                : 'Could not disable two-factor authentication.';
+            setMessage(message);
+        } finally {
+            setTwoFactorBusy(false);
         }
     };
 
@@ -152,6 +223,63 @@ export default function ProfilePage() {
                         {loading ? 'Updating...' : 'Update Profile'}
                     </Button>
                 </Box>
+            </Paper>
+
+            {/* Two-Factor Authentication Section */}
+            <Paper sx={{ p: 3, mb: 3 }}>
+                <Typography variant="h6" sx={{ mb: 1 }}>Two-Factor Authentication</Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                    Optional: require a 6-digit code emailed to you each time you sign in.
+                    You'll verify email delivery once when turning it on.
+                </Typography>
+                <FormControlLabel
+                    control={
+                        <Switch
+                            checked={twoFactorEnabled || pendingEnableCode}
+                            disabled={twoFactorBusy}
+                            onChange={(e) => {
+                                if (e.target.checked) {
+                                    handleEnableTwoFactor();
+                                } else {
+                                    handleDisableTwoFactor();
+                                }
+                            }}
+                        />
+                    }
+                    label={twoFactorEnabled || pendingEnableCode ? 'On' : 'Off'}
+                />
+                {pendingEnableCode && (
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2 }}>
+                        <TextField
+                            label="One-time code"
+                            value={enableCode}
+                            onChange={(e) => setEnableCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                            inputMode="numeric"
+                            autoComplete="one-time-code"
+                            fullWidth
+                            autoFocus
+                        />
+                        <Box sx={{ display: 'flex', gap: 1 }}>
+                            <Button
+                                variant="contained"
+                                onClick={handleVerifyEnableTwoFactor}
+                                disabled={enableCode.length !== 6 || twoFactorBusy}
+                            >
+                                {twoFactorBusy ? 'Verifying...' : 'Verify & Enable'}
+                            </Button>
+                            <Button
+                                variant="text"
+                                disabled={twoFactorBusy}
+                                onClick={() => {
+                                    setPendingEnableCode(false);
+                                    setEnableCode('');
+                                }}
+                            >
+                                Cancel
+                            </Button>
+                        </Box>
+                    </Box>
+                )}
             </Paper>
 
             {/* Password Change Section */}
