@@ -73,6 +73,7 @@ in `.env` locally and in Vercel env. Free cap of 100/day is fine for login traff
 
 ### Phase B — Email OTP as the second factor (≈8–10 h) — ✅ DONE
 Implemented as specced below (schema, migration, flow, edge cases verified). Notes on deltas:
+- **OTP is now opt-in per user** (`User.twoFactorEnabled`, default `false` — nobody is forced into the code step): toggle on the profile page (`/api/profile/two-factor` — enable sends a code that must be verified first, disable is immediate). `authorize()` skips the OTP step unless the flag is set.
 - `LoginEventType` now has 9 values: `LOGIN_SUCCESS LOGIN_FAILED LOGIN_LOCKED PASSWORD_CHANGED PASSWORD_RESET ACCOUNT_DEACTIVATED OTP_SENT OTP_VERIFIED OTP_FAILED`.
 - Error contract (login page reads `result.code`): `otp_required`, `otp_cooldown`, `otp_send_failed`, `otp_invalid`, `otp_expired`, `otp_max_attempts` — plus the existing `account_locked`.
 - **Max-attempts semantics**: attempts increment per wrong code; verify is allowed while `attempts < 3`, so the 3rd wrong shows "Incorrect code", the 4th submit trips `otp_max_attempts` (row deleted).
