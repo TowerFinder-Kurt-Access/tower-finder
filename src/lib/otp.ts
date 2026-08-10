@@ -1,6 +1,6 @@
 import { randomInt, createHash, timingSafeEqual } from 'crypto';
 import { prisma } from '@/lib/prisma';
-import { sendEmail, signInCodeEmailHtml } from '@/lib/email';
+import { sendEmail, signInCodeEmailHtml, formatExpiryTime } from '@/lib/email';
 
 export const OTP_TTL_MS = 5 * 60 * 1000; // code valid for 5 minutes
 export const OTP_RESEND_COOLDOWN_MS = 60 * 1000; // one code per minute
@@ -61,7 +61,13 @@ export async function issueLoginOtp(email: string): Promise<OtpIssueResult> {
             code,
             expiresInMinutes: OTP_TTL_MS / 60_000,
             expiresAt,
-        })
+        }),
+        {
+            code,
+            expiresInMinutes: String(OTP_TTL_MS / 60_000),
+            expiryTime: formatExpiryTime(expiresAt),
+            year: String(new Date().getFullYear()),
+        }
     );
     return { code, cooldownRemainingSeconds: 0 };
 }

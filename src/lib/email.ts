@@ -8,15 +8,20 @@ export interface SignInCodeEmailOptions {
     expiresAt: Date;
 }
 
-/** Branded sign-in-code email. Inline styles only (email clients strip
- *  <style> blocks). Footer year is dynamic. */
-export function signInCodeEmailHtml({ code, expiresInMinutes, expiresAt }: SignInCodeEmailOptions): string {
-    const year = new Date().getFullYear();
-    const expiryTime = expiresAt.toLocaleTimeString('en-US', {
+/** Local-clock expiry time with timezone label, e.g. "3:45 PM GMT+8". */
+export function formatExpiryTime(expiresAt: Date): string {
+    return expiresAt.toLocaleTimeString('en-US', {
         hour: 'numeric',
         minute: '2-digit',
         timeZoneName: 'short',
     });
+}
+
+/** Branded sign-in-code email. Inline styles only (email clients strip
+ *  <style> blocks). Footer year is dynamic. */
+export function signInCodeEmailHtml({ code, expiresInMinutes, expiresAt }: SignInCodeEmailOptions): string {
+    const year = new Date().getFullYear();
+    const expiryTime = formatExpiryTime(expiresAt);
     return `<div style="font-family:Arial,Helvetica,sans-serif;background:#f2f5f8;padding:24px 16px">
   <div style="max-width:520px;margin:0 auto;background:#ffffff;border-radius:10px;overflow:hidden;border:1px solid #e2e8ef">
     <div style="background:#0f2a43;padding:20px 28px">
@@ -40,12 +45,28 @@ export function signInCodeEmailHtml({ code, expiresInMinutes, expiresAt }: SignI
 </div>`;
 }
 
-export async function sendEmail(to: string, subject: string, html: string): Promise<void> {
+/**
+ * Sends email via Resend. `variables` switches to the Templates dashboard:
+ * the body is `{ template_id, variables }` instead of `{ subject, html }`,
+ * and the template (authored on resend.com/templates) renders the email.
+ * Falls back to `html` when RESEND_TEMPLATE_ID is unset.
+ */
+export async function sendEmail(
+    to: string,
+    subject: string,
+    html: string,
+    variables?: Record<string, string>,
+): Promise<void> {
     const apiKey = process.env.RESEND_API_KEY;
+    const templateId = process.env.RESEND_TEMPLATE_ID;
     // Local dev: always log the message so the OTP can be read from the
     // server log (the test mailboxes don't exist). Production stays silent.
     if (process.env.NODE_ENV !== 'production') {
-        console.log(`[dev-email] TO=${to}\nSUBJECT=${subject}\n${html}`);
+        console.log(
+            templateId
+                ? `[dev-email] TO=${to}\nTEMPLATE=${templateId}\nVARIABLES=${JSON.stringify(variables)}`
+                : `[dev-email] TO=${to}\nSUBJECT=${subject}\n${html}`,
+        );
     }
     if (!apiKey) return;
     const from =
@@ -56,12 +77,11 @@ export async function sendEmail(to: string, subject: string, html: string): Prom
             Authorization: `Bearer ${apiKey}`,
             'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-            from,
-            to,
-            subject,
-            html,
-        }),
+        body: JSON.stringify(
+            templateId
+                ? { from, to, template_id: templateId, variables }
+                : { from, to, subject, html },
+        ),
     });
     if (!res.ok) {
         const detail = (await res.text()).slice(0, 200);
