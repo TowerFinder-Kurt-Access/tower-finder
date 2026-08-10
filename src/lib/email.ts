@@ -89,7 +89,11 @@ export async function sendEmail(
         // Dev: an unverified Resend domain (403) must not block the OTP flow —
         // the code is already in the [dev-email] log. Production stays strict.
         if (process.env.NODE_ENV !== 'production') {
-            console.error(`[dev-email] Resend delivery failed (${res.status}): ${detail} — using console fallback`);
+            const hint =
+                templateId && res.status === 422 && /html|text/i.test(detail)
+                    ? ' — template not resolving: RESEND_TEMPLATE_ID must be the dashboard template id "tpl_…" (an alias only works if the template was created via API with that alias)'
+                    : '';
+            console.error(`[dev-email] Resend delivery failed (${res.status}): ${detail}${hint} — using console fallback`);
             return;
         }
         throw new Error(`Resend ${res.status}: ${detail}`);
