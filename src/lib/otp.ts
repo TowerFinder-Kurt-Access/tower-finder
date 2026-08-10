@@ -1,8 +1,8 @@
 import { randomInt, createHash, timingSafeEqual } from 'crypto';
 import { prisma } from '@/lib/prisma';
-import { sendEmail } from '@/lib/email';
+import { sendEmail, signInCodeEmailHtml } from '@/lib/email';
 
-export const OTP_TTL_MS = 10 * 60 * 1000; // code valid for 10 minutes
+export const OTP_TTL_MS = 5 * 60 * 1000; // code valid for 5 minutes
 export const OTP_RESEND_COOLDOWN_MS = 60 * 1000; // one code per minute
 export const OTP_MAX_ATTEMPTS = 3;
 
@@ -37,17 +37,18 @@ export async function issueLoginOtp(email: string): Promise<OtpIssueResult> {
 
     const code = generateOtp();
     const now = new Date();
+    const expiresAt = new Date(now.getTime() + OTP_TTL_MS);
     await prisma.loginOtp.upsert({
         where: { email },
         create: {
             email,
             otpHash: sha256(code),
-            expiresAt: new Date(now.getTime() + OTP_TTL_MS),
+            expiresAt,
             createdAt: now,
         },
         update: {
             otpHash: sha256(code),
-            expiresAt: new Date(now.getTime() + OTP_TTL_MS),
+            expiresAt,
             attempts: 0,
             createdAt: now,
         },
@@ -56,7 +57,11 @@ export async function issueLoginOtp(email: string): Promise<OtpIssueResult> {
     await sendEmail(
         email,
         'Your Tower Finder sign-in code',
-        `<p>Your one-time sign-in code:</p><p style="font-size:24px;font-weight:bold;letter-spacing:4px">${code}</p><p>It expires in 10 minutes. If you didn't try to sign in, you can ignore this email.</p>`
+        signInCodeEmailHtml({
+            code,
+            expiresInMinutes: OTP_TTL_MS / 60_000,
+            expiresAt,
+        })
     );
     return { code, cooldownRemainingSeconds: 0 };
 }

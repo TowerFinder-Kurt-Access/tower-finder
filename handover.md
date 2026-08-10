@@ -2,7 +2,7 @@
 
 > **Status:** Email OTP **implemented & verified** on branch `feat/auth-credentials` (PR #1):
 > `LoginOtp` schema + migration `20260811031542_login_otp`, `src/lib/email.ts` (Resend
-> wrapper + console fallback), `src/lib/otp.ts` (issue/verify, constant-time, 10-min TTL,
+> wrapper + console fallback), `src/lib/otp.ts` (issue/verify, constant-time, 5-min TTL,
 > 3 attempts, 60s resend cooldown), two-step `authorize()` in `src/lib/auth.ts` (custom
 > `CredentialsSignin` codes: `otp_required / otp_cooldown / otp_send_failed /
 > otp_invalid / otp_expired / otp_max_attempts`, failures feed the lockout window), and
@@ -122,7 +122,7 @@ Implemented as specced below (schema, migration, flow, edge cases verified). Not
 ## 4. Open product decisions (ask before/while implementing)
 
 1. ~~Keep authenticator TOTP as a future option, or drop the 2FA row entirely once OTP ships?~~ — **Resolved: TOTP kept for future reference, not planned** (documented in PR #1 + issue #2).
-2. ~~OTP TTL / attempts / cooldown~~ — **Confirmed during implementation: 10 min / 3 attempts (4th submit trips max) / 60 s cooldown.**
+2. ~~OTP TTL / attempts / cooldown~~ — **Confirmed during implementation: 5 min / 3 attempts (4th submit trips max) / 60 s cooldown.**
 3. Magic link: additional login method next to password, or also usable as the password-recovery channel? (It naturally doubles as "forgot password".) — **Open.**
 4. Should magic link skip the OTP second step? (Recommendation: yes.) — **Open.**
 5. Auto-purge `LoginOtp` rows (e.g. delete expired rows on each send — cheap `deleteMany` where `expiresAt < now`). — **Open** (rows are deleted on success/expiry/max-attempts; long-expired leftovers are cleaned by the next issue for the same email).
