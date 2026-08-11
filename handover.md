@@ -85,7 +85,7 @@ Implemented as specced below (schema, migration, flow, edge cases verified). Not
 - OTP issuance order: cooldown check → upsert row → send email → throw `otp_required` (dev fallback keeps the flow testable while the domain is unverified).
 - Migration applied to the live DB via `npx prisma db execute` (hosted Postgres has no shadow DB for `migrate dev`); migration folder `prisma/migrations/20260811031542_login_otp/` is committed.
 
-### Phase C — Magic link (≈4–6 h, independent of Phase B)
+### Phase C — Magic link (≈8 h, independent of Phase B)
 1. Add `EmailProvider` from `next-auth/providers/email` to `authConfig.providers`
    (JWT strategy — no adapter needed; verified provider ships in beta.32).
 2. Custom `sendVerificationRequest` → `sendEmail()` (Resend) with a branded
