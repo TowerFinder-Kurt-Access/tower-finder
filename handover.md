@@ -10,7 +10,12 @@
 > **Magic link is still planned** — Phase C below is the active spec. **TOTP is kept for
 > future reference only** (no QR, no secret storage). Browser-verified end-to-end:
 > happy path, wrong ×3 + 4th rejected, reuse blocked (row deleted), lockout interplay,
-> cooldown + resend, send-failure surface. Read Phase C before starting the magic link.
+> cooldown + resend, send-failure surface. **Resend template support is wired
+> (`RESEND_TEMPLATE_ID` = template id `tpl_…` *or* its alias; payload uses
+> `template: { id, variables }` — the legacy `template_id` field is ignored by Resend
+> and yields `422 Missing html or text`; the template must live in the same Resend
+> account/org as the API key, and must be published).** Read Phase C before starting the
+> magic link.
 
 ---
 
