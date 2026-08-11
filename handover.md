@@ -85,24 +85,30 @@ Implemented as specced below (schema, migration, flow, edge cases verified). Not
 - OTP issuance order: cooldown check → upsert row → send email → throw `otp_required` (dev fallback keeps the flow testable while the domain is unverified).
 - Migration applied to the live DB via `npx prisma db execute` (hosted Postgres has no shadow DB for `migrate dev`); migration folder `prisma/migrations/20260811031542_login_otp/` is committed.
 
-### Phase C — Magic link (≈8 h, independent of Phase B)
-1. Add `EmailProvider` from `next-auth/providers/email` to `authConfig.providers`
-   (JWT strategy — no adapter needed; verified provider ships in beta.32).
-2. Custom `sendVerificationRequest` → `sendEmail()` (Resend) with a branded
-   "Sign in to Tower Finder" template; token lifecycle handled by Auth.js (single-use,
-   expires — default 24 h; set provider option `maxAge: 60 * 15` for 15 min; verified in
-   `@auth/core/providers/email.d.ts`).
-3. Login page: secondary "Sign in with email link" button → email capture form →
-   "Check your inbox" state (reuse Snackbar/dialog feel).
-4. On first successful link sign-in set `emailVerified = new Date()` (Supabase-style
-   account confirmation); enforce `signInCallback` to reject inactive users
-   (`!isActive` → redirect `/login?error=...`).
-5. Guard: link signs in the account owning that email — do NOT create accounts
-   implicitly (keep admin-created users only) unless product decides otherwise;
-   if implicit creation is wanted, do it explicitly + audit `LOGIN_SUCCESS`.
-6. Combine with OTP: link may skip the OTP step for same-device convenience or not —
-   product decision; default recommendation: magic link = full login (no extra OTP),
-   OTP = the 2FA step for password flow.
+### Phase C — Magic link flow (≈8 h, independent of Phase B)
+**Sole focus: the magic link flow from the login page to the dashboard.**
+User on `/login` asks for a sign-in link → email arrives → clicking it signs them
+in and lands them on the dashboard (`/`). Nothing else (no password recovery
+channel, no account creation, no new admin surfaces).
+
+1. Login page: secondary "Sign in with email link" action → email capture →
+   submit → "Check your inbox" state (Snackbar, same feel as the OTP step).
+2. Auth.js `email` provider in `authConfig.providers` (JWT strategy — no adapter
+   needed; verified provider ships in beta.32). Custom `sendVerificationRequest`
+   → `sendEmail()` (Resend, branded "Sign in to Tower Finder" template — inline
+   HTML fallback like the OTP one; `RESEND_TEMPLATE_ID`/dashboard-template path
+   reused or a second template id).
+3. Token lifecycle: Auth.js token, `maxAge: 60 * 15` (15 min), single-use
+   (provider verified in `@auth/core/providers/email.d.ts`).
+4. Click → token verification → session created → **redirect to `/` (dashboard)**.
+5. Guards: email must match an existing **active** user (no implicit account
+   creation); inactive users rejected → `/login?error=…`; first successful
+   link sign-in sets `emailVerified = new Date()`.
+6. Error states: expired / invalid / reused link → back to `/login` with a clear
+   message (Snackbar or login-page error, matching OTP error patterns).
+7. Verification (browser E2E): request link → grab token from dev log / Resend →
+   open link → assert signed-in dashboard `/`; expired link → error path;
+   inactive user rejected; link cannot be reused.
 
 ### Phase D — Verification checklist (≈2–3 h) — mostly ✅ for OTP; regression + magic-link items pending
 - `npm run build` green; no new `any`/suppressions; Airbnb/TS strict patterns — ✅.
@@ -119,7 +125,7 @@ Implemented as specced below (schema, migration, flow, edge cases verified). Not
 - Clean up any test rows (`node -e` with Prisma: delete `LoginOtp`/`LoginEvent` for
   smoke emails) — **pending for the test account** (locked at the time of writing).
 
-**Estimates:** Phase A 1 h + B 8–10 h + C 4–6 h + D 2–3 h ≈ **15–20 h total**
+**Estimates:** Phase A 1 h + B 8–10 h + C ≈ 8 h + D 2–3 h ≈ **19–22 h total**
 (OTP-only sub-path ≈ 12–15 h). Replaces the 31 h TOTP row.
 
 ---
@@ -128,8 +134,7 @@ Implemented as specced below (schema, migration, flow, edge cases verified). Not
 
 1. ~~Keep authenticator TOTP as a future option, or drop the 2FA row entirely once OTP ships?~~ — **Resolved: TOTP kept for future reference, not planned** (documented in PR #1 + issue #2).
 2. ~~OTP TTL / attempts / cooldown~~ — **Confirmed during implementation: 5 min / 3 attempts (4th submit trips max) / 60 s cooldown.**
-3. Magic link: additional login method next to password, or also usable as the password-recovery channel? (It naturally doubles as "forgot password".) — **Open.**
-4. Should magic link skip the OTP second step? (Recommendation: yes.) — **Open.**
+3. Magic link scope (decide before start): (a) usable only for login, or also as the password-recovery channel? **Default: login-only, out of scope.** (b) Does the magic link skip the OTP step? **Default: yes — link = full login; OTP stays the 2FA step for the password flow.** — **Open until Phase C starts.**
 5. Auto-purge `LoginOtp` rows (e.g. delete expired rows on each send — cheap `deleteMany` where `expiresAt < now`). — **Open** (rows are deleted on success/expiry/max-attempts; long-expired leftovers are cleaned by the next issue for the same email).
 
 ---
