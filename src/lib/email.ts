@@ -80,7 +80,12 @@ export async function sendEmail(
         },
         body: JSON.stringify(
             templateId
-                ? { from, to, template_id: templateId, variables }
+                ? {
+                      from,
+                      to,
+                      subject,
+                      template: { id: templateId, variables },
+                  }
                 : { from, to, subject, html },
         ),
     });
@@ -91,7 +96,7 @@ export async function sendEmail(
         if (process.env.NODE_ENV !== 'production') {
             const hint =
                 templateId && res.status === 422 && /html|text/i.test(detail)
-                    ? ' — template not resolving: RESEND_TEMPLATE_ID must be the dashboard template id "tpl_…" (an alias only works if the template was created via API with that alias)'
+                    ? ' — template rejected: check RESEND_TEMPLATE_ID (published template id "tpl_…" or its alias) and that variables match the template'
                     : '';
             console.error(`[dev-email] Resend delivery failed (${res.status}): ${detail}${hint} — using console fallback`);
             return;
