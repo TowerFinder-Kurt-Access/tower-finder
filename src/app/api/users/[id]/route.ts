@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getAuthUser, requireAdmin } from '@/lib/auth-helpers';
+import { LoginEventType } from '@prisma/client';
+import { recordLoginEvent, requestIp } from '@/lib/login-security';
 
 interface RouteParams {
     params: Promise<{ id: string }>;
@@ -137,6 +139,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
         }
 
         // Only admins can change role and isActive
+        const deactivating = currentUser.role === 'ADMIN' && isActive === false && existingUser.isActive === true;
         if (currentUser.role === 'ADMIN') {
             if (role !== undefined) updateData.role = role;
             if (isActive !== undefined) updateData.isActive = isActive;
@@ -156,6 +159,22 @@ export async function PATCH(request: Request, { params }: RouteParams) {
                 lastLogin: true
             }
         });
+
+        // Deactivating a user signs them out everywhere within minutes.
+        if (deactivating) {
+            await prisma.user.update({
+                where: { id: userId },
+                data: { sessionVersion: { increment: 1 } }
+            });
+            const ip = requestIp(request);
+            await recordLoginEvent({
+                email: existingUser.email,
+                userId,
+                type: LoginEventType.ACCOUNT_DEACTIVATED,
+                ip,
+                userAgent: request.headers.get('user-agent'),
+            });
+        }
 
         return NextResponse.json(updatedUser);
     } catch (error) {
@@ -198,6 +217,14 @@ export async function DELETE(request: Request, { params }: RouteParams) {
         // Delete user (cascade will handle towerAssignments and notes)
         await prisma.user.delete({
             where: { id: userId }
+        });
+
+        const ip = requestIp(request);
+        await recordLoginEvent({
+            email: user.email,
+            type: LoginEventType.ACCOUNT_DEACTIVATED,
+            ip,
+            userAgent: request.headers.get('user-agent'),
         });
 
         return NextResponse.json({ message: 'User deleted successfully' });

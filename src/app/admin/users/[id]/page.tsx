@@ -22,6 +22,8 @@ import DialogActions from '@mui/material/DialogActions';
 import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 import Checkbox from '@mui/material/Checkbox';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import { validatePassword } from '@/lib/password-policy';
+import { PasswordField } from '@/components/PasswordField';
 
 interface User {
     id: number;
@@ -141,9 +143,10 @@ export default function AdminUserDetailPage({ params }: PageProps) {
     };
 
     const handleResetPassword = async () => {
-        if (newPassword.length < 8) {
+        const policyError = validatePassword(newPassword);
+        if (policyError) {
             setMessageType('error');
-            setMessage('Password must be at least 8 characters');
+            setMessage(policyError);
             return;
         }
 
@@ -245,23 +248,28 @@ export default function AdminUserDetailPage({ params }: PageProps) {
             field: 'city',
             headerName: 'City',
             width: 150,
-            valueGetter: (value, row) => row.parcel?.city || 'N/A'
+            // `parcel.city` is the City relation ({id, name}); fall back to raw.
+            valueGetter: (value, row) => row.parcel?.city?.name || row.parcel?.cityRaw || 'N/A'
         },
         {
             field: 'state',
             headerName: 'State',
             width: 80,
-            valueGetter: (value, row) => row.parcel?.state || 'N/A'
+            valueGetter: (value, row) => row.parcel?.province?.name || row.parcel?.provinceRaw || row.parcel?.stateRaw || 'N/A'
         },
         {
             field: 'type',
             headerName: 'Type',
-            width: 120
+            width: 120,
+            // `type` is the TowerType relation ({id, name}), not a string.
+            valueGetter: (value, row) => row.type?.name || 'N/A'
         },
         {
             field: 'status',
             headerName: 'Status',
             width: 120,
+            // `status` is the TowerStatus relation ({id, name}), not a string.
+            valueGetter: (value, row) => row.status?.name || 'N/A',
             renderCell: (params: GridRenderCellParams) => (
                 <Chip label={params.value} size="small" />
             )
@@ -427,14 +435,13 @@ export default function AdminUserDetailPage({ params }: PageProps) {
                         <Alert severity="warning">
                             This will immediately change the user&apos;s password. They will need to use the new password to log in.
                         </Alert>
-                        <TextField
+                        <PasswordField
                             label="New Password"
-                            type="password"
                             value={newPassword}
                             onChange={(e) => setNewPassword(e.target.value)}
                             fullWidth
                             required
-                            helperText="Must be at least 8 characters"
+                            helperText="At least 10 characters, with upper, lower, number, and special characters"
                         />
                     </Box>
                 </DialogContent>
@@ -449,7 +456,7 @@ export default function AdminUserDetailPage({ params }: PageProps) {
                         onClick={handleResetPassword}
                         variant="contained"
                         color="warning"
-                        disabled={newPassword.length < 8}
+                        disabled={!newPassword || !!validatePassword(newPassword)}
                     >
                         Reset Password
                     </Button>
