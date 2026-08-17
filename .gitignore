@@ -77,3 +77,6 @@ discovery_session_cellmapper/
 check_jobs_status.ts
 check_pending_jobs.ts
 test_fcc_uls.ts
+
+# graphify
+graphify-out

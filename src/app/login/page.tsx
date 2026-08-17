@@ -183,7 +183,7 @@ function LoginPageContent() {
         }}>
             <Paper sx={{ p: 4, maxWidth: 400, width: '100%' }}>
                 <Typography variant="h4" sx={{ mb: 3, textAlign: 'center', fontWeight: 600 }}>
-                    Tower Finder 4900 kurt
+                    Tower Finder 4900
                 </Typography>
 
                 {otpStep ? (
