@@ -1,6 +1,6 @@
 import { randomInt, createHash, timingSafeEqual } from 'crypto';
 import { prisma } from '@/lib/prisma';
-import { sendEmail, signInCodeEmailHtml, formatExpiryTime } from '@/lib/email';
+import { sendEmail, signInCodeEmailHtml, formatExpiryTime, type EmailDeliveryResult } from '@/lib/email';
 
 export const OTP_TTL_MS = 5 * 60 * 1000; // code valid for 5 minutes
 export const OTP_RESEND_COOLDOWN_MS = 60 * 1000; // one code per minute
@@ -9,6 +9,8 @@ export const OTP_MAX_ATTEMPTS = 3;
 export interface OtpIssueResult {
     code: string; // plaintext, only passed to sendEmail() — never stored
     cooldownRemainingSeconds: number;
+    /** Delivery result from the email provider (Resend). null when cooldown preempts send. */
+    deliveryResult: EmailDeliveryResult | null;
 }
 
 export type OtpVerifyResult =
@@ -31,7 +33,7 @@ export async function issueLoginOtp(email: string): Promise<OtpIssueResult> {
     if (existing) {
         const cooldown = OTP_RESEND_COOLDOWN_MS - (Date.now() - existing.createdAt.getTime());
         if (cooldown > 0) {
-            return { code: '', cooldownRemainingSeconds: Math.ceil(cooldown / 1000) };
+            return { code: '', cooldownRemainingSeconds: Math.ceil(cooldown / 1000), deliveryResult: null };
         }
     }
 
@@ -54,7 +56,7 @@ export async function issueLoginOtp(email: string): Promise<OtpIssueResult> {
         },
     });
 
-    await sendEmail(
+    const deliveryResult = await sendEmail(
         email,
         'Your Tower Finder sign-in code',
         signInCodeEmailHtml({
@@ -69,7 +71,7 @@ export async function issueLoginOtp(email: string): Promise<OtpIssueResult> {
             year: String(new Date().getFullYear()),
         }
     );
-    return { code, cooldownRemainingSeconds: 0 };
+    return { code, cooldownRemainingSeconds: 0, deliveryResult };
 }
 
 /** Verifies a code, constant-time. Consumes attempts; on success the row is

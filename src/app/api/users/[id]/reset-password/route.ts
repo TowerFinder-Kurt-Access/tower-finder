@@ -5,6 +5,7 @@ import bcrypt from 'bcryptjs';
 import { LoginEventType } from '@prisma/client';
 import { validatePassword } from '@/lib/password-policy';
 import { recordLoginEvent, requestIp } from '@/lib/login-security';
+import { LOCKOUT_WINDOW_MS } from '@/lib/security-policy';
 
 interface RouteParams {
     params: Promise<{ id: string }>;
@@ -42,11 +43,32 @@ export async function POST(request: Request, { params }: RouteParams) {
         // Hash the new password
         const hashedPassword = await bcrypt.hash(newPassword, 10);
 
-        // Update the password — bump sessionVersion to sign the user out everywhere.
+        // Update the password — bump sessionVersion to sign the user out everywhere,
+        // disable 2FA so the user can log in with just the new password, and clean
+        // up stale OTP rows that would otherwise block the next login attempt.
         await prisma.user.update({
             where: { id: userId },
-            data: { password: hashedPassword, passwordChangedAt: new Date(), sessionVersion: { increment: 1 } }
+            data: {
+                password: hashedPassword,
+                passwordChangedAt: new Date(),
+                sessionVersion: { increment: 1 },
+                twoFactorEnabled: false,
+            }
         });
+
+        // Clean up any pending OTP codes for this email so stale rows
+        // don't interfere with the next login attempt.
+        await prisma.loginOtp.deleteMany({ where: { email: user.email } }).catch(() => {});
+
+        // Clear the lockout counter by deleting recent failed-login events.
+        // This gives the user a fresh start after the admin override.
+        await prisma.loginEvent.deleteMany({
+            where: {
+                email: user.email,
+                type: LoginEventType.LOGIN_FAILED,
+                createdAt: { gte: new Date(Date.now() - LOCKOUT_WINDOW_MS) },
+            },
+        }).catch(() => {});
 
         const ip = requestIp(request);
         await recordLoginEvent({

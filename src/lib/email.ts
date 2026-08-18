@@ -1,6 +1,22 @@
-// Minimal email delivery wrapper. Uses Resend when RESEND_API_KEY is set;
+// Email delivery wrapper. Uses Resend when RESEND_API_KEY is set;
 // otherwise the message is logged to the console so local dev can read the
 // OTP from the server log (never from the browser).
+
+export interface EmailDeliveryResult {
+    ok: boolean;
+    /** Resend API HTTP status (200 = delivered, 402 = quota, 403 = domain, etc.) */
+    resendStatus?: number;
+    /** Resend email ID on success */
+    resendId?: string;
+    /** Error type from Resend on failure: "validation_error", "not_found", etc. */
+    resendError?: string;
+    /** Human-readable detail from Resend (truncated) */
+    resendDetail?: string;
+    /** true when RESEND_API_KEY is missing (dev mode, console fallback) */
+    noApiKey?: boolean;
+    /** true when NODE_ENV !== 'production' and delivery fell back to console */
+    devFallback?: boolean;
+}
 
 export interface SignInCodeEmailOptions {
     code: string;
@@ -57,7 +73,7 @@ export async function sendEmail(
     subject: string,
     html: string,
     variables?: Record<string, string>,
-): Promise<void> {
+): Promise<EmailDeliveryResult> {
     const apiKey = process.env.RESEND_API_KEY;
     const templateId = process.env.RESEND_TEMPLATE_ID;
     // Local dev: always log the message so the OTP can be read from the
@@ -69,7 +85,9 @@ export async function sendEmail(
                 : `[dev-email] TO=${to}\nSUBJECT=${subject}\n${html}`,
         );
     }
-    if (!apiKey) return;
+    if (!apiKey) {
+        return { ok: true, noApiKey: true };
+    }
     const from =
         process.env.EMAIL_FROM ?? 'Tower Finder <no-reply@towerfinder.com>';
     const res = await fetch('https://api.resend.com/emails', {
@@ -96,11 +114,33 @@ export async function sendEmail(
         if (process.env.NODE_ENV !== 'production') {
             const hint =
                 templateId && res.status === 422 && /html|text/i.test(detail)
-                    ? ' — template rejected: check RESEND_TEMPLATE_ID (published template id "tpl_…" or its alias) and that variables match the template'
+                    ? ' — template rejected: check RESEND_TEMPLATE_ID (published template id "tpl_..." or its alias) and that variables match the template'
                     : '';
             console.error(`[dev-email] Resend delivery failed (${res.status}): ${detail}${hint} — using console fallback`);
-            return;
+            return { ok: true, devFallback: true, resendStatus: res.status, resendDetail: detail.slice(0, 200) };
         }
-        throw new Error(`Resend ${res.status}: ${detail}`);
+        // Parse Resend error shape: { "statusCode": 402, "message": "...", "name": "..." }
+        let resendError: string | undefined;
+        let resendDetail: string | undefined;
+        try {
+            const body = await res.json() as { statusCode?: number; name?: string; message?: string };
+            resendError = body.name;
+            resendDetail = body.message?.slice(0, 200);
+        } catch {
+            resendDetail = detail.slice(0, 200);
+        }
+        return {
+            ok: false,
+            resendStatus: res.status,
+            resendError,
+            resendDetail,
+        };
     }
+    // Parse success body: { "id": "..." }
+    let resendId: string | undefined;
+    try {
+        const body = await res.json() as { id?: string };
+        resendId = body.id;
+    } catch { /* non-JSON 200 is still success */ }
+    return { ok: true, resendStatus: 200, resendId };
 }

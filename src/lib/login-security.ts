@@ -10,6 +10,7 @@ export interface LoginEventInput {
     type: LoginEventType;
     ip?: string | null;
     userAgent?: string | null;
+    metadata?: Record<string, unknown> | null;
 }
 
 /** Best-effort client IP from request headers (Vercel sets x-forwarded-for). */
@@ -26,6 +27,7 @@ export function recordLoginEvent(event: LoginEventInput) {
             type: event.type,
             ip: event.ip ?? null,
             userAgent: event.userAgent ?? null,
+            metadata: event.metadata ?? undefined,
         },
     });
 }

@@ -67,13 +67,31 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           }
 
           const user = await prisma.user.findUnique({ where: { email } })
-          const passwordValid = await bcrypt.compare(password, user?.password ?? DUMMY_PASSWORD_HASH)
 
-          if (!user || !user.isActive || !passwordValid) {
-            await recordLoginEvent({ email, userId: user?.id, type: LoginEventType.LOGIN_FAILED, ip, userAgent }).catch(() => {})
+          // --- Granular password validation logging ---
+          if (!user) {
+            // Run bcrypt against dummy hash so timing is identical to wrong-password.
+            await bcrypt.compare(password, DUMMY_PASSWORD_HASH)
+            await recordLoginEvent({ email, type: LoginEventType.USER_NOT_FOUND, ip, userAgent, metadata: { reason: "no_account_for_email" } }).catch(() => {})
+            await recordLoginEvent({ email, type: LoginEventType.LOGIN_FAILED, ip, userAgent }).catch(() => {})
             return null
           }
 
+          if (!user.isActive) {
+            await bcrypt.compare(password, user.password) // constant-time
+            await recordLoginEvent({ email, userId: user.id, type: LoginEventType.ACCOUNT_INACTIVE, ip, userAgent, metadata: { reason: "account_deactivated" } }).catch(() => {})
+            await recordLoginEvent({ email, userId: user.id, type: LoginEventType.LOGIN_FAILED, ip, userAgent }).catch(() => {})
+            return null
+          }
+
+          const passwordValid = await bcrypt.compare(password, user.password)
+          if (!passwordValid) {
+            await recordLoginEvent({ email, userId: user.id, type: LoginEventType.WRONG_PASSWORD, ip, userAgent, metadata: { reason: "password_mismatch" } }).catch(() => {})
+            await recordLoginEvent({ email, userId: user.id, type: LoginEventType.LOGIN_FAILED, ip, userAgent }).catch(() => {})
+            return null
+          }
+
+          // Password valid from here on.
           const sessionUser = {
             id: user.id.toString(),
             email: user.email,
@@ -87,7 +105,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           // on their profile. twoFactorEnabled defaults false — nobody is
           // forced into the code step.
           if (!user.twoFactorEnabled) {
-            await recordLoginEvent({ email, userId: user.id, type: LoginEventType.LOGIN_SUCCESS, ip, userAgent }).catch(() => {})
+            await recordLoginEvent({ email, userId: user.id, type: LoginEventType.LOGIN_SUCCESS, ip, userAgent, metadata: { method: "password_only" } }).catch(() => {})
             await prisma.user.update({ where: { id: user.id }, data: { lastLogin: new Date() } })
             return sessionUser
           }
@@ -98,32 +116,58 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             let issued
             try {
               issued = await issueLoginOtp(user.email)
-            } catch {
+            } catch (err) {
               // Email service down / no transport: keep the user out, don't crash.
+              await recordLoginEvent({ email, userId: user.id, type: LoginEventType.OTP_DELIVERY_FAILED, ip, userAgent, metadata: { reason: "exception", error: String(err) } }).catch(() => {})
               throw new OtpSendFailedError()
             }
             if (issued.cooldownRemainingSeconds > 0) {
+              await recordLoginEvent({ email, userId: user.id, type: LoginEventType.OTP_COOLDOWN, ip, userAgent, metadata: { cooldownRemainingSeconds: issued.cooldownRemainingSeconds } }).catch(() => {})
               throw new OtpCooldownError()
             }
-            await recordLoginEvent({ email, userId: user.id, type: LoginEventType.OTP_SENT, ip, userAgent }).catch(() => {})
+
+            // Log the email delivery outcome from Resend.
+            const dr = issued.deliveryResult;
+            if (dr && !dr.ok) {
+              // Resend rejected the email (quota, invalid address, domain not verified, etc.)
+              await recordLoginEvent({ email, userId: user.id, type: LoginEventType.OTP_DELIVERY_FAILED, ip, userAgent, metadata: {
+                reason: "resend_rejected",
+                resendStatus: dr.resendStatus,
+                resendError: dr.resendError,
+                resendDetail: dr.resendDetail,
+              } }).catch(() => {})
+            } else {
+              await recordLoginEvent({ email, userId: user.id, type: LoginEventType.OTP_SENT, ip, userAgent, metadata: {
+                resendStatus: dr?.resendStatus,
+                resendId: dr?.resendId,
+                devFallback: dr?.devFallback ?? false,
+                noApiKey: dr?.noApiKey ?? false,
+              } }).catch(() => {})
+            }
+
             throw new OtpRequiredError()
           }
 
           // Step 2: verify the code (constant-time, consumes attempts).
           const verified = await verifyLoginOtp(user.email, otp)
           if (verified.ok === false) {
-            if (verified.reason === "max_attempts" || verified.reason === "invalid") {
-              // Failed codes count toward the existing lockout window.
-              await recordLoginEvent({ email, userId: user.id, type: LoginEventType.OTP_FAILED, ip, userAgent }).catch(() => {})
+            if (verified.reason === "max_attempts") {
+              await recordLoginEvent({ email, userId: user.id, type: LoginEventType.OTP_MAX_ATTEMPTS, ip, userAgent, metadata: { reason: "max_attempts" } }).catch(() => {})
               await recordLoginEvent({ email, userId: user.id, type: LoginEventType.LOGIN_FAILED, ip, userAgent }).catch(() => {})
+              throw new OtpMaxAttemptsError()
             }
-            if (verified.reason === "max_attempts") throw new OtpMaxAttemptsError()
-            if (verified.reason === "invalid") throw new OtpInvalidError()
-            throw new OtpExpiredError() // not_found / expired
+            if (verified.reason === "invalid") {
+              await recordLoginEvent({ email, userId: user.id, type: LoginEventType.OTP_FAILED, ip, userAgent, metadata: { reason: "code_mismatch" } }).catch(() => {})
+              await recordLoginEvent({ email, userId: user.id, type: LoginEventType.LOGIN_FAILED, ip, userAgent }).catch(() => {})
+              throw new OtpInvalidError()
+            }
+            // expired or not_found
+            await recordLoginEvent({ email, userId: user.id, type: LoginEventType.OTP_EXPIRED, ip, userAgent, metadata: { reason: verified.reason } }).catch(() => {})
+            throw new OtpExpiredError()
           }
 
-          await recordLoginEvent({ email, userId: user.id, type: LoginEventType.OTP_VERIFIED, ip, userAgent }).catch(() => {})
-          await recordLoginEvent({ email, userId: user.id, type: LoginEventType.LOGIN_SUCCESS, ip, userAgent }).catch(() => {})
+          await recordLoginEvent({ email, userId: user.id, type: LoginEventType.OTP_VERIFIED, ip, userAgent, metadata: { method: "email_otp" } }).catch(() => {})
+          await recordLoginEvent({ email, userId: user.id, type: LoginEventType.LOGIN_SUCCESS, ip, userAgent, metadata: { method: "email_otp" } }).catch(() => {})
           await prisma.user.update({ where: { id: user.id }, data: { lastLogin: new Date() } })
 
           return sessionUser
