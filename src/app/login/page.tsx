@@ -24,8 +24,6 @@ function LoginPageContent() {
     const searchParams = useSearchParams();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
-    // Middleware bounces revoked (deactivated / password-reset) sessions here
-    // via ?error=session-revoked. Password-reset success comes via ?success=password-reset.
     const [error, setError] = useState(searchParams.get('error') === 'session-revoked'
         ? 'Your session has ended. Please sign in again.'
         : '');
@@ -35,17 +33,21 @@ function LoginPageContent() {
             : ''
     );
     const [loading, setLoading] = useState(false);
-    // Real seconds left in the account lockout (null = not a lockout error).
-    // Ticks down every second so the message shows live remaining time.
     const [lockSecondsLeft, setLockSecondsLeft] = useState<number | null>(null);
-    // Second-factor step: email + password passed, awaiting the emailed code.
+
+    // OTP second-factor step.
     const [otpStep, setOtpStep] = useState(false);
     const [otp, setOtp] = useState('');
-    // Seconds before "Resend code" re-enables (60s cooldown).
     const [resendSecondsLeft, setResendSecondsLeft] = useState(0);
-    // Forgot-password step: replaces the login form with an email-only input.
+
+    // Forgot-password step: email only → sends code.
     const [forgotStep, setForgotStep] = useState(false);
-    const [forgotSubmitted, setForgotSubmitted] = useState(false);
+
+    // Reset-code step: code + new password + confirm.
+    const [resetCodeStep, setResetCodeStep] = useState(false);
+    const [resetCode, setResetCode] = useState('');
+    const [newPassword, setNewPassword] = useState('');
+    const [confirmNewPassword, setConfirmNewPassword] = useState('');
 
     const ticking = lockSecondsLeft !== null && lockSecondsLeft > 0;
     useEffect(() => {
@@ -63,6 +65,7 @@ function LoginPageContent() {
         return () => clearInterval(id);
     }, [resendSecondsLeft]);
 
+    // ---- Login handler ----
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
@@ -70,28 +73,18 @@ function LoginPageContent() {
         setLoading(true);
 
         try {
-            const result = await signIn('credentials', {
-                email,
-                password,
-                redirect: false
-            });
+            const result = await signIn('credentials', { email, password, redirect: false });
 
-            // NextAuth surfaces custom CredentialsSignin codes via result.code
-            // (URL ?error=CredentialsSignin&code=account_locked).
             if (result?.code === 'account_locked') {
                 setError('Account temporarily locked after too many failed attempts.');
-                // Show the real remaining lockout time, not a canned "15 minutes".
                 try {
-                    const res = await fetch(
-                        `/api/auth/lockout-status?email=${encodeURIComponent(email)}`
-                    );
+                    const res = await fetch(`/api/auth/lockout-status?email=${encodeURIComponent(email)}`);
                     const data = (await res.json()) as { remainingSeconds?: number };
                     setLockSecondsLeft(Math.max(0, Math.round(data.remainingSeconds ?? 0)));
                 } catch {
-                    setLockSecondsLeft(null); // fall back to the static message
+                    setLockSecondsLeft(null);
                 }
             } else if (result?.code === 'otp_required') {
-                // Password passed — move to the second-factor step.
                 setOtpStep(true);
                 setResendSecondsLeft(60);
             } else if (result?.code === 'otp_cooldown') {
@@ -106,25 +99,21 @@ function LoginPageContent() {
                 router.push('/?success=login');
                 router.refresh();
             }
-        } catch (err) {
+        } catch {
             setError('An error occurred. Please try again.');
         } finally {
             setLoading(false);
         }
     };
 
+    // ---- OTP verify handler ----
     const handleOtpSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
         setLoading(true);
 
         try {
-            const result = await signIn('credentials', {
-                email,
-                password,
-                otp,
-                redirect: false
-            });
+            const result = await signIn('credentials', { email, password, otp, redirect: false });
 
             if (result?.code === 'otp_invalid') {
                 setOtp('');
@@ -147,14 +136,14 @@ function LoginPageContent() {
                 router.push('/?success=login');
                 router.refresh();
             }
-        } catch (err) {
+        } catch {
             setError('An error occurred. Please try again.');
         } finally {
             setLoading(false);
         }
     };
 
-    // Re-runs the first step, which re-emails a fresh code after the cooldown.
+    // ---- OTP resend ----
     const handleResend = async () => {
         setError('');
         setLoading(true);
@@ -176,6 +165,7 @@ function LoginPageContent() {
         }
     };
 
+    // ---- Forgot password: request code ----
     const handleForgotSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
@@ -190,7 +180,51 @@ function LoginPageContent() {
             if (!res.ok) {
                 setError(data.error || 'Something went wrong. Please try again.');
             } else {
-                setForgotSubmitted(true);
+                // Code sent — transition to the reset-code step.
+                setForgotStep(false);
+                setResetCodeStep(true);
+            }
+        } catch {
+            setError('An error occurred. Please try again.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // ---- Reset password: verify code + set new password ----
+    const handleResetCodeSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setError('');
+
+        if (newPassword !== confirmNewPassword) {
+            setError('Passwords do not match.');
+            return;
+        }
+
+        setLoading(true);
+        try {
+            const res = await fetch('/api/auth/reset-password', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    email: email.trim().toLowerCase(),
+                    code: resetCode,
+                    password: newPassword,
+                    confirmPassword: confirmNewPassword,
+                }),
+            });
+            const data = await res.json();
+
+            if (!res.ok) {
+                setError(data.error || 'Something went wrong. Please try again.');
+            } else {
+                // Success — clear all state, go back to login with success message.
+                setResetCodeStep(false);
+                setResetCode('');
+                setNewPassword('');
+                setConfirmNewPassword('');
+                setPassword('');
+                setSuccess('Password reset successfully! Please sign in with your new password.');
             }
         } catch {
             setError('An error occurred. Please try again.');
@@ -261,64 +295,107 @@ function LoginPageContent() {
                             </Button>
                         </Box>
                     </form>
-                ) : forgotStep ? (
-                    /* ---- Forgot password step: email only ---- */
-                    forgotSubmitted ? (
-                        <Box>
-                            <Alert severity="success" sx={{ mb: 2 }}>
-                                If an account with that email exists, a password reset link has been sent. Check your inbox.
-                            </Alert>
-                            <Typography variant="body2" sx={{ mb: 2, color: 'text.secondary', textAlign: 'center' }}>
-                                Didn&apos;t receive the email? Check your spam folder, or try again in a few minutes.
-                            </Typography>
-                            <Button
-                                fullWidth
-                                variant="outlined"
-                                onClick={() => { setForgotStep(false); setForgotSubmitted(false); }}
+                ) : resetCodeStep ? (
+                    /* ---- Reset password: code + new password + confirm ---- */
+                    <form onSubmit={handleResetCodeSubmit}>
+                        <Typography sx={{ mb: 1, color: 'text.secondary' }}>
+                            Enter the 6-digit code sent to <strong>{email}</strong>, then choose a new password.
+                        </Typography>
+
+                        <TextField
+                            fullWidth
+                            label="Reset code"
+                            value={resetCode}
+                            onChange={(e) => setResetCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                            sx={{ mb: 2, mt: 2 }}
+                            required
+                            autoFocus
+                            inputMode="numeric"
+                            autoComplete="one-time-code"
+                            slotProps={{ htmlInput: { maxLength: 6, style: { letterSpacing: 8, fontSize: 20, textAlign: 'center' } } }}
+                        />
+
+                        <PasswordField
+                            fullWidth
+                            label="New password"
+                            value={newPassword}
+                            onChange={(e) => setNewPassword(e.target.value)}
+                            sx={{ mb: 2 }}
+                            required
+                            autoComplete="new-password"
+                        />
+
+                        <PasswordField
+                            fullWidth
+                            label="Confirm new password"
+                            value={confirmNewPassword}
+                            onChange={(e) => setConfirmNewPassword(e.target.value)}
+                            sx={{ mb: 3 }}
+                            required
+                            autoComplete="new-password"
+                        />
+
+                        <Button
+                            fullWidth
+                            type="submit"
+                            variant="contained"
+                            size="large"
+                            disabled={loading || resetCode.length !== 6}
+                        >
+                            {loading ? 'Resetting...' : 'Reset Password'}
+                        </Button>
+
+                        <Box sx={{ mt: 2, textAlign: 'center' }}>
+                            <Link
+                                component="button"
+                                variant="body2"
+                                onClick={() => { setResetCodeStep(false); setResetCode(''); setNewPassword(''); setConfirmNewPassword(''); setError(''); }}
+                                sx={{ cursor: 'pointer' }}
                             >
                                 Back to Sign In
-                            </Button>
+                            </Link>
                         </Box>
-                    ) : (
-                        <form onSubmit={handleForgotSubmit}>
-                            <Typography sx={{ mb: 1, color: 'text.secondary' }}>
-                                Enter your email and we&apos;ll send you a link to reset your password.
-                            </Typography>
+                    </form>
+                ) : forgotStep ? (
+                    /* ---- Forgot password step: email only ---- */
+                    <form onSubmit={handleForgotSubmit}>
+                        <Typography sx={{ mb: 1, color: 'text.secondary' }}>
+                            Enter your email and we&apos;ll send you a reset code.
+                        </Typography>
 
-                            <TextField
-                                fullWidth
-                                label="Email"
-                                type="email"
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                                sx={{ mb: 3, mt: 2 }}
-                                required
-                                autoFocus
-                                autoComplete="email"
-                            />
+                        <TextField
+                            fullWidth
+                            label="Email"
+                            type="email"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            sx={{ mb: 3, mt: 2 }}
+                            required
+                            autoFocus
+                            autoComplete="email"
+                        />
 
-                            <Button
-                                fullWidth
-                                type="submit"
-                                variant="contained"
-                                size="large"
-                                disabled={loading}
+                        <Button
+                            fullWidth
+                            type="submit"
+                            variant="contained"
+                            size="large"
+                            disabled={loading}
+                        >
+                            {loading ? 'Sending...' : 'Send Reset Code'}
+                        </Button>
+
+                        <Box sx={{ mt: 2, textAlign: 'center' }}>
+                            <Link
+                                component="button"
+                                variant="body2"
+                                onClick={() => setForgotStep(false)}
+                                sx={{ cursor: 'pointer' }}
                             >
-                                {loading ? 'Sending...' : 'Send Reset Link'}
-                            </Button>
-
-                            <Box sx={{ mt: 2, textAlign: 'center' }}>
-                                <Link
-                                    component="button"
-                                    variant="body2"
-                                    onClick={() => setForgotStep(false)}
-                                    sx={{ cursor: 'pointer' }}
-                                >
-                                    Back to Sign In
-                                </Link>
-                            </Box>
-                        </form>
-                    )
+                                Back to Sign In
+                            </Link>
+                        </Box>
+                    </form>
                 ) : (
                     /* ---- Normal login step ---- */
                     <form onSubmit={handleSubmit}>
@@ -371,8 +448,6 @@ function LoginPageContent() {
                 </Typography>
             </Paper>
 
-            {/* Errors toast here; lockouts stay until dismissed so the
-                countdown stays visible. */}
             <Snackbar
                 open={!!error}
                 autoHideDuration={lockSecondsLeft !== null ? null : 6000}
@@ -384,7 +459,6 @@ function LoginPageContent() {
                 </Alert>
             </Snackbar>
 
-            {/* Success toast for password-reset redirect */}
             <Snackbar
                 open={!!success}
                 autoHideDuration={5000}

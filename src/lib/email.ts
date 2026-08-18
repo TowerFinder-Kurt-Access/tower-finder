@@ -106,9 +106,10 @@ export async function sendEmail(
     subject: string,
     html: string,
     variables?: Record<string, string>,
+    options?: { forceInline?: boolean },
 ): Promise<EmailDeliveryResult> {
     const apiKey = process.env.RESEND_API_KEY;
-    const templateId = process.env.RESEND_TEMPLATE_ID;
+    const templateId = options?.forceInline ? undefined : process.env.RESEND_TEMPLATE_ID;
     // Local dev: always log the message so the OTP can be read from the
     // server log (the test mailboxes don't exist). Production stays silent.
     if (process.env.NODE_ENV !== 'production') {
