@@ -182,9 +182,20 @@ enum LoginEventType {
   PASSWORD_CHANGED
   PASSWORD_RESET
   ACCOUNT_DEACTIVATED
+
+  // Granular password-validation outcomes (replace LOGIN_FAILED for clarity)
+  USER_NOT_FOUND
+  WRONG_PASSWORD
+  ACCOUNT_INACTIVE
+
+  // OTP lifecycle
   OTP_SENT
+  OTP_DELIVERY_FAILED
   OTP_VERIFIED
   OTP_FAILED
+  OTP_EXPIRED
+  OTP_MAX_ATTEMPTS
+  OTP_COOLDOWN
 }
 
 model LoginEvent {
@@ -194,6 +205,7 @@ model LoginEvent {
   type      LoginEventType
   ip        String?
   userAgent String?
+  metadata  Json?           // Structured context: Resend response, failure reason, etc.
   createdAt DateTime        @default(now())
   user      User?           @relation(fields: [userId], references: [id], onDelete: SetNull)
 
@@ -416,6 +428,18 @@ model Licensee {
   carrierId Int?
   Carrier   Carrier? @relation(fields: [carrierId], references: [id])
   Tower     Tower[]
+}
+
+model PasswordResetToken {
+  id        Int      @id @default(autoincrement())
+  email     String
+  codeHash  String   @unique
+  expiresAt DateTime
+  attempts  Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([email])
+  @@index([expiresAt])
 }
 
 enum Role {

@@ -182,7 +182,7 @@ export default function NavRail() {
                     </ListItemButton>
 
                     <ListItemButton
-                        onClick={() => signOut({ callbackUrl: '/login' })}
+                        onClick={() => signOut({ callbackUrl: '/login?success=logout' })}
                         sx={{
                             justifyContent: isCollapsed ? 'center' : 'initial',
                             borderRadius: 1,

@@ -1,11 +1,32 @@
-// Minimal email delivery wrapper. Uses Resend when RESEND_API_KEY is set;
+// Email delivery wrapper. Uses Resend when RESEND_API_KEY is set;
 // otherwise the message is logged to the console so local dev can read the
 // OTP from the server log (never from the browser).
+
+export interface EmailDeliveryResult {
+    ok: boolean;
+    /** Resend API HTTP status (200 = delivered, 402 = quota, 403 = domain, etc.) */
+    resendStatus?: number;
+    /** Resend email ID on success */
+    resendId?: string;
+    /** Error type from Resend on failure: "validation_error", "not_found", etc. */
+    resendError?: string;
+    /** Human-readable detail from Resend (truncated) */
+    resendDetail?: string;
+    /** true when RESEND_API_KEY is missing (dev mode, console fallback) */
+    noApiKey?: boolean;
+    /** true when NODE_ENV !== 'production' and delivery fell back to console */
+    devFallback?: boolean;
+}
 
 export interface SignInCodeEmailOptions {
     code: string;
     expiresInMinutes: number;
     expiresAt: Date;
+}
+
+export interface ResetPasswordEmailOptions {
+    resetUrl: string;
+    expiresInMinutes: number;
 }
 
 /** Local-clock expiry time with timezone label, e.g. "3:45 PM GMT+8". */
@@ -46,6 +67,34 @@ export function signInCodeEmailHtml({ code, expiresInMinutes, expiresAt }: SignI
 </div>`;
 }
 
+/** Branded reset-password email. Inline styles only (email clients strip
+ *  <style> blocks). Footer year is dynamic. */
+export function resetPasswordEmailHtml({ resetUrl, expiresInMinutes }: ResetPasswordEmailOptions): string {
+    const year = new Date().getFullYear();
+    return `<div style="font-family:Arial,Helvetica,sans-serif;background:#f2f5f8;padding:24px 16px">
+  <div style="display:none;font-size:1px;color:#f2f5f8;line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;mso-hide:all">Reset your Tower Finder password — this link expires in ${expiresInMinutes} minutes.</div>
+  <div style="max-width:520px;margin:0 auto;background:#ffffff;border-radius:10px;overflow:hidden;border:1px solid #e2e8ef">
+    <div style="background:#0f2a43;padding:20px 28px">
+      <span style="color:#ffffff;font-size:18px;font-weight:700">Cell Waves <span style="color:#7cc4f0">|</span> Tower Finder</span>
+    </div>
+    <div style="padding:28px">
+      <p style="margin:0 0 4px;font-size:17px;color:#0f2a43;font-weight:700">Reset your password</p>
+      <p style="margin:0 0 18px;font-size:13px;color:#5b6b7c;line-height:1.5">We received a request to reset the password for your Tower Finder account. Click the button below to choose a new password.</p>
+      <div style="text-align:center;margin-bottom:18px">
+        <a href="${resetUrl}" style="display:inline-block;background:#0f2a43;color:#ffffff;font-size:15px;font-weight:700;text-decoration:none;padding:12px 32px;border-radius:6px">Reset Password</a>
+      </div>
+      <p style="margin:0 0 16px;font-size:13px;color:#0f2a43;line-height:1.5"><strong>This link expires in ${expiresInMinutes} minutes.</strong> If you didn't request a password reset, you can safely ignore this email — your password will remain unchanged.</p>
+      <p style="margin:0;font-size:12px;color:#5b6b7c;line-height:1.5">If the button doesn't work, copy and paste this URL into your browser:<br/><a href="${resetUrl}" style="color:#2b6cb0;word-break:break-all">${resetUrl}</a></p>
+    </div>
+    <div style="border-top:1px solid #e2e8ef;padding:16px 28px;background:#fafbfc">
+      <p style="margin:0;font-size:12px;color:#0f2a43;font-weight:700;letter-spacing:0.3px">Cell Waves | Tower Finder</p>
+      <p style="margin:4px 0 0;font-size:11px"><a href="https://tower-finder.vercel.app/" style="color:#2b6cb0;text-decoration:none">tower-finder.vercel.app</a></p>
+      <p style="margin:6px 0 0;font-size:11px;color:#8a97a5">© ${year} | All rights reserved</p>
+    </div>
+  </div>
+</div>`;
+}
+
 /**
  * Sends email via Resend. `variables` switches to the Templates dashboard:
  * the body is `{ template_id, variables }` instead of `{ subject, html }`,
@@ -57,9 +106,10 @@ export async function sendEmail(
     subject: string,
     html: string,
     variables?: Record<string, string>,
-): Promise<void> {
+    options?: { forceInline?: boolean },
+): Promise<EmailDeliveryResult> {
     const apiKey = process.env.RESEND_API_KEY;
-    const templateId = process.env.RESEND_TEMPLATE_ID;
+    const templateId = options?.forceInline ? undefined : process.env.RESEND_TEMPLATE_ID;
     // Local dev: always log the message so the OTP can be read from the
     // server log (the test mailboxes don't exist). Production stays silent.
     if (process.env.NODE_ENV !== 'production') {
@@ -69,7 +119,9 @@ export async function sendEmail(
                 : `[dev-email] TO=${to}\nSUBJECT=${subject}\n${html}`,
         );
     }
-    if (!apiKey) return;
+    if (!apiKey) {
+        return { ok: true, noApiKey: true };
+    }
     const from =
         process.env.EMAIL_FROM ?? 'Tower Finder <no-reply@towerfinder.com>';
     const res = await fetch('https://api.resend.com/emails', {
@@ -96,11 +148,33 @@ export async function sendEmail(
         if (process.env.NODE_ENV !== 'production') {
             const hint =
                 templateId && res.status === 422 && /html|text/i.test(detail)
-                    ? ' — template rejected: check RESEND_TEMPLATE_ID (published template id "tpl_…" or its alias) and that variables match the template'
+                    ? ' — template rejected: check RESEND_TEMPLATE_ID (published template id "tpl_..." or its alias) and that variables match the template'
                     : '';
             console.error(`[dev-email] Resend delivery failed (${res.status}): ${detail}${hint} — using console fallback`);
-            return;
+            return { ok: true, devFallback: true, resendStatus: res.status, resendDetail: detail.slice(0, 200) };
         }
-        throw new Error(`Resend ${res.status}: ${detail}`);
+        // Parse Resend error shape: { "statusCode": 402, "message": "...", "name": "..." }
+        let resendError: string | undefined;
+        let resendDetail: string | undefined;
+        try {
+            const body = await res.json() as { statusCode?: number; name?: string; message?: string };
+            resendError = body.name;
+            resendDetail = body.message?.slice(0, 200);
+        } catch {
+            resendDetail = detail.slice(0, 200);
+        }
+        return {
+            ok: false,
+            resendStatus: res.status,
+            resendError,
+            resendDetail,
+        };
     }
+    // Parse success body: { "id": "..." }
+    let resendId: string | undefined;
+    try {
+        const body = await res.json() as { id?: string };
+        resendId = body.id;
+    } catch { /* non-JSON 200 is still success */ }
+    return { ok: true, resendStatus: 200, resendId };
 }
