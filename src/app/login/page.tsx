@@ -9,6 +9,7 @@ import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
 import Alert from '@mui/material/Alert';
 import Snackbar from '@mui/material/Snackbar';
+import Link from '@mui/material/Link';
 import { PasswordField } from '@/components/PasswordField';
 
 /** "15m 30s" or just "30s" below one minute. */
@@ -24,10 +25,15 @@ function LoginPageContent() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     // Middleware bounces revoked (deactivated / password-reset) sessions here
-    // via ?error=session-revoked.
+    // via ?error=session-revoked. Password-reset success comes via ?success=password-reset.
     const [error, setError] = useState(searchParams.get('error') === 'session-revoked'
         ? 'Your session has ended. Please sign in again.'
         : '');
+    const [success, setSuccess] = useState(
+        searchParams.get('success') === 'password-reset'
+            ? 'Password reset successfully! Please sign in with your new password.'
+            : ''
+    );
     const [loading, setLoading] = useState(false);
     // Real seconds left in the account lockout (null = not a lockout error).
     // Ticks down every second so the message shows live remaining time.
@@ -94,7 +100,7 @@ function LoginPageContent() {
             } else if (result?.error) {
                 setError('Invalid email or password');
             } else {
-                router.push('/');
+                router.push('/?success=login');
                 router.refresh();
             }
         } catch (err) {
@@ -135,7 +141,7 @@ function LoginPageContent() {
                 setOtp('');
                 setError('Something went wrong. Please sign in again.');
             } else {
-                router.push('/');
+                router.push('/?success=login');
                 router.refresh();
             }
         } catch (err) {
@@ -246,10 +252,21 @@ function LoginPageContent() {
                             label="Password"
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
-                            sx={{ mb: 3 }}
+                            sx={{ mb: 1 }}
                             required
                             autoComplete="current-password"
                         />
+
+                        <Box sx={{ mb: 3, textAlign: 'right' }}>
+                            <Link
+                                component="button"
+                                variant="body2"
+                                onClick={() => router.push('/forgot-password')}
+                                sx={{ cursor: 'pointer' }}
+                            >
+                                Forgot password?
+                            </Link>
+                        </Box>
 
                         <Button
                             fullWidth
@@ -278,6 +295,18 @@ function LoginPageContent() {
             >
                 <Alert severity="error" variant="filled" onClose={() => setError('')}>
                     {lockMessage}
+                </Alert>
+            </Snackbar>
+
+            {/* Success toast for password-reset redirect */}
+            <Snackbar
+                open={!!success}
+                autoHideDuration={5000}
+                onClose={() => setSuccess('')}
+                anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+            >
+                <Alert severity="success" variant="filled" onClose={() => setSuccess('')}>
+                    {success}
                 </Alert>
             </Snackbar>
         </Box>

@@ -7,6 +7,7 @@ import ContentArea from '@/components/ContentArea';
 import { SessionProvider } from 'next-auth/react';
 import { CountryProvider } from '@/lib/country-context';
 import { PasswordChangeReminder } from '@/components/PasswordChangeReminder';
+import { LayoutWithSnackbar } from '@/components/LayoutWithSnackbar';
 
 export const metadata: Metadata = {
   title: "Tower Finder 4900",
@@ -22,17 +23,19 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <ThemeRegistry>
           <SessionProvider session={session}>
             <CountryProvider>
-              {session ? (
-                <Box sx={{ display: 'flex', height: '100vh', width: '100vw', overflow: 'hidden' }}>
-                  <NavRail />
-                  <ContentArea>
-                    {children}
-                  </ContentArea>
-                  <PasswordChangeReminder />
-                </Box>
-              ) : (
-                children
-              )}
+              <LayoutWithSnackbar>
+                {session ? (
+                  <Box sx={{ display: 'flex', height: '100vh', width: '100vw', overflow: 'hidden' }}>
+                    <NavRail />
+                    <ContentArea>
+                      {children}
+                    </ContentArea>
+                    <PasswordChangeReminder />
+                  </Box>
+                ) : (
+                  children
+                )}
+              </LayoutWithSnackbar>
             </CountryProvider>
           </SessionProvider>
         </ThemeRegistry>
