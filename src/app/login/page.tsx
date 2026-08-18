@@ -11,6 +11,7 @@ import Alert from '@mui/material/Alert';
 import Snackbar from '@mui/material/Snackbar';
 import Link from '@mui/material/Link';
 import { PasswordField } from '@/components/PasswordField';
+import { useSnackbar } from '@/components/GlobalSnackbar';
 
 /** "15m 30s" or just "30s" below one minute. */
 function formatLockTime(totalSeconds: number): string {
@@ -22,6 +23,7 @@ function formatLockTime(totalSeconds: number): string {
 function LoginPageContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
+    const { showSnackbar } = useSnackbar();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState(searchParams.get('error') === 'session-revoked'
@@ -183,6 +185,7 @@ function LoginPageContent() {
                 // Code sent — transition to the reset-code step.
                 setForgotStep(false);
                 setResetCodeStep(true);
+                showSnackbar('Reset code sent! Check your email.', 'success');
             }
         } catch {
             setError('An error occurred. Please try again.');
