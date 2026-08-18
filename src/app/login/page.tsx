@@ -43,6 +43,9 @@ function LoginPageContent() {
     const [otp, setOtp] = useState('');
     // Seconds before "Resend code" re-enables (60s cooldown).
     const [resendSecondsLeft, setResendSecondsLeft] = useState(0);
+    // Forgot-password step: replaces the login form with an email-only input.
+    const [forgotStep, setForgotStep] = useState(false);
+    const [forgotSubmitted, setForgotSubmitted] = useState(false);
 
     const ticking = lockSecondsLeft !== null && lockSecondsLeft > 0;
     useEffect(() => {
@@ -173,6 +176,29 @@ function LoginPageContent() {
         }
     };
 
+    const handleForgotSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setError('');
+        setLoading(true);
+        try {
+            const res = await fetch('/api/auth/forgot-password', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: email.trim().toLowerCase() }),
+            });
+            const data = await res.json();
+            if (!res.ok) {
+                setError(data.error || 'Something went wrong. Please try again.');
+            } else {
+                setForgotSubmitted(true);
+            }
+        } catch {
+            setError('An error occurred. Please try again.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const lockMessage = lockSecondsLeft !== null
         ? lockSecondsLeft > 0
             ? `Account temporarily locked after too many failed attempts. Try again in ${formatLockTime(lockSecondsLeft)}.`
@@ -193,6 +219,7 @@ function LoginPageContent() {
                 </Typography>
 
                 {otpStep ? (
+                    /* ---- OTP second-factor step ---- */
                     <form onSubmit={handleOtpSubmit}>
                         <Typography sx={{ mb: 2 }}>
                             Enter the 6-digit code sent to <strong>{email}</strong>.
@@ -234,7 +261,66 @@ function LoginPageContent() {
                             </Button>
                         </Box>
                     </form>
+                ) : forgotStep ? (
+                    /* ---- Forgot password step: email only ---- */
+                    forgotSubmitted ? (
+                        <Box>
+                            <Alert severity="success" sx={{ mb: 2 }}>
+                                If an account with that email exists, a password reset link has been sent. Check your inbox.
+                            </Alert>
+                            <Typography variant="body2" sx={{ mb: 2, color: 'text.secondary', textAlign: 'center' }}>
+                                Didn&apos;t receive the email? Check your spam folder, or try again in a few minutes.
+                            </Typography>
+                            <Button
+                                fullWidth
+                                variant="outlined"
+                                onClick={() => { setForgotStep(false); setForgotSubmitted(false); }}
+                            >
+                                Back to Sign In
+                            </Button>
+                        </Box>
+                    ) : (
+                        <form onSubmit={handleForgotSubmit}>
+                            <Typography sx={{ mb: 1, color: 'text.secondary' }}>
+                                Enter your email and we&apos;ll send you a link to reset your password.
+                            </Typography>
+
+                            <TextField
+                                fullWidth
+                                label="Email"
+                                type="email"
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                sx={{ mb: 3, mt: 2 }}
+                                required
+                                autoFocus
+                                autoComplete="email"
+                            />
+
+                            <Button
+                                fullWidth
+                                type="submit"
+                                variant="contained"
+                                size="large"
+                                disabled={loading}
+                            >
+                                {loading ? 'Sending...' : 'Send Reset Link'}
+                            </Button>
+
+                            <Box sx={{ mt: 2, textAlign: 'center' }}>
+                                <Link
+                                    component="button"
+                                    variant="body2"
+                                    onClick={() => setForgotStep(false)}
+                                    sx={{ cursor: 'pointer' }}
+                                >
+                                    Back to Sign In
+                                </Link>
+                            </Box>
+                        </form>
+                    )
                 ) : (
+                    /* ---- Normal login step ---- */
                     <form onSubmit={handleSubmit}>
                         <TextField
                             fullWidth
@@ -261,7 +347,7 @@ function LoginPageContent() {
                             <Link
                                 component="button"
                                 variant="body2"
-                                onClick={() => router.push('/forgot-password')}
+                                onClick={() => { setForgotStep(true); setError(''); }}
                                 sx={{ cursor: 'pointer' }}
                             >
                                 Forgot password?
