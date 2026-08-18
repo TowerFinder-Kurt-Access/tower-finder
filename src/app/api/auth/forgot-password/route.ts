@@ -61,7 +61,7 @@ export async function POST(request: Request) {
             message: 'If an account with that email exists, you will receive a reset code shortly.',
         });
 
-        const user = await prisma.user.findUnique({ where: { email } });
+        const user = await prisma.user.findFirst({ where: { email: { equals: email, mode: 'insensitive' } } });
         if (!user || !user.isActive) {
             return successResponse;
         }

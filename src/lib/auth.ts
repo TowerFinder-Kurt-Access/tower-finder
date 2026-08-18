@@ -66,7 +66,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             throw new AccountLockedError()
           }
 
-          const user = await prisma.user.findUnique({ where: { email } })
+          const user = await prisma.user.findFirst({ where: { email: { equals: email, mode: 'insensitive' } } })
 
           // --- Granular password validation logging ---
           if (!user) {
