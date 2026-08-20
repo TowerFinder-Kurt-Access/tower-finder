@@ -9,6 +9,7 @@ interface SignInUser {
     role: Role;
     sessionVersion: number;
     passwordChangedAt: Date;
+    mustChangePassword: boolean;
 }
 
 export const authConfig = {
@@ -26,8 +27,8 @@ export const authConfig = {
                 token.role = signInUser.role;
                 token.email = signInUser.email;
                 token.name = signInUser.name;
-                token.sessionVersion = signInUser.sessionVersion;
                 token.mustChangePassword = passwordIsExpired(signInUser.passwordChangedAt);
+                token.forcedPasswordChange = signInUser.mustChangePassword;
             }
             return token;
         },
@@ -39,6 +40,7 @@ export const authConfig = {
                 session.user.name = token.name as string;
                 session.user.sessionVersion = token.sessionVersion as number;
                 session.user.mustChangePassword = token.mustChangePassword as boolean;
+                session.user.forcedPasswordChange = token.forcedPasswordChange as boolean;
             }
             return session;
         },

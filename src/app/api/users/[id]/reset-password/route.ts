@@ -44,8 +44,9 @@ export async function POST(request: Request, { params }: RouteParams) {
         const hashedPassword = await bcrypt.hash(newPassword, 10);
 
         // Update the password — bump sessionVersion to sign the user out everywhere,
-        // disable 2FA so the user can log in with just the new password, and clean
-        // up stale OTP rows that would otherwise block the next login attempt.
+        // disable 2FA so the user can log in with just the new password, clean
+        // up stale OTP rows that would otherwise block the next login attempt,
+        // and force the user to pick their own password on next sign-in.
         await prisma.user.update({
             where: { id: userId },
             data: {
@@ -53,6 +54,7 @@ export async function POST(request: Request, { params }: RouteParams) {
                 passwordChangedAt: new Date(),
                 sessionVersion: { increment: 1 },
                 twoFactorEnabled: false,
+                mustChangePassword: true,
             }
         });
 
