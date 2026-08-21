@@ -42,13 +42,6 @@ export default auth(async (req: any) => {
         return; // already on the login page: let it render
     }
 
-    // 2b. Force password change: after an admin reset the user must pick a
-    //     new password before accessing anything else.
-    const forcedChange = !!req.auth?.user?.forcedPasswordChange;
-    if (isLoggedIn && forcedChange && pathname !== '/change-password' && !pathname.startsWith('/api/')) {
-        return Response.redirect(new URL('/change-password', req.url));
-    }
-
     // 3. Valid sessions visiting /login go home.
     if (isLoggedIn && pathname === '/login') {
         return Response.redirect(new URL('/', req.url));
