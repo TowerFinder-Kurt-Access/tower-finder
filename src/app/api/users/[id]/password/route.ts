@@ -70,7 +70,7 @@ export async function POST(request: Request, { params }: RouteParams) {
         // (including this one) are rejected; the user must sign in again.
         await prisma.user.update({
             where: { id: userId },
-            data: { password: hashedPassword, passwordChangedAt: new Date(), sessionVersion: { increment: 1 } }
+            data: { password: hashedPassword, passwordChangedAt: new Date(), sessionVersion: { increment: 1 }, mustChangePassword: false }
         });
 
         const ip = requestIp(request);

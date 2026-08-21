@@ -10,6 +10,7 @@ declare module "next-auth" {
       name: string
       sessionVersion: number
       mustChangePassword?: boolean
+      forcedPasswordChange?: boolean
     } & DefaultSession["user"]
   }
 
@@ -26,5 +27,6 @@ declare module "next-auth/jwt" {
     role: Role
     sessionVersion: number
     mustChangePassword: boolean
+    forcedPasswordChange: boolean
   }
 }

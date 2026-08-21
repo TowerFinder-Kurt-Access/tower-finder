@@ -98,7 +98,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             name: user.name,
             role: user.role,
             sessionVersion: user.sessionVersion,
-            passwordChangedAt: user.passwordChangedAt
+            passwordChangedAt: user.passwordChangedAt,
+            mustChangePassword: user.mustChangePassword
           }
 
           // Single-step login unless the user opted into the OTP second factor

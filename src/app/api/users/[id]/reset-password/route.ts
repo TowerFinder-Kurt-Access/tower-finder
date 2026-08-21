@@ -53,6 +53,7 @@ export async function POST(request: Request, { params }: RouteParams) {
                 passwordChangedAt: new Date(),
                 sessionVersion: { increment: 1 },
                 twoFactorEnabled: false,
+                mustChangePassword: true,
             }
         });
 
