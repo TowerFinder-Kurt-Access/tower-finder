@@ -351,6 +351,7 @@ function LoginPageContent() {
                         <Box sx={{ mt: 2, textAlign: 'center' }}>
                             <Link
                                 component="button"
+                                type="button"
                                 variant="body2"
                                 onClick={() => { setResetCodeStep(false); setResetCode(''); setNewPassword(''); setConfirmNewPassword(''); setError(''); }}
                                 sx={{ cursor: 'pointer' }}
@@ -391,6 +392,7 @@ function LoginPageContent() {
                         <Box sx={{ mt: 2, textAlign: 'center' }}>
                             <Link
                                 component="button"
+                                type="button"
                                 variant="body2"
                                 onClick={() => setForgotStep(false)}
                                 sx={{ cursor: 'pointer' }}
@@ -426,6 +428,7 @@ function LoginPageContent() {
                         <Box sx={{ mb: 3, textAlign: 'right' }}>
                             <Link
                                 component="button"
+                                type="button"
                                 variant="body2"
                                 onClick={() => { setForgotStep(true); setError(''); }}
                                 sx={{ cursor: 'pointer' }}
