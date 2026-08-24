@@ -78,5 +78,14 @@ check_jobs_status.ts
 check_pending_jobs.ts
 test_fcc_uls.ts
 
+# one-off debug outputs at repo root
+/*.png
+/*.html
+/cali_results.txt
+/ts_errors.txt
+/houski_results.json
+/ownership_test_results.json
+/locations_*_for_support.json
+
 # graphify
 graphify-out
