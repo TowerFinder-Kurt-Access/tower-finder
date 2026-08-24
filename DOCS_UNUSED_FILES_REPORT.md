@@ -20,8 +20,8 @@ Was likely a client-supplied sample of real tower rows used during initial Excel
 
 | File | Size | Referenced by code? | Cross-referenced in docs? | Verdict |
 |---|---:|---|---|---|
-| `docs/Tower_Lead_AI_Classifier_Client_Proposal.xlsx` | 9.4 KB | No | Yes — mentioned in `docs/tower-lead-ai-classifier-plan.md` (line 186), but pointing at a *different* copy in `cpd-courses/plans/` | **Unused duplicate** — safe to delete; the referenced original lives elsewhere |
-| `docs/iHunter_Landowner_Scraper_Proposal.xlsx` | 12.2 KB | No | No — not mentioned by any file in the repo | **Fully orphaned** — safe to delete |
+| `docs/Tower_Lead_AI_Classifier_Client_Proposal.xlsx` | 9.4 KB | No | Yes — mentioned in `docs/tower-lead-ai-classifier-plan.md` (line 186), but pointing at a *different* copy in `cpd-courses/plans/` | **DELETED** (2026-08-25) — unused duplicate; referenced original lives elsewhere |
+| `docs/iHunter_Landowner_Scraper_Proposal.xlsx` | 12.2 KB | No | No — not mentioned by any file in the repo | **DELETED** (2026-08-25) — fully orphaned |
 
 Neither is loaded by any backend/service code. They are static proposal documents, not data inputs.
 
@@ -50,5 +50,5 @@ Confirmed none of the files above are connected to the backend:
 ## Recommended actions
 
 1. ~~Delete `Tower_Site_Examples.xlsx`~~ ✅ Done.
-2. Delete `docs/Tower_Lead_AI_Classifier_Client_Proposal.xlsx` (duplicate) and `docs/iHunter_Landowner_Scraper_Proposal.xlsx` (orphaned).
+2. ~~Delete `docs/Tower_Lead_AI_Classifier_Client_Proposal.xlsx` and `docs/iHunter_Landowner_Scraper_Proposal.xlsx`~~ ✅ Done.
 3. Keep all `docs/*.md` and `docs/entities/`.
