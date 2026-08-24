@@ -79,9 +79,11 @@ check_pending_jobs.ts
 test_fcc_uls.ts
 
 # one-off debug outputs at repo root
-/*.png
-/*.html
-/cali_results.txt
+/debug_*.png
+/debug_*.html
+/*_results.png
+/*_results.html
+/cali_results.*
 /ts_errors.txt
 /houski_results.json
 /ownership_test_results.json
