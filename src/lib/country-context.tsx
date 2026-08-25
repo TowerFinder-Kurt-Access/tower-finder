@@ -13,12 +13,16 @@ const CountryContext = createContext<CountryContextValue>({
 });
 
 export function CountryProvider({ children }: { children: ReactNode }) {
-    const [country, setCountryState] = useState<string>(() => {
-        if (typeof window !== 'undefined') {
-            return localStorage.getItem('selectedCountry') || '';
+    // Start empty so the first client render matches the server output.
+    // localStorage is loaded after hydration to avoid a server/client mismatch.
+    const [country, setCountryState] = useState('');
+
+    useEffect(() => {
+        const saved = localStorage.getItem('selectedCountry');
+        if (saved) {
+            setCountryState(saved);
         }
-        return '';
-    });
+    }, []);
 
     const setCountry = (value: string) => {
         setCountryState(value);
