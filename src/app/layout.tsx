@@ -1,14 +1,10 @@
 import ThemeRegistry from './ThemeRegistry';
 import type { Metadata } from 'next';
 import { auth } from '@/lib/auth';
-import Box from '@mui/material/Box';
-import NavRail from '@/components/NavRail';
-import ContentArea from '@/components/ContentArea';
+import SuperpowersShell from '@/components/SuperpowersShell';
 import { SessionProvider } from 'next-auth/react';
 import { CountryProvider } from '@/lib/country-context';
-import { PasswordChangeReminder } from '@/components/PasswordChangeReminder';
 import { LayoutWithSnackbar } from '@/components/LayoutWithSnackbar';
-
 export const metadata: Metadata = {
   title: "Tower Finder 4900",
   description: "Advanced Tower Detection and CRM Dashboard",
@@ -25,15 +21,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             <CountryProvider>
               <LayoutWithSnackbar>
                 {session ? (
-                  <Box sx={{ display: 'flex', height: '100vh', width: '100vw', overflow: 'hidden' }}>
-                    <NavRail />
-                    <ContentArea>
-                      {children}
-                    </ContentArea>
-                    <PasswordChangeReminder />
-                  </Box>
+                    <SuperpowersShell>{children}</SuperpowersShell>
                 ) : (
-                  children
+                    children
                 )}
               </LayoutWithSnackbar>
             </CountryProvider>

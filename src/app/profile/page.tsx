@@ -1,7 +1,10 @@
 'use client';
+
 import { useState, useEffect } from 'react';
 import { useSession, signOut } from 'next-auth/react';
 import axios, { AxiosError } from 'axios';
+import Link from 'next/link';
+import { Role } from '@prisma/client';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
@@ -12,6 +15,8 @@ import FormControlLabel from '@mui/material/FormControlLabel';
 import Alert from '@mui/material/Alert';
 import Snackbar from '@mui/material/Snackbar';
 import Divider from '@mui/material/Divider';
+import Fab from '@mui/material/Fab';
+import RocketLaunchIcon from '@mui/icons-material/RocketLaunch';
 import { validatePassword } from '@/lib/password-policy';
 import { PasswordField } from '@/components/PasswordField';
 
@@ -361,6 +366,27 @@ export default function ProfilePage() {
                     {snackbar.message}
                 </Alert>
             </Snackbar>
-        </Box>
+
+            {/* Admin-only FAB: open Superpowers */}
+            {session?.user?.role === Role.ADMIN && (
+                <Fab
+                    component={Link}
+                    href="/superpowers"
+                    variant="extended"
+                    color="primary"
+                    aria-label="Open Superpowers"
+                    sx={{
+                        position: 'fixed',
+                        bottom: 24,
+                        right: 24,
+                        textTransform: 'none',
+                        fontWeight: 600,
+                    }}
+                >
+                    <RocketLaunchIcon sx={{ mr: 1 }} />
+                    Open Superpowers
+                </Fab>
+            )}
+         </Box>
     );
 }
