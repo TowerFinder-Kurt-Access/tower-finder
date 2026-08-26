@@ -220,6 +220,7 @@ export default function Map({
                 spiderfyOnMaxZoom={true}
                 showCoverageOnHover={false}
                 zoomToBoundsOnClick={true}
+                maxZoom={18}
                 iconCreateFunction={(cluster) => {
                     const count = cluster.getChildCount();
                     return L.divIcon({
@@ -288,9 +289,9 @@ export default function Map({
             <MarkerClusterGroup
                 chunkedLoading
                 maxClusterRadius={40}
-                spiderfyOnMaxZoom={true}
                 showCoverageOnHover={false}
                 zoomToBoundsOnClick={true}
+                maxZoom={18}
                 iconCreateFunction={(cluster) => {
                     const count = cluster.getChildCount();
                     return L.divIcon({
