@@ -297,7 +297,7 @@ export default function AdminUserDetailPage({ params }: PageProps) {
             <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
                 <Button
                     startIcon={<ArrowBackIcon />}
-                    onClick={() => router.push('/admin/users')}
+                    onClick={() => router.push('/superpowers/users')}
                     sx={{ mr: 2 }}
                 >
                     Back
