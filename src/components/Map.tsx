@@ -4,7 +4,7 @@ import { MapContainer, TileLayer, CircleMarker, Popup, Polygon, useMap } from 'r
 import MarkerClusterGroup from 'react-leaflet-cluster';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { Typography } from '@mui/material';
 import type { LatLngExpression } from 'leaflet';
 
@@ -18,6 +18,42 @@ function MapUpdater({ center, zoom, bounds }: { center: LatLngExpression, zoom: 
             map.flyTo(center, zoom || 13, { duration: 2 });
         }
     }, [center, zoom, bounds, map]);
+    return null;
+}
+// Smooth zoom-in on cluster click. Replaces native `zoomToBoundsOnClick`
+// (which snaps to fit-bounds in one frame) with a 1.0s flyTo of +6 zoom levels,
+// capped at 18 so dense areas don't fling the user past useful detail.
+interface ClusterGroup {
+    on(event: string, handler: (e: unknown) => void): void;
+    off(event: string, handler: (e: unknown) => void): void;
+}
+interface ClusterLayer {
+    getChildCount(): number;
+    getBounds(): L.LatLngBounds;
+}
+function isClusterLayer(value: unknown): value is ClusterLayer {
+    if (!value || typeof value !== 'object') return false;
+    const v = value as Record<string, unknown>;
+    return typeof v.getChildCount === 'function' && typeof v.getBounds === 'function';
+}
+function ClusterClickHandler({ groupRef }: { groupRef: React.RefObject<ClusterGroup | null> }) {
+    const map = useMap();
+    useEffect(() => {
+        const group = groupRef.current;
+        if (!group) return;
+        const handler = (raw: unknown) => {
+            const ev = raw as { layer?: unknown };
+            if (!isClusterLayer(ev.layer)) return;
+            if (ev.layer.getChildCount() < 2) return;
+            const center = ev.layer.getBounds().getCenter();
+            const nextZoom = Math.min(map.getZoom() + 6, 18);
+            map.flyTo(center, nextZoom, { duration: 1.0, easeLinearity: 0.25 });
+        };
+        group.on('clusterclick', handler);
+        return () => {
+            group.off('clusterclick', handler);
+        };
+    }, [groupRef, map]);
     return null;
 }
 
@@ -128,8 +164,10 @@ export default function Map({
     center, zoom, bounds, towers, towerLeads = [], businessesNearby = [],
     onTowerSelect, selectedTower, selectedBusinessId, onBoundsChange, userPosition
 }: MapProps) {
+    const towerClusterRef = useRef<ClusterGroup | null>(null);
+    const leadClusterRef = useRef<ClusterGroup | null>(null);
 
-    // Open the selected business's popup when it changes
+     // Open the selected business's popup when it changes
     const bizRefs = useRef<Record<number, any>>({});
     useEffect(() => {
         if (selectedBusinessId != null) {
@@ -162,6 +200,8 @@ export default function Map({
             />
 
             <MapUpdater center={center as LatLngExpression} zoom={zoom} bounds={bounds as LatLngExpression[]} />
+            <ClusterClickHandler groupRef={towerClusterRef} />
+            <ClusterClickHandler groupRef={leadClusterRef} />
             <MapEvents onBoundsChange={onBoundsChange} />
 
             {/* Draw parcel polygon for selected tower */}
@@ -215,11 +255,12 @@ export default function Map({
 
             {/* Existing Towers (Red) - Clustered */}
             <MarkerClusterGroup
+                ref={towerClusterRef}
                 chunkedLoading
                 maxClusterRadius={50}
                 spiderfyOnMaxZoom={true}
                 showCoverageOnHover={false}
-                zoomToBoundsOnClick={true}
+                zoomToBoundsOnClick={false}
                 maxZoom={18}
                 iconCreateFunction={(cluster) => {
                     const count = cluster.getChildCount();
@@ -287,10 +328,11 @@ export default function Map({
 
             {/* Tower Leads (Green) - Clustered */}
             <MarkerClusterGroup
+                ref={leadClusterRef}
                 chunkedLoading
                 maxClusterRadius={40}
                 showCoverageOnHover={false}
-                zoomToBoundsOnClick={true}
+                zoomToBoundsOnClick={false}
                 maxZoom={18}
                 iconCreateFunction={(cluster) => {
                     const count = cluster.getChildCount();
