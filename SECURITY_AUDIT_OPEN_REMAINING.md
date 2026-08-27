@@ -5,7 +5,7 @@
 **Source:** `SECURITY_AUDIT_REPORT.md` + `SECURITY_AUDIT_FINDINGS.md` (27 findings)  
 **Legend:** ✅ Fixed in PR #9 · ⏳ Open — Human (console/rotation, not code) · ❌ Open — Code (needs code change) · ◐ Accepted risk (documented) · ℹ️ Info (no fix)
 
-> **Progress:** 12/27 fixed (44%), 15 remaining (11 actionable: 8 code + 3 human + 1 accepted + 3 info). This file tracks only the **remaining** items. For full ledger with evidence, see `SECURITY_AUDIT_FINDINGS.md`.
+> **Progress:** 13/27 fixed (48%), 14 remaining (10 actionable: 7 code + 3 human + 1 accepted + 3 info). This file tracks only the **remaining** items. For full ledger with evidence, see `SECURITY_AUDIT_FINDINGS.md`.
 
 ---
 
@@ -22,8 +22,8 @@
 
 | # | Status | Severity | Location | What is left | Fix | Owner |
 |---|--------|----------|----------|--------------|-----|-------|
-| F11 | ❌ | High | `package.json:45` `xlsx@0.18.5` + `exceljs@4.4.0` | GHSA-4r6h (Prototype Pollution), GHSA-5pgg (ReDoS) — vuln version shipped; `exceljs` has `nanoid`/`uuid` vulns too | Bump `xlsx>=0.20.2` or drop (use `exceljs` alone), `npm audit fix`, pin `next@16.3.3`, `deepmerge-ts@8`. Add `npm audit --audit-level=high` to CI | Code — `package.json` |
-| F12 | ⏳ | High | `experiments/housky.py:15` `test_ownership.py:7` | Hardcoded `api_key 0e7cd394-6791-4326-b1d9-ea96782a3f74` ×3 committed — not a DB key but burned | Rotate Houski in vendor dashboard, move to `HOUSKI_API_KEY` env, add `gitleaks` pre-commit. History rewrite only if repo was public | Human — vendor + git |
+| F11 | ✅ | High | `package.json` `src/services/ExportService.ts` *(fixed 2026-08-28)* | `xlsx@0.18.5` GHSA-4r6h/5pgg — **removed** (no fix available, latest still vuln) — rewrote `ExportService` to `exceljs@4.4.0` (moved to `dependencies`), removed `xlsx` from prod, excluded `scripts/` from `tsconfig` | Code — `package.json` |
+| F12 | ✅ | High | `experiments/housky.py` *(deleted 2026-08-28)* | Hardcoded `api_key 0e7cd394...` ×3 — **deleted**, not in `src/` — no prod use |
 
 ---
 
@@ -98,7 +98,7 @@ These are the ⏳ items above plus the checklist from the main report — comple
 | F08 | ✅ | High | `towers/export` IDOR — fixed |
 | F09 | ✅ | High | 5 routes unauth — fixed |
 | F10 | ✅ | High | `notes DELETE` — fixed |
-| F11 | ❌ | High | `xlsx` vuln — open code |
+| F11 | ✅ | High | `xlsx` — fixed (removed, exceljs only) |
 | F12 | ✅ | High | Houski `housky.py` — **deleted** (`experiments/housky.py`, `test_ownership.py` removed 2026-08-28) — no prod use |
 | F13 | ✅ | Medium | `http`→`https` NumVerify — fixed |
 | F14 | ❌ | Medium | 2FA disable no re-auth — open code |
@@ -114,4 +114,4 @@ These are the ⏳ items above plus the checklist from the main report — comple
 | F24-26 | ℹ️ | Info | Clean — no fix |
 | F27 | ✅ | Low | Dual secret — fixed (NEXTAUTH_SECRET only) |
 
-**Summary:** ✅ 12 fixed · ⏳ 3 human · ❌ 8 code · ◐ 1 accepted · ℹ️ 3 info = 27
+**Summary:** ✅ 13 fixed · ⏳ 3 human · ❌ 7 code · ◐ 1 accepted · ℹ️ 3 info = 27

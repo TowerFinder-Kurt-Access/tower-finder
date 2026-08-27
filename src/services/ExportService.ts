@@ -1,5 +1,5 @@
 import { prisma } from '../lib/prisma';
-import * as xlsx from 'xlsx';
+import ExcelJS from 'exceljs';
 import { Prisma } from '@prisma/client';
 
 export type TowerWithNotes = Prisma.TowerGetPayload<{
@@ -20,13 +20,12 @@ export class ExportService {
         }
       }
     }) as TowerWithNotes[];
-
     if (towers.length === 0) {
-      // Return an empty workbook if no towers
-      const wb = xlsx.utils.book_new();
-      const ws = xlsx.utils.aoa_to_sheet([['No data']]);
-      xlsx.utils.book_append_sheet(wb, ws, 'Towers');
-      return xlsx.write(wb, { type: 'buffer', bookType: 'xlsx' });
+      const wb = new ExcelJS.Workbook();
+      const ws = wb.addWorksheet('Towers');
+      ws.addRow(['No data']);
+      const buf = await wb.xlsx.writeBuffer();
+      return Buffer.from(buf as ArrayBuffer);
     }
 
     // 1. Determine all headers from rawImportData across all towers
@@ -51,18 +50,19 @@ export class ExportService {
 
     // 2. Prepare data rows
     const dataRows = towers.map(t => {
-      const row: any = {};
-      const rawData = (t.rawImportData as any) || {};
+      const row: Record<string, string> = {};
+      const rawData = (t.rawImportData as Record<string, string> | null) ?? {};
 
       // Fill in raw data columns
       headers.forEach(header => {
         if (header !== 'System Notes') {
-          row[header] = rawData[header] ?? (t as any)[header] ?? '';
+          const fromRaw = (rawData as Record<string, string>)[header];
+          const fromTower = (t as unknown as Record<string, string>)[header];
+          row[header] = fromRaw ?? fromTower ?? '';
         }
       });
 
       // Fill in System Notes column
-      // Only include notes created within the system (those with an authorId)
       row['System Notes'] = t.notes
         .filter(n => n.authorId !== null)
         .map(n => {
@@ -74,11 +74,14 @@ export class ExportService {
       return row;
     });
 
-    // 3. Generate Workbook
-    const wb = xlsx.utils.book_new();
-    const ws = xlsx.utils.json_to_sheet(dataRows, { header: headers });
-    xlsx.utils.book_append_sheet(wb, ws, 'Towers Export');
-
-    return xlsx.write(wb, { type: 'buffer', bookType: 'xlsx' });
+    // 3. Generate Workbook with exceljs (xlsx removed — GHSA-4r6h/5pgg no fix)
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('Towers Export');
+    ws.columns = headers.map(h => ({ header: h, key: h, width: 20 }));
+    ws.addRows(dataRows);
+    // Header bold
+    ws.getRow(1).font = { bold: true };
+    const buf = await wb.xlsx.writeBuffer();
+    return Buffer.from(buf as ArrayBuffer);
   }
 }

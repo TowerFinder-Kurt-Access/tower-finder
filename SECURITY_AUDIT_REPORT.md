@@ -35,7 +35,7 @@
 | **F08** | High | `src/app/api/towers/export/route.ts:7-18` | `getAuthUser` only — `{"all":true}` exports **51,522** towers with `rawImportData` bypassing `buildTowerAccessFilter` | `all:true` → ADMIN only; CALLER → filtered to assigned | **Fixed** |
 | **F09** | High | `search-towers, geocode, owner, nearby-parcels, phone-lookup` 5 files | Zero handler auth — ACL bypass + ReportAll/Whitepages cost burn + PII enumeration | Add `getAuthUser` + rate limit | **Fixed** |
 | **F10** | High | `src/app/api/towers/[id]/notes/[noteId]/route.ts:42` | PATCH has auth, DELETE has none — unauth delete | Add `await getAuthUser()` | **Fixed** |
-| **F11** | High | `package.json:45` `xlsx@0.18.5` | GHSA-4r6h (Prototype Pollution) + GHSA-5pgg (ReDoS) vuln | Bump `xlsx>=0.20.2` or drop, `npm audit fix` | Open |
+| **F11** | High | `package.json` + `src/services/ExportService.ts` *(fixed 2026-08-28)* | `xlsx@0.18.5` GHSA-4r6h/5pgg — **removed** (latest still vuln) → `exceljs` only, `xlsx` removed from prod | **Fixed** |
 | **F12** | High | `experiments/housky.py:15` `test_ownership.py:7` *(deleted 2026-08-28)* | Hardcoded `api_key 0e7cd394-6791-4326-b1d9-ea96782a3f74` ×3 committed | **Deleted** — `experiments/housky.py` + `test_ownership.py` removed (verified `grep housk src/` 0 hits, not in package.json) — no prod use. No rotation needed. | **Fixed** |
 | **F13** | Medium | `src/services/PhoneValidationService.ts:17` | `http://apilayer.net` plaintext — phone+key sniffable | `https://` | **Fixed** |
 | **F14** | Medium | `src/app/api/profile/two-factor/route.ts:67` | `disable` needs no password/OTP — stolen session disables 2FA | Require OTP/password | Open |

@@ -26,6 +26,7 @@
     "commander": "^14.0.3",
     "csv-parse": "^6.2.1",
     "dotenv": "^17.2.3",
+    "exceljs": "^4.4.0",
     "h3-js": "^4.4.0",
     "leaflet": "^1.9.4",
     "ml-matrix": "^6.12.2",
@@ -41,8 +42,7 @@
     "react-dom": "19.2.3",
     "react-leaflet": "^5.0.0",
     "react-leaflet-cluster": "^4.0.0",
-    "tesseract.js": "^7.0.0",
-    "xlsx": "^0.18.5"
+    "tesseract.js": "^7.0.0"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
@@ -52,7 +52,6 @@
     "@types/react-dom": "^19.2.3",
     "eslint": "^9.39.5",
     "eslint-config-next": "16.1.6",
-    "exceljs": "^4.4.0",
     "pdf-parse": "^2.4.5",
     "prisma": "^6.19.3",
     "typescript": "^5.9.3"
