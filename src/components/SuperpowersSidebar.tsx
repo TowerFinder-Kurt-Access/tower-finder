@@ -29,9 +29,6 @@ export default function SuperpowersSidebar() {
     const pathname = usePathname();
     const [isCollapsed, setIsCollapsed] = useState(false);
     const drawerWidth = isCollapsed ? 80 : 260;
-    const isOnLanding = pathname === '/superpowers';
-    const backHref = isOnLanding ? '/' : '/superpowers';
-    const backLabel = isOnLanding ? 'Back to Map' : 'Back to Superpowers landing';
 
     return (
         <Box
@@ -52,7 +49,7 @@ export default function SuperpowersSidebar() {
                 zIndex: 1300,
             }}
         >
-            {/* Header: Back button + Title + Collapse toggle */}
+            {/* Header: Title + Collapse toggle */}
             <Box
                 sx={{
                     p: 2,
@@ -64,19 +61,9 @@ export default function SuperpowersSidebar() {
                 }}
             >
                 {!isCollapsed && (
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
-                        <IconButton
-                            component={Link}
-                            href={backHref}
-                            aria-label={backLabel}
-                            sx={{ color: 'white', p: 0.5 }}
-                        >
-                            <ArrowBackIcon />
-                        </IconButton>
-                        <Typography variant="h6" fontWeight="bold" noWrap>
-                            Superpowers
-                        </Typography>
-                    </Box>
+                    <Typography variant="h6" fontWeight="bold" noWrap>
+                        Superpowers
+                    </Typography>
                 )}
                 <IconButton
                     onClick={() => setIsCollapsed(!isCollapsed)}
@@ -123,9 +110,32 @@ export default function SuperpowersSidebar() {
                 })}
             </List>
 
-            {/* Footer: Logout */}
+            {/* Footer: Back to Dashboard + Logout */}
             <Box sx={{ mt: 'auto', borderTop: '1px solid #333', p: 1 }}>
                 <List>
+                    <ListItemButton
+                        component={Link}
+                        href="/"
+                        sx={{
+                            justifyContent: isCollapsed ? 'center' : 'initial',
+                            borderRadius: 1,
+                            mb: 0.5,
+                            color: 'white',
+                            '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.08)' },
+                        }}
+                    >
+                        <ListItemIcon
+                            sx={{
+                                color: 'white',
+                                minWidth: 0,
+                                mr: isCollapsed ? 0 : 2,
+                                justifyContent: 'center',
+                            }}
+                        >
+                            <ArrowBackIcon />
+                        </ListItemIcon>
+                        {!isCollapsed && <ListItemText primary="Back to Dashboard" />}
+                    </ListItemButton>
                     <ListItemButton
                         onClick={() => signOut({ callbackUrl: '/login?success=logout' })}
                         sx={{
