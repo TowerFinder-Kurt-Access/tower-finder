@@ -5,7 +5,7 @@
 **Source:** `SECURITY_AUDIT_REPORT.md` + `SECURITY_AUDIT_FINDINGS.md` (27 findings)  
 **Legend:** ✅ Fixed in PR #9 · ⏳ Open — Human (console/rotation, not code) · ❌ Open — Code (needs code change) · ◐ Accepted risk (documented) · ℹ️ Info (no fix)
 
-> **Progress:** 10/27 fixed (37%), 17 remaining. This file tracks only the **remaining** items. For full ledger with evidence, see `SECURITY_AUDIT_FINDINGS.md`.
+> **Progress:** 11/27 fixed (41%), 16 remaining (12 actionable: 9 code + 3 human + 1 accepted + 3 info). This file tracks only the **remaining** items. For full ledger with evidence, see `SECURITY_AUDIT_FINDINGS.md`.
 
 ---
 
@@ -99,7 +99,7 @@ These are the ⏳ items above plus the checklist from the main report — comple
 | F09 | ✅ | High | 5 routes unauth — fixed |
 | F10 | ✅ | High | `notes DELETE` — fixed |
 | F11 | ❌ | High | `xlsx` vuln — open code |
-| F12 | ⏳ | High | Houski hardcoded key — open human |
+| F12 | ✅ | High | Houski `housky.py` — **deleted** (`experiments/housky.py`, `test_ownership.py` removed 2026-08-28) — no prod use |
 | F13 | ✅ | Medium | `http`→`https` NumVerify — fixed |
 | F14 | ❌ | Medium | 2FA disable no re-auth — open code |
 | F15 | ❌ | Medium | Sentry 100% + no scrub — open code |
@@ -114,4 +114,4 @@ These are the ⏳ items above plus the checklist from the main report — comple
 | F24-26 | ℹ️ | Info | Clean — no fix |
 | F27 | ❌ | Low | Dual secret + 7d JWT — open code |
 
-**Summary:** ✅ 10 fixed · ⏳ 4 human · ❌ 9 code · ◐ 1 accepted · ℹ️ 3 info = 27
+**Summary:** ✅ 11 fixed · ⏳ 3 human · ❌ 9 code · ◐ 1 accepted · ℹ️ 3 info = 27
