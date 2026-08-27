@@ -61,9 +61,12 @@ export default function SuperpowersSidebar() {
                 }}
             >
                 {!isCollapsed && (
-                    <Typography variant="h6" fontWeight="bold" noWrap>
-                        Superpowers
-                    </Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2 }}>
+                        <AdminPanelSettingsIcon sx={{ color: 'white', fontSize: 24 }} />
+                        <Typography variant="h6" fontWeight="bold" noWrap>
+                            Superpowers
+                        </Typography>
+                    </Box>
                 )}
                 <IconButton
                     onClick={() => setIsCollapsed(!isCollapsed)}

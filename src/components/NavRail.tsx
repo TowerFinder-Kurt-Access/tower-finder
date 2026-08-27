@@ -8,6 +8,7 @@ import MapIcon from '@mui/icons-material/Map';
 import GroupIcon from '@mui/icons-material/Group';
 import TableRowsIcon from '@mui/icons-material/TableRows';
 import PersonIcon from '@mui/icons-material/Person';
+import CellTowerIcon from '@mui/icons-material/CellTower';
 import LogoutIcon from '@mui/icons-material/Logout';
 import MenuIcon from '@mui/icons-material/Menu';
 import MenuOpenIcon from '@mui/icons-material/MenuOpen';
@@ -56,9 +57,12 @@ export default function NavRail() {
                 borderBottom: '1px solid #333'
             }}>
                 {!isCollapsed && (
-                    <Typography variant="h6" fontWeight="bold" noWrap>
-                        Tower Finder
-                    </Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2 }}>
+                        <CellTowerIcon sx={{ color: 'white', fontSize: 26 }} />
+                        <Typography variant="h6" fontWeight="bold" noWrap>
+                            Tower Finder
+                        </Typography>
+                    </Box>
                 )}
                 <IconButton onClick={() => setIsCollapsed(!isCollapsed)} sx={{ color: 'white' }}>
                     {isCollapsed ? <MenuIcon /> : <MenuOpenIcon />}
