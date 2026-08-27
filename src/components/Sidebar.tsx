@@ -392,7 +392,7 @@ export default function Sidebar({
                                 {selectedTower.isLead && (
                                     <Button
                                         component={Link}
-                                        href={`/tower-leads`}
+                                        href={`/superpowers/tower-leads`}
                                         variant="outlined"
                                         size="small"
                                         fullWidth

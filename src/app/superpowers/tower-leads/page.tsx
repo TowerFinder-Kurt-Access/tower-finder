@@ -227,7 +227,7 @@ function TowerLeadsContent() {
 
     useEffect(() => {
         // Only load data if we are actually on the tower-leads page
-        if (pathname === '/tower-leads') {
+        if (pathname === '/superpowers/tower-leads') {
             if (activeTab === 0) loadLeads();
             else loadSearchHistory();
         }

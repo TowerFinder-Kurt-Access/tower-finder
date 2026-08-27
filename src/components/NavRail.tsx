@@ -1,7 +1,6 @@
 'use client';
 import { usePathname } from 'next/navigation';
-import { useSession, signOut } from 'next-auth/react';
-import * as React from 'react';
+import { signOut } from 'next-auth/react';
 import { useState } from 'react';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
@@ -9,18 +8,12 @@ import MapIcon from '@mui/icons-material/Map';
 import GroupIcon from '@mui/icons-material/Group';
 import TableRowsIcon from '@mui/icons-material/TableRows';
 import PersonIcon from '@mui/icons-material/Person';
-import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
-import ExploreIcon from '@mui/icons-material/Explore';
+import CellTowerIcon from '@mui/icons-material/CellTower';
 import LogoutIcon from '@mui/icons-material/Logout';
 import MenuIcon from '@mui/icons-material/Menu';
-import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
-import SettingsIcon from '@mui/icons-material/Settings';
+import MenuOpenIcon from '@mui/icons-material/MenuOpen';
 import { IconButton, MenuItem, Select, FormControl, InputLabel, ListItemIcon, ListItemText, List, ListItemButton } from '@mui/material';
-import { Role } from '@prisma/client';
 import { useCountry } from '@/lib/country-context';
-
-import AutorenewIcon from '@mui/icons-material/Autorenew';
-import RadarIcon from '@mui/icons-material/Radar';
 
 const COUNTRIES = [
     { code: 'Canada', flag: '\ud83c\udde8\ud83c\udde6', short: 'CA' },
@@ -29,28 +22,14 @@ const COUNTRIES = [
 
 export default function NavRail() {
     const pathname = usePathname();
-    const { data: session } = useSession();
     const { country, setCountry } = useCountry();
     const [isCollapsed, setIsCollapsed] = useState(false);
 
-    const baseNavItems = [
+    const navItems = [
         { label: 'Map', icon: <MapIcon />, path: '/' },
-        { label: 'Tower Leads', icon: <ExploreIcon />, path: '/tower-leads' },
         { label: 'Towers', icon: <TableRowsIcon />, path: '/towers' },
         { label: 'Property Owners', icon: <GroupIcon />, path: '/owners' },
     ];
-
-    const adminNavItems = [
-        { label: 'Users', icon: <AdminPanelSettingsIcon />, path: '/admin/users' },
-        { label: 'Background Jobs', icon: <AutorenewIcon />, path: '/admin/jobs' },
-        { label: 'Discovery Scans', icon: <RadarIcon />, path: '/admin/discovery' },
-        { label: 'Lookups', icon: <SettingsIcon />, path: '/admin/lookups' },
-    ];
-
-    let navItems = [...baseNavItems];
-    if (session?.user?.role === Role.ADMIN) {
-        navItems = [...navItems, ...adminNavItems];
-    }
 
     const drawerWidth = isCollapsed ? 80 : 260;
 
@@ -78,12 +57,15 @@ export default function NavRail() {
                 borderBottom: '1px solid #333'
             }}>
                 {!isCollapsed && (
-                    <Typography variant="h6" fontWeight="bold" noWrap>
-                        Tower Finder
-                    </Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2 }}>
+                        <CellTowerIcon sx={{ color: 'white', fontSize: 26 }} />
+                        <Typography variant="h6" fontWeight="bold" noWrap>
+                            Tower Finder
+                        </Typography>
+                    </Box>
                 )}
                 <IconButton onClick={() => setIsCollapsed(!isCollapsed)} sx={{ color: 'white' }}>
-                    {isCollapsed ? <MenuIcon /> : <ChevronLeftIcon />}
+                    {isCollapsed ? <MenuIcon /> : <MenuOpenIcon />}
                 </IconButton>
             </Box>
 
@@ -157,7 +139,7 @@ export default function NavRail() {
                 })}
             </List>
 
-            {/* Bottom Section */}
+
             <Box sx={{ mt: 'auto', borderTop: '1px solid #333', p: 1 }}>
                 <List>
                     <ListItemButton
