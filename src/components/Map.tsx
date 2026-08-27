@@ -46,8 +46,8 @@ function ClusterClickHandler({ groupRef }: { groupRef: React.RefObject<ClusterGr
             if (!isClusterLayer(ev.layer)) return;
             if (ev.layer.getChildCount() < 2) return;
             const center = ev.layer.getBounds().getCenter();
-            const nextZoom = Math.min(map.getZoom() + 6, 18);
-            map.flyTo(center, nextZoom, { duration: 1.0, easeLinearity: 0.25 });
+            const targetZoom = Math.min(map.getZoom() + 3, 18);
+            map.flyTo(center, targetZoom, { duration: 0.8, easeLinearity: 0.25 });
         };
         group.on('clusterclick', handler);
         return () => {
