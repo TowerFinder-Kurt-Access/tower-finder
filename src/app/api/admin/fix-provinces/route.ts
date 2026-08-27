@@ -1,11 +1,13 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import axios from 'axios';
+import { requireAdmin } from '@/lib/auth-helpers';
 
 // Sleep helper to respect Nominatim rate limits (1 req/sec)
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 export async function POST(request: Request) {
+    try { await requireAdmin(); } catch (e:any) { return NextResponse.json({ error: (e as Error).message || 'Unauthorized' }, { status: e?.message?.includes('Forbidden')?403:401 }); }
     try {
         const { searchParams } = new URL(request.url);
         const mode = searchParams.get('mode') || 'missing'; // 'missing' or 'all'
@@ -89,6 +91,7 @@ export async function POST(request: Request) {
 }
 
 export async function GET() {
+    try { await requireAdmin(); } catch (e:any) { return NextResponse.json({ error: (e as Error).message || 'Unauthorized' }, { status: e?.message?.includes('Forbidden')?403:401 }); }
     try {
         const count = await prisma.towerLead.count({
             where: {

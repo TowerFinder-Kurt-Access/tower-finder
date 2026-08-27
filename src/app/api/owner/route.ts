@@ -1,8 +1,10 @@
 
 import { NextResponse } from 'next/server';
+import { getAuthUser } from '@/lib/auth-helpers';
 import { InformationService } from '@/services/InformationService';
 
 export async function GET(request: Request) {
+    try { await getAuthUser(); } catch { return NextResponse.json({ error: 'Unauthorized' }, { status: 401 }); }
     const { searchParams } = new URL(request.url);
     const lat = searchParams.get('lat');
     const lon = searchParams.get('lon');

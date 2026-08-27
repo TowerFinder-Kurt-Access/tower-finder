@@ -14,7 +14,7 @@ export interface MultiLevelValidationResult {
 
 export class PhoneValidationService {
   private static NUMVERIFY_API_KEY = process.env.NUMVERIFY_API_KEY;
-  private static NUMVERIFY_URL = 'http://apilayer.net/api/validate';
+  private static NUMVERIFY_URL = 'https://apilayer.net/api/validate';
 
   /**
    * Level 1: Format Validation

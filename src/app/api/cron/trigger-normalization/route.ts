@@ -16,11 +16,9 @@ export async function GET(request: Request) {
         const session = await auth();
         const isAdmin = session?.user?.role === Role.ADMIN;
 
-        if (!isAdmin && cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-            const url = new URL(request.url);
-            if (url.searchParams.get('secret') !== cronSecret) {
-                return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-            }
+        if (!cronSecret) return NextResponse.json({ error: 'Server misconfigured: CRON_SECRET not set' }, { status: 500 });
+        if (!isAdmin && authHeader !== `Bearer ${cronSecret}`) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
         const job = await enqueueJob('normalize_locations', { batchSize: 50 });

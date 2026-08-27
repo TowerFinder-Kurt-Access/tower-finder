@@ -20,12 +20,9 @@ export async function GET(request: Request) {
         const isAdmin = session?.user?.role === Role.ADMIN;
 
         // Only enforce if CRON_SECRET is set and user is not an admin
-        if (!isAdmin && cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-            // For manual triggers during testing, we might allow it if no secret is provided in URL
-            const url = new URL(request.url);
-            if (url.searchParams.get('secret') !== cronSecret) {
-                return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-            }
+        if (!cronSecret) return NextResponse.json({ error: 'Server misconfigured: CRON_SECRET not set' }, { status: 500 });
+        if (!isAdmin && authHeader !== `Bearer ${cronSecret}`) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
         const job = await enqueueJob('process_nrcan_batch', {});
