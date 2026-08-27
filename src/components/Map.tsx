@@ -11,22 +11,31 @@ import type { LatLngExpression } from 'leaflet';
 // Component to handle map center updates
 function MapUpdater({ center, zoom, bounds }: { center: LatLngExpression, zoom: number, bounds?: LatLngExpression[] }) {
     const map = useMap();
+    const lastApplied = useRef<{ center: LatLngExpression; zoom: number; bounds?: LatLngExpression[] } | null>(null);
     useEffect(() => {
+        const prev = lastApplied.current;
+        lastApplied.current = { center, zoom, bounds };
         if (bounds) {
             map.fitBounds(bounds as L.LatLngBoundsExpression, { padding: [50, 50], duration: 1 });
-        } else if (center) {
-            map.flyTo(center, zoom || 13, { duration: 2 });
+            return;
         }
+        if (!center) return;
+        const zoomChanged = !prev || prev.zoom !== zoom;
+        if (prev && !zoomChanged) {
+            // Center-only change (e.g. a tower was clicked on the map): pan at
+            // the live zoom. Using the `zoom` prop here would be stale state
+            // from the page and would yank the user back out, closing popups.
+            map.flyTo(center, map.getZoom(), { duration: 0.8 });
+            return;
+        }
+        map.flyTo(center, zoom || 13, { duration: 2 });
     }, [center, zoom, bounds, map]);
     return null;
 }
-// Smooth zoom-in on cluster click. Replaces native `zoomToBoundsOnClick`
-// (which snaps to fit-bounds in one frame) with a 1.0s flyTo of +6 zoom levels,
-// capped at 18 so dense areas don't fling the user past useful detail.
-interface ClusterGroup {
-    on(event: string, handler: (e: unknown) => void): void;
-    off(event: string, handler: (e: unknown) => void): void;
-}
+// Cluster drill-in on click. `react-leaflet-cluster` binds an `onClick` prop
+// to the `clusterclick` event and re-binds it on every render, so the handler
+// never goes stale. Native `zoomToBoundsOnClick` / `spiderfyOnMaxZoom` stay
+// disabled on the groups so this is the only click behavior.
 interface ClusterLayer {
     getChildCount(): number;
     getBounds(): L.LatLngBounds;
@@ -35,26 +44,6 @@ function isClusterLayer(value: unknown): value is ClusterLayer {
     if (!value || typeof value !== 'object') return false;
     const v = value as Record<string, unknown>;
     return typeof v.getChildCount === 'function' && typeof v.getBounds === 'function';
-}
-function ClusterClickHandler({ groupRef }: { groupRef: React.RefObject<ClusterGroup | null> }) {
-    const map = useMap();
-    useEffect(() => {
-        const group = groupRef.current;
-        if (!group) return;
-        const handler = (raw: unknown) => {
-            const ev = raw as { layer?: unknown };
-            if (!isClusterLayer(ev.layer)) return;
-            if (ev.layer.getChildCount() < 2) return;
-            const center = ev.layer.getBounds().getCenter();
-            const targetZoom = Math.min(map.getZoom() + 3, 18);
-            map.flyTo(center, targetZoom, { duration: 0.8, easeLinearity: 0.25 });
-        };
-        group.on('clusterclick', handler);
-        return () => {
-            group.off('clusterclick', handler);
-        };
-    }, [groupRef, map]);
-    return null;
 }
 
 interface Tower {
@@ -139,13 +128,20 @@ function MapEvents({ onBoundsChange }: { onBoundsChange?: (bounds: any) => void 
     useEffect(() => {
         if (!onBoundsChange) return;
 
+        // Hysteresis: while the viewport stays inside the last reported area,
+        // do not report new bounds. Zooming IN always satisfies this, so a
+        // cluster drill-in never triggers a refetch that would wipe markers
+        // (and any open popup) with a smaller result set.
+        let reportedBounds: L.LatLngBounds | null = null;
         const updateBounds = () => {
-            const bounds = map.getBounds();
+            const viewport = map.getBounds();
+            if (reportedBounds && reportedBounds.contains(viewport)) return;
+            reportedBounds = viewport.pad(0.6);
             onBoundsChange({
-                north: bounds.getNorth(),
-                south: bounds.getSouth(),
-                east: bounds.getEast(),
-                west: bounds.getWest()
+                north: reportedBounds.getNorth(),
+                south: reportedBounds.getSouth(),
+                east: reportedBounds.getEast(),
+                west: reportedBounds.getWest()
             });
         };
 
@@ -164,10 +160,26 @@ export default function Map({
     center, zoom, bounds, towers, towerLeads = [], businessesNearby = [],
     onTowerSelect, selectedTower, selectedBusinessId, onBoundsChange, userPosition
 }: MapProps) {
-    const towerClusterRef = useRef<ClusterGroup | null>(null);
-    const leadClusterRef = useRef<ClusterGroup | null>(null);
+    const mapRef = useRef<L.Map | null>(null);
 
-     // Open the selected business's popup when it changes
+    // Drill into a cluster: zoom just enough to reveal it, never out, never
+    // past the tile ceiling. The +1 lower bound is applied first, then the
+    // whole result is capped at 18, so clicking at max zoom pans instead of
+    // flying to 19 (blank gray tiles). Single-marker clusters fall through
+    // to the popup.
+    const handleClusterClick = useCallback((raw: L.LeafletMouseEvent) => {
+        const map = mapRef.current;
+        if (!map || !('layer' in raw)) return;
+        const layer: unknown = raw.layer;
+        if (!isClusterLayer(layer)) return;
+        if (layer.getChildCount() < 2) return;
+        const clusterBounds = layer.getBounds();
+        const boundsZoom = map.getBoundsZoom(clusterBounds);
+        const targetZoom = Math.min(Math.max(map.getZoom() + 1, boundsZoom), 18);
+        map.flyTo(clusterBounds.getCenter(), targetZoom, { duration: 0.8, easeLinearity: 0.25 });
+    }, []);
+
+    // Open the selected business's popup when it changes
     const bizRefs = useRef<Record<number, any>>({});
     useEffect(() => {
         if (selectedBusinessId != null) {
@@ -188,8 +200,10 @@ export default function Map({
     return (
         // @ts-ignore - MapContainer types can be finicky in strict mode sometimes
         <MapContainer
+            ref={mapRef}
             center={center as LatLngExpression}
             zoom={zoom}
+            maxZoom={18}
             style={{ height: '100%', width: '100%' }}
             zoomControl={false}
             preferCanvas={true}
@@ -200,8 +214,6 @@ export default function Map({
             />
 
             <MapUpdater center={center as LatLngExpression} zoom={zoom} bounds={bounds as LatLngExpression[]} />
-            <ClusterClickHandler groupRef={towerClusterRef} />
-            <ClusterClickHandler groupRef={leadClusterRef} />
             <MapEvents onBoundsChange={onBoundsChange} />
 
             {/* Draw parcel polygon for selected tower */}
@@ -255,13 +267,14 @@ export default function Map({
 
             {/* Existing Towers (Red) - Clustered */}
             <MarkerClusterGroup
-                ref={towerClusterRef}
+                onClick={handleClusterClick}
                 chunkedLoading
                 maxClusterRadius={50}
-                spiderfyOnMaxZoom={true}
+                spiderfyOnMaxZoom={false}
                 showCoverageOnHover={false}
                 zoomToBoundsOnClick={false}
                 maxZoom={18}
+                animate={false}
                 iconCreateFunction={(cluster) => {
                     const count = cluster.getChildCount();
                     return L.divIcon({
@@ -328,12 +341,14 @@ export default function Map({
 
             {/* Tower Leads (Green) - Clustered */}
             <MarkerClusterGroup
-                ref={leadClusterRef}
+                onClick={handleClusterClick}
                 chunkedLoading
                 maxClusterRadius={40}
+                spiderfyOnMaxZoom={false}
                 showCoverageOnHover={false}
                 zoomToBoundsOnClick={false}
                 maxZoom={18}
+                animate={false}
                 iconCreateFunction={(cluster) => {
                     const count = cluster.getChildCount();
                     return L.divIcon({
