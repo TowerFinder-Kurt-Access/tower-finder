@@ -1,7 +1,6 @@
 'use client';
 import { usePathname } from 'next/navigation';
-import { useSession, signOut } from 'next-auth/react';
-import * as React from 'react';
+import { signOut } from 'next-auth/react';
 import { useState } from 'react';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
@@ -9,18 +8,11 @@ import MapIcon from '@mui/icons-material/Map';
 import GroupIcon from '@mui/icons-material/Group';
 import TableRowsIcon from '@mui/icons-material/TableRows';
 import PersonIcon from '@mui/icons-material/Person';
-import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
-import ExploreIcon from '@mui/icons-material/Explore';
 import LogoutIcon from '@mui/icons-material/Logout';
 import MenuIcon from '@mui/icons-material/Menu';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
-import SettingsIcon from '@mui/icons-material/Settings';
 import { IconButton, MenuItem, Select, FormControl, InputLabel, ListItemIcon, ListItemText, List, ListItemButton } from '@mui/material';
-import { Role } from '@prisma/client';
 import { useCountry } from '@/lib/country-context';
-
-import AutorenewIcon from '@mui/icons-material/Autorenew';
-import RadarIcon from '@mui/icons-material/Radar';
 
 const COUNTRIES = [
     { code: 'Canada', flag: '\ud83c\udde8\ud83c\udde6', short: 'CA' },
@@ -29,30 +21,14 @@ const COUNTRIES = [
 
 export default function NavRail() {
     const pathname = usePathname();
-    const { data: session } = useSession();
     const { country, setCountry } = useCountry();
     const [isCollapsed, setIsCollapsed] = useState(false);
 
-    const baseNavItems = [
+    const navItems = [
         { label: 'Map', icon: <MapIcon />, path: '/' },
         { label: 'Towers', icon: <TableRowsIcon />, path: '/towers' },
         { label: 'Property Owners', icon: <GroupIcon />, path: '/owners' },
     ];
-
-    const superpowersItems = [
-        { label: 'Tower Leads', icon: <ExploreIcon />, path: '/superpowers/tower-leads' },
-        { label: 'Users', icon: <AdminPanelSettingsIcon />, path: '/superpowers/users' },
-        { label: 'Background Jobs', icon: <AutorenewIcon />, path: '/superpowers/jobs' },
-        { label: 'Discovery Scans', icon: <RadarIcon />, path: '/superpowers/discovery' },
-        { label: 'Lookups', icon: <SettingsIcon />, path: '/superpowers/lookups' },
-    ];
-
-    const isAdmin = session?.user?.role === Role.ADMIN;
-    const isOnSuperpowers = pathname?.startsWith('/superpowers') ?? false;
-    const navItems = isAdmin
-        ? [...baseNavItems, { label: 'Superpowers', icon: <AdminPanelSettingsIcon />, path: '/superpowers' }]
-        : baseNavItems;
-    const subNavItems = isAdmin && isOnSuperpowers ? superpowersItems : [];
 
     const drawerWidth = isCollapsed ? 80 : 260;
 
@@ -159,60 +135,7 @@ export default function NavRail() {
                 })}
             </List>
 
-            {/* Superpowers sub-nav (visible to admins on /superpowers/*) */}
-            {subNavItems.length > 0 && (
-                <Box sx={{ borderTop: '1px solid #333', px: 1, pt: 1 }}>
-                    {!isCollapsed && (
-                        <Typography
-                            variant="caption"
-                            sx={{ color: '#888', pl: 1, textTransform: 'uppercase', letterSpacing: 0.5 }}
-                        >
-                            Superpowers
-                        </Typography>
-                    )}
-                    <List sx={{ px: 0, pt: 0.5 }}>
-                        {subNavItems.map((item) => {
-                            const isActive = pathname === item.path;
-                            return (
-                                <ListItemButton
-                                    key={item.path}
-                                    component="a"
-                                    href={item.path}
-                                    selected={isActive}
-                                    sx={{
-                                        justifyContent: isCollapsed ? 'center' : 'initial',
-                                        borderRadius: 1,
-                                        mb: 0.25,
-                                        bgcolor: isActive ? 'rgba(33, 150, 243, 0.16)' : 'transparent',
-                                        color: isActive ? '#64b5f6' : 'white',
-                                        '&.Mui-selected': { bgcolor: 'rgba(33, 150, 243, 0.25)' },
-                                        '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.08)' },
-                                    }}
-                                >
-                                    <ListItemIcon
-                                        sx={{
-                                            color: isActive ? '#64b5f6' : 'white',
-                                            minWidth: 0,
-                                            mr: isCollapsed ? 0 : 1.5,
-                                            justifyContent: 'center',
-                                        }}
-                                    >
-                                        {item.icon}
-                                    </ListItemIcon>
-                                    {!isCollapsed && (
-                                        <ListItemText
-                                            primary={item.label}
-                                            primaryTypographyProps={{ fontSize: '0.85rem' }}
-                                        />
-                                    )}
-                                </ListItemButton>
-                            );
-                        })}
-                    </List>
-                </Box>
-            )}
 
-            {/* Bottom Section */}
             <Box sx={{ mt: 'auto', borderTop: '1px solid #333', p: 1 }}>
                 <List>
                     <ListItemButton
