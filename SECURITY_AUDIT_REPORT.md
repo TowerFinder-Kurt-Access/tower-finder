@@ -40,9 +40,9 @@
 | **F13** | Medium | `src/services/PhoneValidationService.ts:17` | `http://apilayer.net` plaintext — phone+key sniffable | `https://` | **Fixed** |
 | **F14** | Medium | `src/app/api/profile/two-factor/route.ts:67` | `disable` needs no password/OTP — stolen session disables 2FA | Require OTP/password | Open |
 | **F15** | Medium | `sentry.*.config.ts` `next.config.mjs` | `tracesSampleRate:1` 100% + no `beforeSend` scrub — PII in breadcrumbs | `0.1` + scrub secrets | Open |
-| **F16** | Medium | `auth/forgot-password, lockout-status` `login-security.ts` | No IP limit, `lockout-status` oracle enumerates emails, email-only lockout | IP limit + CAPTCHA | Open |
+| **F16** | Medium | `auth/forgot-password` + `lockout-status` *(fixed 2026-08-28)* | No IP limit — **fixed** (5/min + 10/min `isIpRateLimited`) | **Fixed** |
 | **F17** | Medium | `src/conductor/worker.ts` `POSTGRES_URL` | Worker uses raw superuser DB on laptop — holder can poison `JobQueue` | Least-priv role or CRON_SECRET HTTP | Open |
-| **F18** | Medium | `InformationService.ts:207` | Verbose `console.log` of ReportAll response — PII in Vercel logs | Truncate/mask | Open |
+| **F18** | Medium | `InformationService.ts:215,231` *(fixed 2026-08-28)* | Verbose PII logs — **fixed** (truncate 500) | **Fixed** |
 | **F19** | Medium | `src/middleware.ts:21` | Revocation `catch {revoked=false}` fail-open during DB outage (7d JWT) | Short JWT + alert | Accepted risk |
 | **F20** | Low | `lib/jobs/*` | No dedup — 126,376 jobs, loop can bloat | Unique pending constraint | Open |
 | **F21** | Low | `next@16.1.6` *(accepted 2026-08-28)* | Stale `next` GHSA — **accepted** (defer bump, keep Dependabot) | **Accepted** |

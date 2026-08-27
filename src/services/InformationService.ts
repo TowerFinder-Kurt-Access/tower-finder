@@ -212,9 +212,10 @@ export class InformationService {
             console.log('\n========== REPORTALL API RESPONSE ==========');
             console.log('Status:', response.status);
             console.log('Results Count:', response.data.results?.length || 0);
-            console.log('Response Data:', JSON.stringify(response.data, null, 2));
+            // ponytail: truncate PII — don't dump full owner/parcel JSON to Vercel logs
+            const preview = JSON.stringify(response.data).slice(0, 500);
+            console.log('Response Data (truncated 500):', preview + (JSON.stringify(response.data).length > 500 ? '…(truncated)' : ''));
             console.log('==========================================\n');
-
             if (response.data.results && response.data.results.length > 0) {
                 return response.data.results[0];
             }
@@ -227,7 +228,8 @@ export class InformationService {
             console.error('Error:', error);
             if (axios.isAxiosError(error)) {
                 console.error('Response Status:', error.response?.status);
-                console.error('Response Data:', error.response?.data);
+                const errPreview = JSON.stringify(error.response?.data ?? '').slice(0, 500);
+                console.error('Response Data (truncated):', errPreview);
             }
             console.error('==========================================\n');
             throw error;

@@ -5,7 +5,7 @@
 **Source:** `SECURITY_AUDIT_REPORT.md` + `SECURITY_AUDIT_FINDINGS.md` (27 findings)  
 **Legend:** ✅ Fixed in PR #9 · ⏳ Open — Human (console/rotation, not code) · ❌ Open — Code (needs code change) · ◐ Accepted risk (documented) · ℹ️ Info (no fix)
 
-> **Progress:** 13/27 fixed (48%), 14 remaining (8 actionable: 5 code + 3 human + 3 accepted + 3 info). This file tracks only the **remaining** items. For full ledger with evidence, see `SECURITY_AUDIT_FINDINGS.md`.
+> **Progress:** 15/27 fixed (56%), 12 remaining (6 actionable: 3 code + 3 human + 3 accepted + 3 info). This file tracks only the **remaining** items. For full ledger with evidence, see `SECURITY_AUDIT_FINDINGS.md`.
 
 ---
 
@@ -33,9 +33,9 @@
 |---|--------|----------|----------|--------------|-----|-------|
 | F14 | ❌ | Medium | `src/app/api/profile/two-factor/route.ts:67` | `disable` needs no password/OTP — stolen session disables 2FA | Require `verifyLoginOtp(email, code)` or `bcrypt.compare(password)` before `twoFactorEnabled:false` | Code |
 | F15 | ❌ | Medium | `sentry.*.config.ts` `next.config.mjs` | `tracesSampleRate:1` 100% + no `beforeSend` scrub — PII (owner names, ReportAll bodies, phones, OTP) in breadcrumbs | `tracesSampleRate:0.1` + `beforeSend` strip `*_API_KEY`, `CRON_SECRET`, phones, OTP | Code |
-| F16 | ❌ | Medium | `auth/forgot-password, lockout-status` `login-security.ts` | No IP rate limit, `lockout-status` oracle enumerates emails, email-only 5/15m lockout | IP limit 5/min + CAPTCHA, per-IP counter alongside email lockout | Code |
+| F16 | ✅ | Medium | `auth/forgot-password` + `lockout-status` + `login-security.ts` *(fixed 2026-08-28)* | No IP limit — **fixed** (in-memory `isIpRateLimited` 5/min forgot-password, 10/min lockout-status; `requestIp` + 429) | Code |
 | F17 | ⏳ | Medium | `src/conductor/worker.ts` `POSTGRES_URL` | Worker uses raw superuser DB on laptop — holder can poison `JobQueue` | Create `tower_worker` role (JobQueue R/W only) or use CRON_SECRET HTTP endpoint | Infra + Code |
-| F18 | ❌ | Medium | `InformationService.ts:207` `nearby-parcels` | Verbose `console.log` of ReportAll — PII in Vercel logs | Truncate/mask logger with `maskPII` | Code |
+| F18 | ✅ | Medium | `InformationService.ts:207,215,231` *(fixed 2026-08-28)* | Verbose `console.log` ReportAll — **fixed** (truncate to 500 chars, `…(truncated)`, no full `JSON.stringify` dump) | Code |
 
 ---
 
@@ -103,9 +103,9 @@ These are the ⏳ items above plus the checklist from the main report — comple
 | F13 | ✅ | Medium | `http`→`https` NumVerify — fixed |
 | F14 | ❌ | Medium | 2FA disable no re-auth — open code |
 | F15 | ❌ | Medium | Sentry 100% + no scrub — open code |
-| F16 | ❌ | Medium | No IP rate limit — open code |
+| F16 | ✅ | Medium | No IP limit — fixed (5/min + 10/min) |
 | F17 | ⏳ | Medium | Worker superuser — open human |
-| F18 | ❌ | Medium | Verbose PII logs — open code |
+| F18 | ✅ | Medium | Verbose PII logs — fixed (truncated) |
 | F19 | ◐ | Medium | Middleware fail-open — accepted |
 | F20 | ❌ | Low | JobQueue no dedup — open code |
 | F21 | ◐ | Low | `next` stale — accepted (defer) |
@@ -114,4 +114,4 @@ These are the ⏳ items above plus the checklist from the main report — comple
 | F24-26 | ℹ️ | Info | Clean — no fix |
 | F27 | ✅ | Low | Dual secret — fixed (NEXTAUTH_SECRET only) |
 
-**Summary:** ✅ 13 fixed · ⏳ 3 human · ❌ 5 code · ◐ 3 accepted · ℹ️ 3 info = 27
+**Summary:** ✅ 15 fixed · ⏳ 3 human · ❌ 3 code · ◐ 3 accepted · ℹ️ 3 info = 27

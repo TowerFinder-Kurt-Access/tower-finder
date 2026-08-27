@@ -2,8 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { createHash, randomInt } from 'crypto';
 import { sendEmail } from '@/lib/email';
-import { recordLoginEvent, requestIp } from '@/lib/login-security';
-
+import { isIpRateLimited, recordLoginEvent, requestIp } from '@/lib/login-security';
 const CODE_TTL_MS = 10 * 60 * 1000; // 10 minutes
 const CODE_RESEND_COOLDOWN_MS = 60 * 1000; // 1 minute between sends
 const CODE_MAX_ATTEMPTS = 5;
@@ -45,6 +44,11 @@ function resetCodeEmailHtml(code: string): string {
 // Always returns 200 with the same message to prevent email enumeration.
 export async function POST(request: Request) {
     try {
+        // IP rate limit: 5/min — prevents enumeration / quota burn
+        const ip = requestIp(request);
+        if (isIpRateLimited(ip, 5, 60_000)) {
+            return NextResponse.json({ error: 'Too many requests. Try again later.' }, { status: 429 });
+        }
         let body: { email?: string };
         try {
             body = await request.json();
@@ -102,8 +106,7 @@ export async function POST(request: Request) {
             undefined,
             { forceInline: true },
         );
-
-        const ip = requestIp(request);
+        // ip already captured at top for rate limit, reuse
         await recordLoginEvent({
             email,
             userId: user.id,
