@@ -10,7 +10,7 @@ import TableRowsIcon from '@mui/icons-material/TableRows';
 import PersonIcon from '@mui/icons-material/Person';
 import LogoutIcon from '@mui/icons-material/Logout';
 import MenuIcon from '@mui/icons-material/Menu';
-import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
+import MenuOpenIcon from '@mui/icons-material/MenuOpen';
 import { IconButton, MenuItem, Select, FormControl, InputLabel, ListItemIcon, ListItemText, List, ListItemButton } from '@mui/material';
 import { useCountry } from '@/lib/country-context';
 
@@ -61,7 +61,7 @@ export default function NavRail() {
                     </Typography>
                 )}
                 <IconButton onClick={() => setIsCollapsed(!isCollapsed)} sx={{ color: 'white' }}>
-                    {isCollapsed ? <MenuIcon /> : <ChevronLeftIcon />}
+                    {isCollapsed ? <MenuIcon /> : <MenuOpenIcon />}
                 </IconButton>
             </Box>
 

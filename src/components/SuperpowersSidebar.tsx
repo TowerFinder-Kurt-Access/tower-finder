@@ -9,7 +9,7 @@ import Typography from '@mui/material/Typography';
 import { IconButton, ListItemIcon, ListItemText, List, ListItemButton } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import MenuIcon from '@mui/icons-material/Menu';
-import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
+import MenuOpenIcon from '@mui/icons-material/MenuOpen';
 import LogoutIcon from '@mui/icons-material/Logout';
 import ExploreIcon from '@mui/icons-material/Explore';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
@@ -29,6 +29,9 @@ export default function SuperpowersSidebar() {
     const pathname = usePathname();
     const [isCollapsed, setIsCollapsed] = useState(false);
     const drawerWidth = isCollapsed ? 80 : 260;
+    const isOnLanding = pathname === '/superpowers';
+    const backHref = isOnLanding ? '/' : '/superpowers';
+    const backLabel = isOnLanding ? 'Back to Map' : 'Back to Superpowers landing';
 
     return (
         <Box
@@ -64,8 +67,8 @@ export default function SuperpowersSidebar() {
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
                         <IconButton
                             component={Link}
-                            href="/superpowers"
-                            aria-label="Back to Superpowers landing"
+                            href={backHref}
+                            aria-label={backLabel}
                             sx={{ color: 'white', p: 0.5 }}
                         >
                             <ArrowBackIcon />
@@ -80,7 +83,7 @@ export default function SuperpowersSidebar() {
                     aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
                     sx={{ color: 'white' }}
                 >
-                    {isCollapsed ? <MenuIcon /> : <ChevronLeftIcon />}
+                    {isCollapsed ? <MenuIcon /> : <MenuOpenIcon />}
                 </IconButton>
             </Box>
 
