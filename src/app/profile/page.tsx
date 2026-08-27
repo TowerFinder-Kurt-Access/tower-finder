@@ -16,7 +16,7 @@ import Alert from '@mui/material/Alert';
 import Snackbar from '@mui/material/Snackbar';
 import Divider from '@mui/material/Divider';
 import Fab from '@mui/material/Fab';
-import RocketLaunchIcon from '@mui/icons-material/RocketLaunch';
+import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import { validatePassword } from '@/lib/password-policy';
 import { PasswordField } from '@/components/PasswordField';
 
@@ -374,7 +374,7 @@ export default function ProfilePage() {
                     href="/superpowers"
                     variant="extended"
                     color="primary"
-                    aria-label="Open Superpowers"
+                    aria-label="Admin Tools"
                     sx={{
                         position: 'fixed',
                         bottom: 24,
@@ -383,8 +383,8 @@ export default function ProfilePage() {
                         fontWeight: 600,
                     }}
                 >
-                    <RocketLaunchIcon sx={{ mr: 1 }} />
-                    Open Superpowers
+                    <AdminPanelSettingsIcon sx={{ mr: 1 }} />
+                    Admin Tools
                 </Fab>
             )}
          </Box>
