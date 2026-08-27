@@ -51,7 +51,7 @@
 | **F24** | Info | `src/` 14 hosts | All outbound explainable (Resend, ReportAll, NRCan, Geoapify, Overpass, Nominatim, NumVerify, ArcGIS, FCC, AntennaSearch, CellMapper, Whitepages, Sentry) — no rogue host | Keep allowlist | — |
 | **F25** | Info | Supply chain | No typosquat, only `postinstall: prisma generate`, `.env` gitignored | — | — |
 | **F26** | Info | Runtime | `pg_stat_activity` only audit+worker, `JobQueue` legit types, `LoginEvent` normal | — | — |
-| **F27** | Low | `auth.config.ts:56` | `NEXTAUTH_SECRET \|\| AUTH_SECRET` dual name + 7d JWT long | Standardize, 24h rolling | Open |
+| **F27** | Low | `auth.config.ts:56` + `.env.example` *(fixed 2026-08-28)* | Dual `NEXTAUTH_SECRET \|\| AUTH_SECRET` — removed fallback, now `NEXTAUTH_SECRET` only | **Fixed** |
 
 **Counts:** 27 total — 4 Critical, 7 High, 7 Medium, 4 Low, 5 Info — 10 fixed, 17 open/accepted.
 

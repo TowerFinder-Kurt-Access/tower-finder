@@ -5,7 +5,7 @@
 **Source:** `SECURITY_AUDIT_REPORT.md` + `SECURITY_AUDIT_FINDINGS.md` (27 findings)  
 **Legend:** ✅ Fixed in PR #9 · ⏳ Open — Human (console/rotation, not code) · ❌ Open — Code (needs code change) · ◐ Accepted risk (documented) · ℹ️ Info (no fix)
 
-> **Progress:** 11/27 fixed (41%), 16 remaining (12 actionable: 9 code + 3 human + 1 accepted + 3 info). This file tracks only the **remaining** items. For full ledger with evidence, see `SECURITY_AUDIT_FINDINGS.md`.
+> **Progress:** 12/27 fixed (44%), 15 remaining (11 actionable: 8 code + 3 human + 1 accepted + 3 info). This file tracks only the **remaining** items. For full ledger with evidence, see `SECURITY_AUDIT_FINDINGS.md`.
 
 ---
 
@@ -48,7 +48,7 @@
 | F21 | ❌ | Low | `next@16.1.6` `@prisma/client@6.19.3` | Stale GHSA-ggv3 etc. | `npm update next @prisma/client` |
 | F22 | ❌ | Low | `.github/` | No workflows — no SAST/Dependabot | Add `ci.yml` + Dependabot |
 | F23 | ℹ️ | Low | `FCCService.ts` `playwright-extra-stealth` | Stealth scrape, no `robots.txt` check — fragile, not a vuln | Doc + throttle, keep `FCC_HEADED=1` |
-| F27 | ❌ | Low | `auth.config.ts:56` | `NEXTAUTH_SECRET \|\| AUTH_SECRET` dual name + 7d JWT long | Standardize to `AUTH_SECRET`, consider `maxAge 24h` |
+| F27 | ✅ | Low | `auth.config.ts:56` / `.env.example` | Dual `NEXTAUTH_SECRET \|\| AUTH_SECRET` — **fixed** (now `NEXTAUTH_SECRET` only, `AUTH_SECRET` removed) |
 
 ---
 
@@ -112,6 +112,6 @@ These are the ⏳ items above plus the checklist from the main report — comple
 | F22 | ❌ | Low | No CI — open code |
 | F23 | ℹ️ | Low | FCC stealth — info |
 | F24-26 | ℹ️ | Info | Clean — no fix |
-| F27 | ❌ | Low | Dual secret + 7d JWT — open code |
+| F27 | ✅ | Low | Dual secret — fixed (NEXTAUTH_SECRET only) |
 
-**Summary:** ✅ 11 fixed · ⏳ 3 human · ❌ 9 code · ◐ 1 accepted · ℹ️ 3 info = 27
+**Summary:** ✅ 12 fixed · ⏳ 3 human · ❌ 8 code · ◐ 1 accepted · ℹ️ 3 info = 27
