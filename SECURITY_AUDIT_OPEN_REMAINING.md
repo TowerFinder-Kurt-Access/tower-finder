@@ -5,7 +5,7 @@
 **Source:** `SECURITY_AUDIT_REPORT.md` + `SECURITY_AUDIT_FINDINGS.md` (27 findings)  
 **Legend:** ✅ Fixed in PR #9 · ⏳ Open — Human (console/rotation, not code) · ❌ Open — Code (needs code change) · ◐ Accepted risk (documented) · ℹ️ Info (no fix)
 
-> **Progress:** 13/27 fixed (48%), 14 remaining (10 actionable: 7 code + 3 human + 1 accepted + 3 info). This file tracks only the **remaining** items. For full ledger with evidence, see `SECURITY_AUDIT_FINDINGS.md`.
+> **Progress:** 13/27 fixed (48%), 14 remaining (9 actionable: 6 code + 3 human + 2 accepted + 3 info). This file tracks only the **remaining** items. For full ledger with evidence, see `SECURITY_AUDIT_FINDINGS.md`.
 
 ---
 
@@ -45,7 +45,7 @@
 |---|--------|----------|----------|--------------|------|
 | F19 | ◐ | Medium | `src/middleware.ts:21` | Revocation `catch {revoked=false}` fail-open during DB outage (7d JWT). APIs also stay usable during `forcedPasswordChange`. | Accepted — avoids locking everyone out. Mitigate with short JWT (1h) + alert, doc trade-off |
 | F20 | ❌ | Low | `lib/jobs/*` | No dedup — 126,376 jobs, enqueue loop can bloat | Add unique pending constraint + rate limiter |
-| F21 | ❌ | Low | `next@16.1.6` `@prisma/client@6.19.3` | Stale GHSA-ggv3 etc. | `npm update next @prisma/client` |
+| F21 | ◐ | Low | `next@16.1.6` `@prisma/client@6.19.3` | Stale GHSA-ggv3 etc. — **accepted** (defer bump, no breaking change now; track in Dependabot) | `npm update next@16.3.3 @prisma/client@7` when ready |
 | F22 | ❌ | Low | `.github/` | No workflows — no SAST/Dependabot | Add `ci.yml` + Dependabot |
 | F23 | ℹ️ | Low | `FCCService.ts` `playwright-extra-stealth` | Stealth scrape, no `robots.txt` check — fragile, not a vuln | Doc + throttle, keep `FCC_HEADED=1` |
 | F27 | ✅ | Low | `auth.config.ts:56` / `.env.example` | Dual `NEXTAUTH_SECRET \|\| AUTH_SECRET` — **fixed** (now `NEXTAUTH_SECRET` only, `AUTH_SECRET` removed) |
@@ -108,10 +108,10 @@ These are the ⏳ items above plus the checklist from the main report — comple
 | F18 | ❌ | Medium | Verbose PII logs — open code |
 | F19 | ◐ | Medium | Middleware fail-open — accepted |
 | F20 | ❌ | Low | JobQueue no dedup — open code |
-| F21 | ❌ | Low | `next` stale — open code |
+| F21 | ◐ | Low | `next` stale — accepted (defer) |
 | F22 | ❌ | Low | No CI — open code |
 | F23 | ℹ️ | Low | FCC stealth — info |
 | F24-26 | ℹ️ | Info | Clean — no fix |
 | F27 | ✅ | Low | Dual secret — fixed (NEXTAUTH_SECRET only) |
 
-**Summary:** ✅ 13 fixed · ⏳ 3 human · ❌ 7 code · ◐ 1 accepted · ℹ️ 3 info = 27
+**Summary:** ✅ 13 fixed · ⏳ 3 human · ❌ 6 code · ◐ 2 accepted · ℹ️ 3 info = 27

@@ -45,7 +45,7 @@
 | **F18** | Medium | `InformationService.ts:207` | Verbose `console.log` of ReportAll response — PII in Vercel logs | Truncate/mask | Open |
 | **F19** | Medium | `src/middleware.ts:21` | Revocation `catch {revoked=false}` fail-open during DB outage (7d JWT) | Short JWT + alert | Accepted risk |
 | **F20** | Low | `lib/jobs/*` | No dedup — 126,376 jobs, loop can bloat | Unique pending constraint | Open |
-| **F21** | Low | `next@16.1.6` `@prisma/client@6.19.3` | GHSA-ggv3 etc. stale | `next@16.3.3` | Open |
+| **F21** | Low | `next@16.1.6` *(accepted 2026-08-28)* | Stale `next` GHSA — **accepted** (defer bump, keep Dependabot) | **Accepted** |
 | **F22** | Low | `.github/` | No workflows — no SAST/Dependabot | Add CI | Open |
 | **F23** | Low | `FCCService.ts` `playwright-extra-stealth` | Stealth scrape, no `robots.txt` check | Document + throttle | Info |
 | **F24** | Info | `src/` 14 hosts | All outbound explainable (Resend, ReportAll, NRCan, Geoapify, Overpass, Nominatim, NumVerify, ArcGIS, FCC, AntennaSearch, CellMapper, Whitepages, Sentry) — no rogue host | Keep allowlist | — |
