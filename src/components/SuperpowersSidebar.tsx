@@ -2,11 +2,11 @@
 
 import { useState } from 'react';
 import { usePathname } from 'next/navigation';
-import { useSession, signOut } from 'next-auth/react';
+import { signOut } from 'next-auth/react';
 import Link from 'next/link';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
-import { IconButton, MenuItem, Select, FormControl, InputLabel, ListItemIcon, ListItemText, List, ListItemButton } from '@mui/material';
+import { IconButton, ListItemIcon, ListItemText, List, ListItemButton } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import MenuIcon from '@mui/icons-material/Menu';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
@@ -16,12 +16,6 @@ import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import AutorenewIcon from '@mui/icons-material/Autorenew';
 import RadarIcon from '@mui/icons-material/Radar';
 import SettingsIcon from '@mui/icons-material/Settings';
-import { useCountry } from '@/lib/country-context';
-
-const COUNTRIES = [
-    { code: 'Canada', flag: '🇨🇦', short: 'CA' },
-    { code: 'USA', flag: '🇺🇸', short: 'US' },
-];
 
 const NAV_ITEMS = [
     { label: 'Tower Leads', icon: <ExploreIcon />, path: '/superpowers/tower-leads' },
@@ -33,7 +27,6 @@ const NAV_ITEMS = [
 
 export default function SuperpowersSidebar() {
     const pathname = usePathname();
-    const { country, setCountry } = useCountry();
     const [isCollapsed, setIsCollapsed] = useState(false);
     const drawerWidth = isCollapsed ? 80 : 260;
 
@@ -91,46 +84,9 @@ export default function SuperpowersSidebar() {
                 </IconButton>
             </Box>
 
-            {/* Region dropdown */}
-            <Box sx={{ p: 2 }}>
-                {isCollapsed ? (
-                    <Box
-                        sx={{ display: 'flex', justifyContent: 'center', cursor: 'pointer' }}
-                        onClick={() => setIsCollapsed(false)}
-                        title="Change region"
-                    >
-                        <Typography sx={{ fontSize: '1.5rem' }}>
-                            {COUNTRIES.find(c => c.code === country)?.flag || '🌍'}
-                        </Typography>
-                    </Box>
-                ) : (
-                    <FormControl fullWidth size="small" variant="outlined">
-                        <InputLabel sx={{ color: '#aaa' }}>Region</InputLabel>
-                        <Select
-                            value={country}
-                            label="Region"
-                            onChange={(e) => setCountry(e.target.value)}
-                            sx={{
-                                color: 'white',
-                                '.MuiOutlinedInput-notchedOutline': { borderColor: '#444' },
-                                '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#666' },
-                                '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#2196f3' },
-                                '.MuiSvgIcon-root': { color: 'white' },
-                            }}
-                        >
-                            {COUNTRIES.map((c) => (
-                                <MenuItem key={c.code} value={c.code}>
-                                    {c.flag} {c.code}
-                                </MenuItem>
-                            ))}
-                        </Select>
-                    </FormControl>
-                )}
-            </Box>
-
             {/* Nav items */}
             <List sx={{ px: 1 }}>
-                {NAV_ITEMS.map((item) => {
+                 {NAV_ITEMS.map((item) => {
                     const isActive = pathname === item.path;
                     return (
                         <ListItemButton
