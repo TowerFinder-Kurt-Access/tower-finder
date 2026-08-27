@@ -8,27 +8,23 @@ import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
-import Stack from '@mui/material/Stack';
 import CircularProgress from '@mui/material/CircularProgress';
 import LinearProgress from '@mui/material/LinearProgress';
-import Grid from '@mui/material/Grid';
+import Alert from '@mui/material/Alert';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import RadarIcon from '@mui/icons-material/Radar';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ErrorIcon from '@mui/icons-material/Error';
 import PendingIcon from '@mui/icons-material/Pending';
 import CellTowerIcon from '@mui/icons-material/CellTower';
-import TimerIcon from '@mui/icons-material/Timer';
 import { useSession } from 'next-auth/react';
 import { Role } from '@prisma/client';
-import Alert from '@mui/material/Alert';
 
-// Lazy load the map component to avoid SSR issues with Leaflet
 const DiscoveryMap = dynamic(() => import('@/components/DiscoveryMap'), {
     ssr: false,
     loading: () => (
-        <Box sx={{ height: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: '#111' }}>
-            <CircularProgress />
+        <Box sx={{ height: 420, display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: '#0f1115', borderRadius: 2, border: '1px solid #222' }}>
+            <CircularProgress size={28} sx={{ color: '#10b981' }} />
         </Box>
     ),
 });
@@ -55,7 +51,7 @@ interface MapCell {
     lat: number;
     lon: number;
     h3Index: string;
-    status: 'completed' | 'pending' | 'failed';
+    status: 'completed' | 'pending' | 'processing' | 'failed';
     foundCount: number;
 }
 
@@ -72,7 +68,6 @@ export default function DiscoveryProgressPage() {
             setLoading(true);
             const res = await axios.get('/api/admin/discovery-progress');
             setScans(res.data.scans);
-            // Auto-select the first scan if none selected
             if (!selectedScan && res.data.scans.length > 0) {
                 setSelectedScan(res.data.scans[0].state);
             }
@@ -101,14 +96,10 @@ export default function DiscoveryProgressPage() {
         }
     }, [session, loadScans]);
 
-    // Load map data when a scan is selected
     useEffect(() => {
-        if (selectedScan) {
-            loadMapData(selectedScan);
-        }
+        if (selectedScan) loadMapData(selectedScan);
     }, [selectedScan, loadMapData]);
 
-    // Auto-refresh every 30 seconds
     useEffect(() => {
         const interval = setInterval(() => {
             loadScans();
@@ -118,196 +109,182 @@ export default function DiscoveryProgressPage() {
     }, [loadScans, loadMapData, selectedScan]);
 
     if (status === 'loading') {
-        return <Box sx={{ p: 4, textAlign: 'center' }}><CircularProgress /></Box>;
+        return <Box sx={{ p: 4, display: 'flex', justifyContent: 'center' }}><CircularProgress /></Box>;
     }
-
     if (session?.user?.role !== Role.ADMIN) {
         return <Box sx={{ p: 4 }}><Alert severity="error">Access Denied. Admin privileges required.</Alert></Box>;
     }
 
     const activeScan = scans.find(s => s.state === selectedScan);
-
-    const statusColor = (status: string) => {
-        switch (status) {
-            case 'running': return '#4CAF50';
-            case 'completed': return '#2196F3';
-            case 'failed': return '#f44336';
-            case 'paused': return '#ff9800';
-            default: return '#9e9e9e';
-        }
-    };
-
-    const formatDuration = (start: string, end?: string | null) => {
-        const startDate = new Date(start);
-        const endDate = end ? new Date(end) : new Date();
-        const diffMs = endDate.getTime() - startDate.getTime();
-        const hours = Math.floor(diffMs / 3600000);
-        const mins = Math.floor((diffMs % 3600000) / 60000);
-        if (hours > 0) return `${hours}h ${mins}m`;
-        return `${mins}m`;
-    };
+    const clamp = (n: number) => Math.max(0, Math.min(100, n));
 
     return (
-        <Box sx={{ p: 3, height: '100%', display: 'flex', flexDirection: 'column', gap: 2, overflow: 'hidden' }}>
+        <Box sx={{ minHeight: '100vh', bgcolor: '#f7f8f9', px: { xs: 2, md: 3 }, py: { xs: 2, md: 3 } }}>
             {/* Header */}
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                    <RadarIcon sx={{ fontSize: 32, color: '#4CAF50' }} />
+            <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 2, justifyContent: 'space-between', alignItems: { xs: 'flex-start', sm: 'center' }, mb: 2.5 }}>
+                <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center' }}>
+                    <Box sx={{ width: 38, height: 38, borderRadius: 2, bgcolor: '#111', color: '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <RadarIcon sx={{ fontSize: 22 }} />
+                    </Box>
                     <Box>
-                        <Typography variant="h4" sx={{ fontWeight: 700, letterSpacing: '-0.5px' }}>
-                            Discovery Scans
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                            Automated rooftop lease discovery across geographic regions
-                        </Typography>
+                        <Typography variant="h5" sx={{ fontWeight: 800, letterSpacing: '-0.6px', lineHeight: 1.1, color: '#0f172a' }}>Discovery Scans</Typography>
+                        <Typography variant="body2" sx={{ color: '#64748b', fontSize: 13, mt: 0.2 }}>Automated rooftop lease discovery across regions</Typography>
                     </Box>
                 </Box>
                 <Button
                     variant="outlined"
-                    startIcon={<RefreshIcon />}
+                    startIcon={<RefreshIcon sx={{ fontSize: 18 }} />}
                     onClick={() => { loadScans(); if (selectedScan) loadMapData(selectedScan); }}
                     disabled={loading}
+                    sx={{ textTransform: 'none', fontWeight: 700, borderRadius: 2, borderColor: '#e2e8f0', color: '#0f172a', bgcolor: 'white', '&:hover': { borderColor: '#cbd5e1', bgcolor: '#f8fafc' } }}
                 >
                     Refresh
                 </Button>
             </Box>
 
-            {/* Scan Cards */}
-            {scans.length === 0 && !loading && (
-                <Alert severity="info">No discovery scans found. Run the seed script to start scanning a state.</Alert>
-            )}
-
-            <Stack direction="row" spacing={2} sx={{ 
-                overflowX: 'auto', 
-                pb: 4, 
-                px: 1, 
-                '&::-webkit-scrollbar': { height: 6 },
-                '&::-webkit-scrollbar-thumb': { bgcolor: 'rgba(255,255,255,0.1)', borderRadius: 3 }
-            }}>
-                {scans.map(scan => (
-                    <Paper
-                        key={scan.id}
-                        variant="outlined"
-                        onClick={() => setSelectedScan(scan.state)}
-                        sx={{
-                            p: 2.5,
-                            minWidth: 320,
-                            width: 320,
-                            height: 220, // Fixed height to prevent layout shifts and cutoffs
-                            cursor: 'pointer',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            borderRadius: 3,
-                            bgcolor: selectedScan === scan.state ? 'rgba(76, 175, 80, 0.05)' : 'background.paper',
-                            borderColor: selectedScan === scan.state ? 'primary.main' : 'divider',
-                            transition: 'all 0.2s ease-in-out',
-                            '&:hover': { 
-                                borderColor: 'primary.main',
-                                transform: 'translateY(-4px)',
-                                boxShadow: '0 8px 16px rgba(0,0,0,0.3)'
-                            },
-                        }}
-                    >
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
-                            <Box>
-                                <Typography variant="subtitle1" fontWeight={800} color="text.primary">
-                                    {scan.state}
-                                </Typography>
-                                <Typography variant="caption" color="text.secondary">
-                                    Res {scan.h3Resolution} · {scan.totalCells} cells
-                                </Typography>
-                            </Box>
-                            <Chip
-                                label={scan.status.toUpperCase()}
-                                size="small"
-                                color={scan.status === 'running' ? 'primary' : 'default'}
-                                sx={{ 
-                                    fontWeight: 900, fontSize: '0.65rem', height: 20,
-                                    bgcolor: scan.status === 'paused' ? 'warning.main' : undefined 
-                                }}
-                            />
-                        </Box>
-
-                        <Box sx={{ flexGrow: 1 }}>
-                            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                                <Typography variant="caption" fontWeight={700} color="text.secondary">PROGRESS</Typography>
-                                <Typography variant="subtitle2" fontWeight={900} color="primary">
-                                    {scan.progressPercent}%
-                                </Typography>
-                            </Box>
-                            <LinearProgress
-                                variant="determinate"
-                                value={scan.progressPercent}
+            {loading && scans.length === 0 ? (
+                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', lg: '1fr 1fr 1fr' }, gap: 2 }}>
+                    {[0, 1, 2].map(i => (
+                        <Paper key={i} variant="outlined" sx={{ p: 2.5, height: 188, borderRadius: 3, bgcolor: 'white' }}>
+                            <Box sx={{ height: 14, width: 90, bgcolor: '#e2e8f0', borderRadius: 1, mb: 1.5 }} />
+                            <LinearProgress variant="indeterminate" sx={{ height: 6, borderRadius: 99 }} />
+                        </Paper>
+                    ))}
+                </Box>
+            ) : scans.length === 0 ? (
+                <Alert severity="info" sx={{ borderRadius: 2 }}>No discovery scans found. Run the seed script to start scanning a state.</Alert>
+            ) : (
+                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', lg: '1fr 1fr 1fr' }, gap: { xs: 1.5, md: 2 } }}>
+                    {scans.map(scan => {
+                        const isSelected = selectedScan === scan.state;
+                        const pct = clamp(scan.progressPercent);
+                        const pending = Math.max(0, scan.totalCells - scan.completedCells - scan.failedCells);
+                        const statusKey = scan.status.toLowerCase();
+                        return (
+                            <Paper
+                                key={scan.id}
+                                onClick={() => setSelectedScan(scan.state)}
+                                elevation={0}
                                 sx={{
-                                    height: 10,
-                                    borderRadius: 5,
-                                    bgcolor: 'rgba(255,255,255,0.05)',
-                                    '& .MuiLinearProgress-bar': { borderRadius: 5 }
+                                    p: 2.2,
+                                    borderRadius: 3,
+                                    cursor: 'pointer',
+                                    bgcolor: 'white',
+                                    border: '1px solid',
+                                    borderColor: isSelected ? '#10b981' : '#e2e8f0',
+                                    boxShadow: isSelected ? '0 8px 24px rgba(16,185,129,0.12)' : '0 1px 0 rgba(15,23,42,0.04)',
+                                    transition: 'all 0.18s ease',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    minWidth: 0,
+                                    '&:hover': { borderColor: '#10b981', transform: { xs: 'none', md: 'translateY(-2px)' }, boxShadow: '0 10px 28px rgba(15,23,42,0.08)' },
                                 }}
-                            />
-                        </Box>
-
-                        <Box sx={{ 
-                            mt: 2, 
-                            display: 'grid', 
-                            gridTemplateColumns: '1fr 1fr', 
-                            gap: 1.5,
-                            pt: 2,
-                            borderTop: '1px solid',
-                            borderColor: 'divider'
-                        }}>
-                            {[
-                                { icon: <CheckCircleIcon sx={{ fontSize: 16 }} />, val: scan.completedCells, color: '#4CAF50' },
-                                { icon: <ErrorIcon sx={{ fontSize: 16 }} />, val: scan.failedCells, color: '#f44336' },
-                                { icon: <PendingIcon sx={{ fontSize: 16 }} />, val: scan.totalCells - scan.completedCells - scan.failedCells, color: 'text.secondary' },
-                                { icon: <CellTowerIcon sx={{ fontSize: 16 }} />, val: scan.foundLeads, color: '#ff9800', suffix: ' leads' },
-                            ].map((stat, idx) => (
-                                <Box key={idx} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                    <Box sx={{ color: stat.color, display: 'flex' }}>{stat.icon}</Box>
-                                    <Typography variant="caption" fontWeight={700}>
-                                        {stat.val}{stat.suffix}
-                                    </Typography>
+                            >
+                                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1, mb: 1.2 }}>
+                                    <Box sx={{ minWidth: 0 }}>
+                                        <Typography sx={{ fontWeight: 800, fontSize: 14.5, lineHeight: 1.2, color: '#0f172a' }} noWrap>{scan.state}</Typography>
+                                        <Typography sx={{ fontSize: 11.5, color: '#64748b', mt: 0.3 }}>Res {scan.h3Resolution} · {scan.totalCells.toLocaleString()} cells</Typography>
+                                    </Box>
+                                    <Chip
+                                        label={scan.status}
+                                        size="small"
+                                        sx={{
+                                            height: 22,
+                                            fontSize: 10,
+                                            fontWeight: 800,
+                                            letterSpacing: '0.06em',
+                                            textTransform: 'uppercase',
+                                            borderRadius: 99,
+                                            border: '1px solid',
+                                            ...(statusKey === 'running'
+                                                ? { bgcolor: '#ecfdf5', color: '#047857', borderColor: '#a7f3d0' }
+                                                : statusKey === 'paused'
+                                                    ? { bgcolor: '#fff7ed', color: '#9a3412', borderColor: '#fed7aa' }
+                                                    : statusKey === 'completed'
+                                                        ? { bgcolor: '#eff6ff', color: '#1d4ed8', borderColor: '#bfdbfe' }
+                                                        : statusKey === 'failed'
+                                                            ? { bgcolor: '#fef2f2', color: '#991b1b', borderColor: '#fecaca' }
+                                                            : { bgcolor: '#f1f5f9', color: '#475569', borderColor: '#e2e8f0' }),
+                                        }}
+                                    />
                                 </Box>
-                            ))}
-                        </Box>
-                    </Paper>
-                ))}
-            </Stack>
 
+                                <Box sx={{ mt: 0.6, mb: 1.2 }}>
+                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.7 }}>
+                                        <Typography sx={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.08em', color: '#94a3b8' }}>PROGRESS</Typography>
+                                        <Typography sx={{ fontSize: 13, fontWeight: 900, color: isSelected ? '#059669' : '#0f172a' }}>{pct}%</Typography>
+                                    </Box>
+                                    <LinearProgress
+                                        variant="determinate"
+                                        value={pct}
+                                        sx={{
+                                            height: 7,
+                                            borderRadius: 99,
+                                            bgcolor: '#f1f5f9',
+                                            '& .MuiLinearProgress-bar': { borderRadius: 99, bgcolor: '#10b981' },
+                                        }}
+                                    />
+                                    {scan.progressPercent > 100 && (
+                                        <Typography sx={{ fontSize: 10, color: '#dc2626', mt: 0.5, fontWeight: 700 }}>Capped from {scan.progressPercent}%</Typography>
+                                    )}
+                                </Box>
 
-            {/* Map Header */}
-            {activeScan && (
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', mt: 1 }}>
-                    <Box>
-                        <Typography variant="h6" fontWeight={700} sx={{ lineHeight: 1 }}>
-                            {activeScan.state} — Coverage Map
-                        </Typography>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mt: 0.5 }}>
-                            <Typography variant="caption" sx={{ color: 'text.secondary', display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                <Box component="span" sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#4CAF50' }} /> Completed
-                            </Typography>
-                            <Typography variant="caption" sx={{ color: 'text.secondary', display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                <Box component="span" sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#ff9800' }} /> Leads Found
-                            </Typography>
-                            <Typography variant="caption" sx={{ color: 'text.secondary', display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                <Box component="span" sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#f44336' }} /> Failed
-                            </Typography>
-                            <Typography variant="caption" sx={{ color: 'text.secondary', display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                <Box component="span" sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: 'rgba(255,255,255,0.1)' }} /> Pending
-                            </Typography>
-                        </Box>
-                    </Box>
-                    {mapLoading && <Typography variant="caption" color="primary" sx={{ animation: 'pulse 1s infinite' }}>Updating map data...</Typography>}
+                                <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1, mt: 'auto', pt: 1.6, borderTop: '1px solid #f1f5f9' }}>
+                                    <Stat icon={<CheckCircleIcon sx={{ fontSize: 14 }} />} label="Done" value={scan.completedCells} color="#059669" />
+                                    <Stat icon={<ErrorIcon sx={{ fontSize: 14 }} />} label="Failed" value={scan.failedCells} color="#dc2626" />
+                                    <Stat icon={<PendingIcon sx={{ fontSize: 14 }} />} label="Pending" value={pending} color="#64748b" />
+                                    <Stat icon={<CellTowerIcon sx={{ fontSize: 14 }} />} label="Leads" value={scan.foundLeads} color="#ea580c" />
+                                </Box>
+                            </Paper>
+                        );
+                    })}
                 </Box>
             )}
 
-            {/* Map Section */}
             {activeScan && (
-                <Paper sx={{ flex: 1, minHeight: 400, overflow: 'hidden', position: 'relative', border: '1px solid rgba(255,255,255,0.05)', borderRadius: 2 }}>
-                    {/* Legend overlay removed in favor of header and clearer markers */}
-                    <DiscoveryMap cells={mapData} state={activeScan.state} />
-                </Paper>
+                <>
+                    <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'flex-start', sm: 'flex-end' }, gap: 1.2, mt: 3, mb: 1.2 }}>
+                        <Box>
+                            <Typography sx={{ fontWeight: 800, fontSize: 15, color: '#0f172a', letterSpacing: '-0.3px' }}>{activeScan.state} — Coverage Map</Typography>
+                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.6, mt: 0.7 }}>
+                                <Legend dot="#10b981" label="Completed" />
+                                <Legend dot="#f97316" label="Leads found" />
+                                <Legend dot="#ef4444" label="Failed" />
+                                <Legend dot="#cbd5e1" label="Pending" />
+                            </Box>
+                        </Box>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minHeight: 20 }}>
+                            {mapLoading && <Typography sx={{ fontSize: 12, fontWeight: 700, color: '#059669' }}>Updating map…</Typography>}
+                            <Typography sx={{ fontSize: 11, color: '#64748b' }}>{mapData.length.toLocaleString()} cells</Typography>
+                        </Box>
+                    </Box>
+
+                    <Paper elevation={0} sx={{ overflow: 'hidden', borderRadius: 3, border: '1px solid #e2e8f0', bgcolor: 'white', p: 1 }}>
+                        <Box sx={{ borderRadius: 2, overflow: 'hidden', border: '1px solid #e2e8f0', height: { xs: 380, md: 520 } }}>
+                            <DiscoveryMap cells={mapData} state={activeScan.state} />
+                        </Box>
+                    </Paper>
+                </>
             )}
+        </Box>
+    );
+}
+
+function Stat({ icon, label, value, color }: { icon: React.ReactNode; label: string; value: number; color: string }) {
+    return (
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8, minWidth: 0 }}>
+            <Box sx={{ color, display: 'flex', flexShrink: 0 }}>{icon}</Box>
+            <Typography sx={{ fontSize: 12, fontWeight: 800, color: '#0f172a', lineHeight: 1 }} noWrap>{value.toLocaleString()}</Typography>
+            <Typography sx={{ fontSize: 11, color: '#64748b', lineHeight: 1 }} noWrap>{label}</Typography>
+        </Box>
+    );
+}
+
+function Legend({ dot, label }: { dot: string; label: string }) {
+    return (
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6 }}>
+            <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: dot, border: dot === '#cbd5e1' ? '1px solid #e2e8f0' : 'none' }} />
+            <Typography sx={{ fontSize: 11, fontWeight: 600, color: '#64748b' }}>{label}</Typography>
         </Box>
     );
 }
