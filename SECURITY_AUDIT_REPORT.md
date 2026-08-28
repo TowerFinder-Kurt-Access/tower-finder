@@ -39,12 +39,12 @@
 | **F12** | High | `experiments/housky.py:15` `test_ownership.py:7` *(deleted 2026-08-28)* | Hardcoded `api_key 0e7cd394-6791-4326-b1d9-ea96782a3f74` ×3 committed | **Deleted** — `experiments/housky.py` + `test_ownership.py` removed (verified `grep housk src/` 0 hits, not in package.json) — no prod use. No rotation needed. | **Fixed** |
 | **F13** | Medium | `src/services/PhoneValidationService.ts:17` | `http://apilayer.net` plaintext — phone+key sniffable | `https://` | **Fixed** |
 | **F14** | Medium | `src/app/api/profile/two-factor/route.ts:67` | `disable` needs no password/OTP — stolen session disables 2FA | Require OTP/password | Open |
-| **F15** | Medium | `sentry.*.config.ts` `next.config.mjs` | `tracesSampleRate:1` 100% + no `beforeSend` scrub — PII in breadcrumbs | `0.1` + scrub secrets | Open |
+| **F15** | Medium | `sentry.*.config.ts` *(fixed 2026-08-28)* | `tracesSampleRate:1` 100% — **fixed** (`0.1` + `beforeSend` scrub) | **Fixed** |
 | **F16** | Medium | `auth/forgot-password` + `lockout-status` *(fixed 2026-08-28)* | No IP limit — **fixed** (5/min + 10/min `isIpRateLimited`) | **Fixed** |
 | **F17** | Medium | `src/conductor/worker.ts` `POSTGRES_URL` | Worker uses raw superuser DB on laptop — holder can poison `JobQueue` | Least-priv role or CRON_SECRET HTTP | Open |
 | **F18** | Medium | `InformationService.ts:215,231` *(fixed 2026-08-28)* | Verbose PII logs — **fixed** (truncate 500) | **Fixed** |
 | **F19** | Medium | `src/middleware.ts:21` | Revocation `catch {revoked=false}` fail-open during DB outage (7d JWT) | Short JWT + alert | Accepted risk |
-| **F20** | Low | `lib/jobs/*` | No dedup — 126,376 jobs, loop can bloat | Unique pending constraint | Open |
+| **F20** | Low | `src/lib/job-queue.ts` *(fixed 2026-08-28)* | No dedup — **fixed** (pending `jobType+params` check) | **Fixed** |
 | **F21** | Low | `next@16.1.6` *(accepted 2026-08-28)* | Stale `next` GHSA — **accepted** (defer bump, keep Dependabot) | **Accepted** |
 | **F22** | Low | `.github/` *(accepted 2026-08-28)* | No CI — **accepted** (Vercel builds; defer full CI, enable Dependabot) | **Accepted** |
 | **F23** | Low | `FCCService.ts` `playwright-extra-stealth` | Stealth scrape, no `robots.txt` check | Document + throttle | Info |
