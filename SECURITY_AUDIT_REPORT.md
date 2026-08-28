@@ -41,9 +41,9 @@
 | **F14** | Medium | `src/app/api/profile/two-factor/route.ts` + `src/app/profile/page.tsx` *(fixed 2026-08-28)* | Disable no re-auth — **fixed** (OTP `issue`/`verify` + snackbar) | **Fixed** |
 | **F15** | Medium | `sentry.*.config.ts` *(fixed 2026-08-28)* | `tracesSampleRate:1` 100% — **fixed** (`0.1` + `beforeSend` scrub) | **Fixed** |
 | **F16** | Medium | `auth/forgot-password` + `lockout-status` *(fixed 2026-08-28)* | No IP limit — **fixed** (5/min + 10/min `isIpRateLimited`) | **Fixed** |
-| **F17** | Medium | `src/conductor/worker.ts` `POSTGRES_URL` *(restricted, attempted 2026-08-28)* | **Attempted** `CREATE ROLE tower_worker` → `42501 restricted` — use Console or `CRON_SECRET` HTTP | **Open — Human** |
+| **F17** | Medium | `src/conductor/worker.ts` `POSTGRES_URL` *(fixed 2026-08-28)* | Worker superuser — **fixed** HTTP `GET/POST /api/worker/job` Bearer `CRON_SECRET` + `worker.ts` no `POSTGRES_URL` | **Fixed** |
 | **F18** | Medium | `InformationService.ts:215,231` *(fixed 2026-08-28)* | Verbose PII logs — **fixed** (truncate 500) | **Fixed** |
-| **F19** | Medium | `src/middleware.ts:21` | Revocation `catch {revoked=false}` fail-open during DB outage (7d JWT) | Short JWT + alert | Accepted risk |
+| **F19** | Medium | `src/middleware.ts:21` `catch {revoked}` *(fixed 2026-08-28)* | `revoked=false` fail-open → **fixed** `revoked=true` fail-closed (DB outage now logs out, closes 7d JWT revival) + `/api/worker` bypass | **Fixed** |
 | **F20** | Low | `src/lib/job-queue.ts` *(fixed 2026-08-28)* | No dedup — **fixed** (pending `jobType+params` check) | **Fixed** |
 | **F21** | Low | `next@16.1.6` *(accepted 2026-08-28)* | Stale `next` GHSA — **accepted** (defer bump, keep Dependabot) | **Accepted** |
 | **F22** | Low | `.github/` *(accepted 2026-08-28)* | No CI — **accepted** (Vercel builds; defer full CI, enable Dependabot) | **Accepted** |

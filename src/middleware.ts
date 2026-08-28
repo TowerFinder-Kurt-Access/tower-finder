@@ -24,7 +24,7 @@ export default auth(async (req: any) => {
             });
             revoked = res.status === 401;
         } catch {
-            revoked = false; // fail open on network errors, never lock everyone out
+            revoked = true; // fail closed — DB outage logs everyone out, prevents revoked sessions surviving 7d JWT (F19)
         }
     }
 
@@ -54,8 +54,8 @@ export default auth(async (req: any) => {
         return Response.redirect(new URL('/', req.url));
     }
 
-    // 4. Allow cron jobs to bypass auth (secured by CRON_SECRET check in the handler)
-    if (pathname.startsWith('/api/cron')) {
+    // 4. Allow cron + worker jobs to bypass auth (secured by CRON_SECRET check in the handler)
+    if (pathname.startsWith('/api/cron') || pathname.startsWith('/api/worker')) {
         return;
     }
 

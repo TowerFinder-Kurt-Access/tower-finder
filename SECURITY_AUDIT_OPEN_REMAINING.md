@@ -5,7 +5,7 @@
 **Source:** `SECURITY_AUDIT_REPORT.md` + `SECURITY_AUDIT_FINDINGS.md` (27 findings)  
 **Legend:** ✅ Fixed in PR #9 · ⏳ Open — Human (console/rotation, not code) · ❌ Open — Code (needs code change) · ◐ Accepted risk (documented) · ℹ️ Info (no fix)
 
-> **Progress:** 19/27 fixed (70%), 8 remaining (2 actionable: 0 code + 2 human + 3 accepted + 3 info). This file tracks only the **remaining** items. For full ledger with evidence, see `SECURITY_AUDIT_FINDINGS.md`.
+> **Progress:** 21/27 fixed (78%), 6 remaining (1 actionable: 0 code + 1 human + 2 accepted + 3 info). This file tracks only the **remaining** items. For full ledger with evidence, see `SECURITY_AUDIT_FINDINGS.md`.
 
 ---
 
@@ -34,7 +34,7 @@
 | F14 | ✅ | Medium | `src/app/api/profile/two-factor/route.ts:67` + `src/app/profile/page.tsx` *(fixed 2026-08-28)* | `disable` no re-auth — **fixed** (OTP confirmation via `issueLoginOtp`/`verifyLoginOtp`, snackbar `code sent to email` → `Verify & Disable`, `429` cooldown) | Code |
 | F15 | ✅ | Medium | `sentry.*.config.ts` *(fixed 2026-08-28)* | `tracesSampleRate:1` 100% — **fixed** (`0.1` + `beforeSend` scrub `*_API_KEY`/phones/`[OTP]`) | Code |
 | F16 | ✅ | Medium | `auth/forgot-password` + `lockout-status` + `login-security.ts` *(fixed 2026-08-28)* | No IP limit — **fixed** (in-memory `isIpRateLimited` 5/min forgot-password, 10/min lockout-status; `requestIp` + 429) | Code |
-| F17 | ⏳ | Medium | `src/conductor/worker.ts` `POSTGRES_URL` *(restricted superuser)* | Worker superuser — **attempted** `CREATE ROLE tower_worker` → `42501 restricted` (same as F03). Laptop holder can poison `JobQueue` via direct DB. | Create `tower_worker` via Prisma Console (JobQueue only) or switch worker to `CRON_SECRET` HTTP (`/api/cron/process-jobs` Bearer) — no DB creds on laptop | Infra + Code |
+| F17 | ✅ | Medium | `src/conductor/worker.ts` `POSTGRES_URL` *(fixed 2026-08-28)* | Worker superuser — **fixed** via HTTP: `GET/POST /api/worker/job` (Bearer `CRON_SECRET`, `pickNextJob`/`markCompleted`/`markFailed` server-side) + `src/conductor/worker.ts` now `fetch(APP_URL)` with `CRON_SECRET`, no `POSTGRES_URL` on laptop | Code — `src/app/api/worker/job/route.ts` + `src/conductor/worker.ts` |
 | F18 | ✅ | Medium | `InformationService.ts:207,215,231` *(fixed 2026-08-28)* | Verbose `console.log` ReportAll — **fixed** (truncate to 500 chars, `…(truncated)`, no full `JSON.stringify` dump) | Code |
 
 ---
@@ -43,7 +43,7 @@
 
 | # | Status | Severity | Location | What is left | Note |
 |---|--------|----------|----------|--------------|------|
-| F19 | ◐ | Medium | `src/middleware.ts:21` | Revocation `catch {revoked=false}` fail-open during DB outage (7d JWT). APIs also stay usable during `forcedPasswordChange`. | Accepted — avoids locking everyone out. Mitigate with short JWT (1h) + alert, doc trade-off |
+| F19 | ✅ | Medium | `src/middleware.ts:21` `catch {revoked}` *(fixed 2026-08-28)* | Fail-open `revoked=false` (7d JWT revival) — **fixed** `revoked=true` fail-closed + `/api/worker` bypass | Code — `src/middleware.ts` |
 | F20 | ✅ | Low | `lib/jobs/*` `src/lib/job-queue.ts` *(fixed 2026-08-28)* | No dedup — **fixed** (`findFirst` pending `jobType+params` dedup, `ponytail: DB hash if throughput grows`) |
 | F21 | ◐ | Low | `next@16.1.6` `@prisma/client@6.19.3` | Stale GHSA-ggv3 etc. — **accepted** (defer bump, no breaking change now; track in Dependabot) | `npm update next@16.3.3 @prisma/client@7` when ready |
 | F22 | ◐ | Low | `.github/` | No workflows — no SAST/Dependabot — **accepted** (Vercel builds, defer full CI; enable Dependabot only) | Enable `.github/dependabot.yml` weekly `npm`; add `ci.yml` later if needed |
@@ -104,9 +104,9 @@ These are the ⏳ items above plus the checklist from the main report — comple
 | F14 | ✅ | Medium | 2FA disable — fixed (OTP + snackbar) |
 | F15 | ✅ | Medium | Sentry 100% — fixed (0.1 + scrub) |
 | F16 | ✅ | Medium | No IP limit — fixed (5/min + 10/min) |
-| F17 | ⏳ | Medium | Worker superuser — open human |
+| F17 | ✅ | Medium | Worker superuser — fixed (HTTP Bearer) |
 | F18 | ✅ | Medium | Verbose PII logs — fixed (truncated) |
-| F19 | ◐ | Medium | Middleware fail-open — accepted |
+| F19 | ✅ | Medium | `src/middleware.ts:21` *(fixed)* | Fail-open — **fixed** `revoked=true` fail-closed |
 | F20 | ✅ | Low | JobQueue dedup — fixed |
 | F21 | ◐ | Low | `next` stale — accepted (defer) |
 | F22 | ◐ | Low | No CI — accepted (Vercel + Dependabot) |
@@ -114,4 +114,4 @@ These are the ⏳ items above plus the checklist from the main report — comple
 | F24-26 | ℹ️ | Info | Clean — no fix |
 | F27 | ✅ | Low | Dual secret — fixed (NEXTAUTH_SECRET only) |
 
-**Summary:** ✅ 19 fixed · ⏳ 2 human · ❌ 0 code · ◐ 3 accepted · ℹ️ 3 info = 27
+**Summary:** ✅ 21 fixed · ⏳ 1 human · ❌ 0 code · ◐ 2 accepted · ℹ️ 3 info = 27
