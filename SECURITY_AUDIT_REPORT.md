@@ -45,15 +45,9 @@
 | **F18** | Medium | `InformationService.ts:215,231` *(fixed 2026-08-28)* | Verbose PII logs — **fixed** (truncate 500) | **Fixed** |
 | **F19** | Medium | `src/middleware.ts:21` `catch {revoked}` *(fixed 2026-08-28)* | `revoked=false` fail-open → **fixed** `revoked=true` fail-closed (DB outage now logs out, closes 7d JWT revival) + `/api/worker` bypass | **Fixed** |
 | **F20** | Low | `src/lib/job-queue.ts` *(fixed 2026-08-28)* | No dedup — **fixed** (pending `jobType+params` check) | **Fixed** |
-| **F21** | Low | `next@16.1.6` *(accepted 2026-08-28)* | Stale `next` GHSA — **accepted** (defer bump, keep Dependabot) | **Accepted** |
-| **F22** | Low | `.github/` *(accepted 2026-08-28)* | No CI — **accepted** (Vercel builds; defer full CI, enable Dependabot) | **Accepted** |
-| **F23** | Low | `FCCService.ts` `playwright-extra-stealth` | Stealth scrape, no `robots.txt` check | Document + throttle | Info |
-| **F24** | Info | `src/` 14 hosts | All outbound explainable (Resend, ReportAll, NRCan, Geoapify, Overpass, Nominatim, NumVerify, ArcGIS, FCC, AntennaSearch, CellMapper, Whitepages, Sentry) — no rogue host | Keep allowlist | — |
-| **F25** | Info | Supply chain | No typosquat, only `postinstall: prisma generate`, `.env` gitignored | — | — |
-| **F26** | Info | Runtime | `pg_stat_activity` only audit+worker, `JobQueue` legit types, `LoginEvent` normal | — | — |
 | **F27** | Low | `auth.config.ts:56` + `.env.example` *(fixed 2026-08-28)* | Dual `NEXTAUTH_SECRET \|\| AUTH_SECRET` — removed fallback, now `NEXTAUTH_SECRET` only | **Fixed** |
 
-**Counts:** 27 total — 4 Critical, 7 High, 7 Medium, 4 Low, 5 Info — 10 fixed, 17 open/accepted.
+**Counts:** 21 actionable (6 archived 2026-08-28: F21–F22 accepted, F23–F26 info) — 4 Critical, 7 High, 7 Medium, 3 Low — 20 fixed, 1 open human (F03). See `SECURITY_AUDIT_FINDINGS.md` archive.
 
 ---
 
@@ -104,7 +98,7 @@ All handler-level auth bypasses + cron + export + plaintext + script defaults �
 
 Diff: 20 files +161/−30, commit `f5897fa`.
 
-Remaining items require console/rotation: DB superuser (F03), migration (F04), dep bumps (F11/F21), Houski rotation (F12), Sentry/2FA/rate-limit (F13-F16).
+Remaining: DB superuser (F03) only — all code fixes done (F04, F11–F12, F14–F20, F27 fixed).
 
 ---
 

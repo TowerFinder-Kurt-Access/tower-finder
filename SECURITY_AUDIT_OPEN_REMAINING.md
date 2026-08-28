@@ -5,7 +5,7 @@
 **Source:** `SECURITY_AUDIT_REPORT.md` + `SECURITY_AUDIT_FINDINGS.md` (27 findings)  
 **Legend:** ✅ Fixed in PR #9 · ⏳ Open — Human (console/rotation, not code) · ❌ Open — Code (needs code change) · ◐ Accepted risk (documented) · ℹ️ Info (no fix)
 
-> **Progress:** 21/27 fixed (78%), 6 remaining (1 actionable: 0 code + 1 human + 2 accepted + 3 info). This file tracks only the **remaining** items. For full ledger with evidence, see `SECURITY_AUDIT_FINDINGS.md`.
+> **Progress:** 20/21 actionable fixed (95%), 1 remaining human (F03). 6 archived (F21–F22 accepted, F23–F26 info) per 2026-08-28 revision. This file tracks only the **remaining** items. For full ledger with evidence, see `SECURITY_AUDIT_FINDINGS.md`.
 
 ---
 
@@ -45,20 +45,14 @@
 |---|--------|----------|----------|--------------|------|
 | F19 | ✅ | Medium | `src/middleware.ts:21` `catch {revoked}` *(fixed 2026-08-28)* | Fail-open `revoked=false` (7d JWT revival) — **fixed** `revoked=true` fail-closed + `/api/worker` bypass | Code — `src/middleware.ts` |
 | F20 | ✅ | Low | `lib/jobs/*` `src/lib/job-queue.ts` *(fixed 2026-08-28)* | No dedup — **fixed** (`findFirst` pending `jobType+params` dedup, `ponytail: DB hash if throughput grows`) |
-| F21 | ◐ | Low | `next@16.1.6` `@prisma/client@6.19.3` | Stale GHSA-ggv3 etc. — **accepted** (defer bump, no breaking change now; track in Dependabot) | `npm update next@16.3.3 @prisma/client@7` when ready |
-| F22 | ◐ | Low | `.github/` | No workflows — no SAST/Dependabot — **accepted** (Vercel builds, defer full CI; enable Dependabot only) | Enable `.github/dependabot.yml` weekly `npm`; add `ci.yml` later if needed |
-| F23 | ℹ️ | Low | `FCCService.ts` `playwright-extra-stealth` | Stealth scrape, no `robots.txt` check — fragile, not a vuln | Doc + throttle, keep `FCC_HEADED=1` |
 | F27 | ✅ | Low | `auth.config.ts:56` / `.env.example` | Dual `NEXTAUTH_SECRET \|\| AUTH_SECRET` — **fixed** (now `NEXTAUTH_SECRET` only, `AUTH_SECRET` removed) |
 
 ---
 
-## 5. Info — no fix (already clean, kept for allowlist)
+## 5. Info — archived 2026-08-28 (F24–F26 removed per revision, see git history)
 
 | # | Status | Severity | Location | Note |
 |---|--------|----------|----------|------|
-| F24 | ℹ️ | Info | 14 outbound hosts | All explainable (Resend, ReportAll, NRCan, Geoapify, Overpass, Nominatim, NumVerify, ArcGIS, FCC, AntennaSearch, CellMapper, Whitepages, Sentry, Houski-experiments) — no rogue host. Keep allowlist in docs. |
-| F25 | ℹ️ | Info | Supply chain | No typosquat, only `postinstall: prisma generate`, `.env` gitignored |
-| F26 | ℹ️ | Info | Runtime | `pg_stat_activity` only audit+worker, `JobQueue` legit types, `LoginEvent` normal |
 | — | ✅ | — | Fixed in PR #9 | F01, F02, F05, F06, F07, F08, F09, F10, F13 — see report §4 |
 
 ---
@@ -106,12 +100,8 @@ These are the ⏳ items above plus the checklist from the main report — comple
 | F16 | ✅ | Medium | No IP limit — fixed (5/min + 10/min) |
 | F17 | ✅ | Medium | Worker superuser — fixed (HTTP Bearer) |
 | F18 | ✅ | Medium | Verbose PII logs — fixed (truncated) |
-| F19 | ✅ | Medium | `src/middleware.ts:21` *(fixed)* | Fail-open — **fixed** `revoked=true` fail-closed |
+| F19 | ✅ | Medium | Fail-open — fixed (`revoked=true`) |
 | F20 | ✅ | Low | JobQueue dedup — fixed |
-| F21 | ◐ | Low | `next` stale — accepted (defer) |
-| F22 | ◐ | Low | No CI — accepted (Vercel + Dependabot) |
-| F23 | ℹ️ | Low | FCC stealth — info |
-| F24-26 | ℹ️ | Info | Clean — no fix |
 | F27 | ✅ | Low | Dual secret — fixed (NEXTAUTH_SECRET only) |
 
-**Summary:** ✅ 21 fixed · ⏳ 1 human · ❌ 0 code · ◐ 2 accepted · ℹ️ 3 info = 27
+**Summary:** ✅ 20 fixed · ⏳ 1 human · ❌ 0 code = 21 actionable (6 archived: F21–F22 accepted, F23–F26 info)
