@@ -5,7 +5,7 @@
 **Source:** `SECURITY_AUDIT_REPORT.md` + `SECURITY_AUDIT_FINDINGS.md` (27 findings)  
 **Legend:** ✅ Fixed in PR #9 · ⏳ Open — Human (console/rotation, not code) · ❌ Open — Code (needs code change) · ◐ Accepted risk (documented) · ℹ️ Info (no fix)
 
-> **Progress:** 18/27 fixed (67%), 9 remaining (3 actionable: 0 code + 3 human + 3 accepted + 3 info). This file tracks only the **remaining** items. For full ledger with evidence, see `SECURITY_AUDIT_FINDINGS.md`.
+> **Progress:** 19/27 fixed (70%), 8 remaining (2 actionable: 0 code + 2 human + 3 accepted + 3 info). This file tracks only the **remaining** items. For full ledger with evidence, see `SECURITY_AUDIT_FINDINGS.md`.
 
 ---
 
@@ -13,8 +13,8 @@
 
 | # | Status | Severity | Location | What is left | Fix | Owner |
 |---|--------|----------|----------|--------------|-----|-------|
-| F03 | ⏳ | Critical | `prisma_migration` DB role `rolsuper=true` | App connects as superuser — any future SQLi = DDL/drops | Create `tower_app` least-privilege (DML only on `Tower`/`Parcel`/`JobQueue` etc.), update Vercel `POSTGRES_URL`, keep `prisma_migration` for migrations only, then `ALTER ROLE prisma_migration NOSUPERUSER`. Rotate `PRISMA_DATABASE_URL` | Infra / DB — Neon console + Vercel env |
-| F04 | ⏳ | Critical | `_prisma_migrations` `20260811031542_login_otp` | `finished_at=null` `ERROR: relation "LoginOtp" already exists` — `migrate deploy` blocked, schema drift | Verify `LoginOtp` shape vs migration SQL, then `npx prisma migrate resolve --applied 20260811031542_login_otp` or `--rolled-back` per `https://pris.ly/d/migrate-resolve`. Add migration-state check to CI | DB — Neon SQL + CI |
+| F03 | ⏳ | Critical | `prisma_migration` `rolsuper=true` *(restricted)* | App as superuser — **attempted** `CREATE ROLE tower_app` → `ERROR 42501 restricted superuser cannot create roles` (Prisma Postgres managed). Full DDL still possible, but role mgmt blocked via SQL. | Use Prisma Data Platform console to create least-privilege user (or rotate `POSTGRES_URL` + limit via connection string), update Vercel `POSTGRES_URL`, keep `prisma_migration` for `migrate` only. Document restricted superuser. | Infra / DB — Prisma Console + Vercel |
+| F04 | ✅ | Critical | `_prisma_migrations` `20260811031542_login_otp` + 2 pending *(fixed 2026-08-28)* | `finished_at=null` blocked — **fixed** (`prisma migrate resolve --applied` for `20260811031542_login_otp`, `20260811045000_user_two_factor`, `20260821090000_add_must_change_password`; duplicate failed row deleted; `migrate status` now `Database schema is up to date`) | DB — Prisma Postgres |
 
 ---
 
@@ -34,7 +34,7 @@
 | F14 | ✅ | Medium | `src/app/api/profile/two-factor/route.ts:67` + `src/app/profile/page.tsx` *(fixed 2026-08-28)* | `disable` no re-auth — **fixed** (OTP confirmation via `issueLoginOtp`/`verifyLoginOtp`, snackbar `code sent to email` → `Verify & Disable`, `429` cooldown) | Code |
 | F15 | ✅ | Medium | `sentry.*.config.ts` *(fixed 2026-08-28)* | `tracesSampleRate:1` 100% — **fixed** (`0.1` + `beforeSend` scrub `*_API_KEY`/phones/`[OTP]`) | Code |
 | F16 | ✅ | Medium | `auth/forgot-password` + `lockout-status` + `login-security.ts` *(fixed 2026-08-28)* | No IP limit — **fixed** (in-memory `isIpRateLimited` 5/min forgot-password, 10/min lockout-status; `requestIp` + 429) | Code |
-| F17 | ⏳ | Medium | `src/conductor/worker.ts` `POSTGRES_URL` | Worker uses raw superuser DB on laptop — holder can poison `JobQueue` | Create `tower_worker` role (JobQueue R/W only) or use CRON_SECRET HTTP endpoint | Infra + Code |
+| F17 | ⏳ | Medium | `src/conductor/worker.ts` `POSTGRES_URL` *(restricted superuser)* | Worker superuser — **attempted** `CREATE ROLE tower_worker` → `42501 restricted` (same as F03). Laptop holder can poison `JobQueue` via direct DB. | Create `tower_worker` via Prisma Console (JobQueue only) or switch worker to `CRON_SECRET` HTTP (`/api/cron/process-jobs` Bearer) — no DB creds on laptop | Infra + Code |
 | F18 | ✅ | Medium | `InformationService.ts:207,215,231` *(fixed 2026-08-28)* | Verbose `console.log` ReportAll — **fixed** (truncate to 500 chars, `…(truncated)`, no full `JSON.stringify` dump) | Code |
 
 ---
@@ -91,7 +91,7 @@ These are the ⏳ items above plus the checklist from the main report — comple
 | F01 | ✅ | Critical | `owners` mass PII — fixed |
 | F02 | ✅ | Critical | `fix-provinces` unauth write — fixed |
 | F03 | ⏳ | Critical | DB superuser — human |
-| F04 | ⏳ | Critical | Stuck migration — human |
+| F04 | ✅ | Critical | Stuck migration — fixed (migrate resolve x3) |
 | F05 | ✅ | High | `discovery-progress` leak — fixed |
 | F06 | ✅ | High | Cron fail-open — fixed |
 | F07 | ✅ | High | `MASTER_PASSWORD` fallback — fixed |
@@ -114,4 +114,4 @@ These are the ⏳ items above plus the checklist from the main report — comple
 | F24-26 | ℹ️ | Info | Clean — no fix |
 | F27 | ✅ | Low | Dual secret — fixed (NEXTAUTH_SECRET only) |
 
-**Summary:** ✅ 18 fixed · ⏳ 3 human · ❌ 0 code · ◐ 3 accepted · ℹ️ 3 info = 27
+**Summary:** ✅ 19 fixed · ⏳ 2 human · ❌ 0 code · ◐ 3 accepted · ℹ️ 3 info = 27

@@ -27,8 +27,8 @@
 |---|----------|----------|----------|-----|--------|
 | **F01** | Critical | `src/app/api/owners/route.ts` GET+POST · `src/app/api/owners/[id]/route.ts` GET+PATCH | No `getAuthUser`/`requireAdmin`. GET leaks all owners+contacts+parcels (PII). POST creates owner+contacts. PATCH mutates. Middleware 302 only — `curl` bypasses. | Add `await getAuthUser()` to all handlers | **Fixed** |
 | **F02** | Critical | `src/app/api/admin/fix-provinces/route.ts` POST+GET | No auth import. POST loops `towerLead.findMany` → `axios Nominatim` → `prisma.towerLead.update`. Can DoS/province-poison. | Add `await requireAdmin()` | **Fixed** |
-| **F03** | Critical | DB role `prisma_migration` | `SELECT rolsuper FROM pg_roles` → `true`. App is superuser — any SQLi = DDL/drops. Grants ALL on every table. Verified live. | Create `tower_app` least-privilege, rotate `POSTGRES_URL`, keep `prisma_migration` for migrations only | Open — human |
-| **F04** | Critical | `_prisma_migrations` `20260811031542_login_otp` | `finished_at=null` `ERROR: relation "LoginOtp" already exists` (42P07) — `migrate deploy` blocked, schema drift | `prisma migrate resolve --applied` or `--rolled-back` | Open — human |
+| **F03** | Critical | `prisma_migration` `rolsuper=true` *(restricted, attempted 2026-08-28)* | **Attempted** `CREATE ROLE tower_app` → `42501 restricted superuser cannot create roles` (Prisma Postgres) — use Prisma Console, rotate `POSTGRES_URL` | **Open — Human** |
+| **F04** | Critical | `_prisma_migrations` `20260811031542_login_otp` + 2 pending *(fixed 2026-08-28)* | `migrate resolve --applied` ×3, `migrate status` `up to date`, duplicate deleted | **Fixed** |
 | **F05** | High | `src/app/api/admin/discovery-progress/route.ts:3,68` | `// import {requireAdmin}` and `// await requireAdmin()` commented out — admin scans/jobs leak | Uncomment `requireAdmin` | **Fixed** |
 | **F06** | High | `src/middleware.ts:58-60` + `src/app/api/cron/*` 5 files | Middleware `if (path.startsWith('/api/cron')) return` skips auth. Handler `if (!isAdmin && cronSecret && header !== Bearer)` fail-open when `CRON_SECRET` empty. Also `?secret=` query leaks in logs. | Fail-closed `if (!cronSecret) 500` + `header !== Bearer` only, remove `?secret` | **Fixed** |
 | **F07** | High | `scripts/create_admin.js:9` `scripts/test_password.js:10` | `MASTER_PASSWORD \|\| 'admin123'` fallback + plaintext `console.log` — sets `admin@tower-finder.com` to weak pw if env missing | `throw if (!pw)`, redact log, delete from image | **Fixed** |
@@ -41,7 +41,7 @@
 | **F14** | Medium | `src/app/api/profile/two-factor/route.ts` + `src/app/profile/page.tsx` *(fixed 2026-08-28)* | Disable no re-auth — **fixed** (OTP `issue`/`verify` + snackbar) | **Fixed** |
 | **F15** | Medium | `sentry.*.config.ts` *(fixed 2026-08-28)* | `tracesSampleRate:1` 100% — **fixed** (`0.1` + `beforeSend` scrub) | **Fixed** |
 | **F16** | Medium | `auth/forgot-password` + `lockout-status` *(fixed 2026-08-28)* | No IP limit — **fixed** (5/min + 10/min `isIpRateLimited`) | **Fixed** |
-| **F17** | Medium | `src/conductor/worker.ts` `POSTGRES_URL` | Worker uses raw superuser DB on laptop — holder can poison `JobQueue` | Least-priv role or CRON_SECRET HTTP | Open |
+| **F17** | Medium | `src/conductor/worker.ts` `POSTGRES_URL` *(restricted, attempted 2026-08-28)* | **Attempted** `CREATE ROLE tower_worker` → `42501 restricted` — use Console or `CRON_SECRET` HTTP | **Open — Human** |
 | **F18** | Medium | `InformationService.ts:215,231` *(fixed 2026-08-28)* | Verbose PII logs — **fixed** (truncate 500) | **Fixed** |
 | **F19** | Medium | `src/middleware.ts:21` | Revocation `catch {revoked=false}` fail-open during DB outage (7d JWT) | Short JWT + alert | Accepted risk |
 | **F20** | Low | `src/lib/job-queue.ts` *(fixed 2026-08-28)* | No dedup — **fixed** (pending `jobType+params` check) | **Fixed** |
