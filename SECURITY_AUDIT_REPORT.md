@@ -38,7 +38,7 @@
 | **F11** | High | `package.json` + `src/services/ExportService.ts` *(fixed 2026-08-28)* | `xlsx@0.18.5` GHSA-4r6h/5pgg — **removed** (latest still vuln) → `exceljs` only, `xlsx` removed from prod | **Fixed** |
 | **F12** | High | `experiments/housky.py:15` `test_ownership.py:7` *(deleted 2026-08-28)* | Hardcoded `api_key 0e7cd394-6791-4326-b1d9-ea96782a3f74` ×3 committed | **Deleted** — `experiments/housky.py` + `test_ownership.py` removed (verified `grep housk src/` 0 hits, not in package.json) — no prod use. No rotation needed. | **Fixed** |
 | **F13** | Medium | `src/services/PhoneValidationService.ts:17` | `http://apilayer.net` plaintext — phone+key sniffable | `https://` | **Fixed** |
-| **F14** | Medium | `src/app/api/profile/two-factor/route.ts:67` | `disable` needs no password/OTP — stolen session disables 2FA | Require OTP/password | Open |
+| **F14** | Medium | `src/app/api/profile/two-factor/route.ts` + `src/app/profile/page.tsx` *(fixed 2026-08-28)* | Disable no re-auth — **fixed** (OTP `issue`/`verify` + snackbar) | **Fixed** |
 | **F15** | Medium | `sentry.*.config.ts` *(fixed 2026-08-28)* | `tracesSampleRate:1` 100% — **fixed** (`0.1` + `beforeSend` scrub) | **Fixed** |
 | **F16** | Medium | `auth/forgot-password` + `lockout-status` *(fixed 2026-08-28)* | No IP limit — **fixed** (5/min + 10/min `isIpRateLimited`) | **Fixed** |
 | **F17** | Medium | `src/conductor/worker.ts` `POSTGRES_URL` | Worker uses raw superuser DB on laptop — holder can poison `JobQueue` | Least-priv role or CRON_SECRET HTTP | Open |

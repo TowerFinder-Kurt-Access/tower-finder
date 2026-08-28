@@ -5,7 +5,7 @@
 **Source:** `SECURITY_AUDIT_REPORT.md` + `SECURITY_AUDIT_FINDINGS.md` (27 findings)  
 **Legend:** ✅ Fixed in PR #9 · ⏳ Open — Human (console/rotation, not code) · ❌ Open — Code (needs code change) · ◐ Accepted risk (documented) · ℹ️ Info (no fix)
 
-> **Progress:** 17/27 fixed (63%), 10 remaining (4 actionable: 1 code + 3 human + 3 accepted + 3 info). This file tracks only the **remaining** items. For full ledger with evidence, see `SECURITY_AUDIT_FINDINGS.md`.
+> **Progress:** 18/27 fixed (67%), 9 remaining (3 actionable: 0 code + 3 human + 3 accepted + 3 info). This file tracks only the **remaining** items. For full ledger with evidence, see `SECURITY_AUDIT_FINDINGS.md`.
 
 ---
 
@@ -31,7 +31,7 @@
 
 | # | Status | Severity | Location | What is left | Fix | Owner |
 |---|--------|----------|----------|--------------|-----|-------|
-| F14 | ❌ | Medium | `src/app/api/profile/two-factor/route.ts:67` | `disable` needs no password/OTP — stolen session disables 2FA | Require `verifyLoginOtp(email, code)` or `bcrypt.compare(password)` before `twoFactorEnabled:false` | Code |
+| F14 | ✅ | Medium | `src/app/api/profile/two-factor/route.ts:67` + `src/app/profile/page.tsx` *(fixed 2026-08-28)* | `disable` no re-auth — **fixed** (OTP confirmation via `issueLoginOtp`/`verifyLoginOtp`, snackbar `code sent to email` → `Verify & Disable`, `429` cooldown) | Code |
 | F15 | ✅ | Medium | `sentry.*.config.ts` *(fixed 2026-08-28)* | `tracesSampleRate:1` 100% — **fixed** (`0.1` + `beforeSend` scrub `*_API_KEY`/phones/`[OTP]`) | Code |
 | F16 | ✅ | Medium | `auth/forgot-password` + `lockout-status` + `login-security.ts` *(fixed 2026-08-28)* | No IP limit — **fixed** (in-memory `isIpRateLimited` 5/min forgot-password, 10/min lockout-status; `requestIp` + 429) | Code |
 | F17 | ⏳ | Medium | `src/conductor/worker.ts` `POSTGRES_URL` | Worker uses raw superuser DB on laptop — holder can poison `JobQueue` | Create `tower_worker` role (JobQueue R/W only) or use CRON_SECRET HTTP endpoint | Infra + Code |
@@ -101,7 +101,7 @@ These are the ⏳ items above plus the checklist from the main report — comple
 | F11 | ✅ | High | `xlsx` — fixed (removed, exceljs only) |
 | F12 | ✅ | High | Houski `housky.py` — **deleted** (`experiments/housky.py`, `test_ownership.py` removed 2026-08-28) — no prod use |
 | F13 | ✅ | Medium | `http`→`https` NumVerify — fixed |
-| F14 | ❌ | Medium | 2FA disable no re-auth — open code |
+| F14 | ✅ | Medium | 2FA disable — fixed (OTP + snackbar) |
 | F15 | ✅ | Medium | Sentry 100% — fixed (0.1 + scrub) |
 | F16 | ✅ | Medium | No IP limit — fixed (5/min + 10/min) |
 | F17 | ⏳ | Medium | Worker superuser — open human |
@@ -114,4 +114,4 @@ These are the ⏳ items above plus the checklist from the main report — comple
 | F24-26 | ℹ️ | Info | Clean — no fix |
 | F27 | ✅ | Low | Dual secret — fixed (NEXTAUTH_SECRET only) |
 
-**Summary:** ✅ 17 fixed · ⏳ 3 human · ❌ 1 code · ◐ 3 accepted · ℹ️ 3 info = 27
+**Summary:** ✅ 18 fixed · ⏳ 3 human · ❌ 0 code · ◐ 3 accepted · ℹ️ 3 info = 27

@@ -34,6 +34,8 @@ export default function ProfilePage() {
     const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
     const [pendingEnableCode, setPendingEnableCode] = useState(false);
     const [enableCode, setEnableCode] = useState('');
+    const [pendingDisableCode, setPendingDisableCode] = useState(false);
+    const [disableCode, setDisableCode] = useState('');
     const [twoFactorBusy, setTwoFactorBusy] = useState(false);
     const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
         open: false,
@@ -160,20 +162,38 @@ export default function ProfilePage() {
         setTwoFactorBusy(true);
         setMessage('');
         try {
-            const res = await axios.post('/api/profile/two-factor', { action: 'disable' });
-            setTwoFactorEnabled(res.data?.twoFactorEnabled === true);
-            setPendingEnableCode(false);
-            setSnackbar({ open: true, message: 'Two-factor authentication disabled.', severity: 'success' });
+            await axios.post('/api/profile/two-factor', { action: 'disable' });
+            setPendingDisableCode(true);
+            setDisableCode('');
+            setSnackbar({
+                open: true,
+                message: `We've sent a 6-digit code to ${session?.user?.email ?? 'your email'} — enter it to confirm disabling.`,
+                severity: 'success',
+            });
         } catch (error: unknown) {
-            const errMessage = error instanceof AxiosError
-                ? error.response?.data?.error || 'Could not disable two-factor authentication.'
-                : 'Could not disable two-factor authentication.';
+            const errMessage = error instanceof AxiosError ? error.response?.data?.error || 'Could not send the code. Please try again.' : 'Could not send the code. Please try again.';
             setSnackbar({ open: true, message: errMessage, severity: 'error' });
         } finally {
             setTwoFactorBusy(false);
         }
     };
 
+    const handleVerifyDisableTwoFactor = async () => {
+        setTwoFactorBusy(true);
+        setMessage('');
+        try {
+            const res = await axios.post('/api/profile/two-factor', { action: 'disable', code: disableCode });
+            setTwoFactorEnabled(res.data?.twoFactorEnabled === true);
+            setPendingDisableCode(false);
+            setDisableCode('');
+            setSnackbar({ open: true, message: 'Two-factor authentication disabled.', severity: 'success' });
+        } catch (error: unknown) {
+            const errMessage = error instanceof AxiosError ? error.response?.data?.error || 'Could not verify the code. Try again.' : 'Could not verify the code. Try again.';
+            setSnackbar({ open: true, message: errMessage, severity: 'error' });
+        } finally {
+            setTwoFactorBusy(false);
+        }
+    };
     return (
         <Box sx={{ p: 3, maxWidth: 800, mx: 'auto' }}>
             <Typography variant="h4" sx={{ mb: 3, fontWeight: 600 }}>Profile Settings</Typography>
@@ -284,6 +304,37 @@ export default function ProfilePage() {
                                 onClick={() => {
                                     setPendingEnableCode(false);
                                     setEnableCode('');
+                                }}
+                            >
+                                Cancel
+                            </Button>
+                        </Box>
+                    </Box>
+                )}
+                {pendingDisableCode && (
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2 }}>
+                        <Typography variant="body2" color="text.secondary">
+                            Enter the 6-digit code sent to {session?.user?.email ?? 'your email'} to confirm disabling.
+                        </Typography>
+                        <TextField
+                            label="One-time code"
+                            value={disableCode}
+                            onChange={(e) => setDisableCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                            inputMode="numeric"
+                            autoComplete="one-time-code"
+                            fullWidth
+                            autoFocus
+                        />
+                        <Box sx={{ display: 'flex', gap: 1 }}>
+                            <Button variant="contained" color="error" onClick={handleVerifyDisableTwoFactor} disabled={disableCode.length !== 6 || twoFactorBusy}>
+                                {twoFactorBusy ? 'Verifying...' : 'Verify & Disable'}
+                            </Button>
+                            <Button
+                                variant="text"
+                                disabled={twoFactorBusy}
+                                onClick={() => {
+                                    setPendingDisableCode(false);
+                                    setDisableCode('');
                                 }}
                             >
                                 Cancel
