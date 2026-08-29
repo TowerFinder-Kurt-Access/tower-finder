@@ -7,10 +7,11 @@ const prisma = new PrismaClient();
 async function testPassword() {
     try {
         const email = 'admin@tower-finder.com';
-        const password = process.env.MASTER_PASSWORD || 'admin123';
+        const password = process.env.MASTER_PASSWORD;
+        if (!password) throw new Error('MASTER_PASSWORD required — refusing weak default');
 
         console.log('Testing password for:', email);
-        console.log('Password:', password);
+        console.log('Password: [redacted]');
 
         const user = await prisma.user.findUnique({
             where: { email }

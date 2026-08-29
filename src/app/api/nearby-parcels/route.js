@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { getAuthUser } from '@/lib/auth-helpers';
 import axios from 'axios';
 
 // Reuse helper (could be moved to util file, keeping inline for speed)
@@ -33,6 +34,7 @@ function parsePoly(str) {
 }
 
 export async function GET(request) {
+    try { await getAuthUser(); } catch { return NextResponse.json({ error: 'Unauthorized' }, { status: 401 }); }
     const { searchParams } = new URL(request.url);
     const lat = searchParams.get('lat');
     const lon = searchParams.get('lon');

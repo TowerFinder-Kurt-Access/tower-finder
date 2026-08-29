@@ -23,7 +23,8 @@ export async function GET(request: Request) {
         const session = await auth();
         const isAdmin = session?.user?.role === Role.ADMIN;
 
-        if (!isAdmin && cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+        if (!cronSecret) return NextResponse.json({ error: 'Server misconfigured: CRON_SECRET not set' }, { status: 500 });
+        if (!isAdmin && authHeader !== `Bearer ${cronSecret}`) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 

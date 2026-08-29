@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-// import { requireAdmin } from '@/lib/auth-helpers';
+import { requireAdmin } from '@/lib/auth-helpers';
 
 /** County Centroids for California (Partial for common counties to save space) */
 const CA_COUNTY_CENTROIDS: Record<string, [number, number]> = {
@@ -65,7 +65,7 @@ const CA_COUNTY_CENTROIDS: Record<string, [number, number]> = {
 };
 
 export async function GET(req: Request) {
-    // await requireAdmin();
+    try { await requireAdmin(); } catch (e:any) { return NextResponse.json({ error: (e as Error).message || 'Unauthorized' }, { status: e?.message?.includes('Forbidden')?403:401 }); }
 
     const { searchParams } = new URL(req.url);
     const includeMap = searchParams.get('includeMap') === 'true';

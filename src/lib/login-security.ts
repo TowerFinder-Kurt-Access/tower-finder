@@ -19,6 +19,22 @@ export function requestIp(request: Request | null | undefined): string | null {
     return fwd ? fwd.split(',')[0].trim() : null;
 }
 
+// ponytail: in-memory IP limiter, per-instance only — use Redis/Upstash if you need cross-instance limits
+const ipHits = new Map<string, number[]>();
+export function isIpRateLimited(ip: string | null, max = 5, windowMs = 60_000): boolean {
+    if (!ip) return false;
+    const now = Date.now();
+    const hits = ipHits.get(ip) ?? [];
+    const recent = hits.filter(t => now - t < windowMs);
+    recent.push(now);
+    ipHits.set(ip, recent);
+    // prune old IPs occasionally to cap memory
+    if (ipHits.size > 2000) {
+        for (const [k, v] of ipHits) if (v.length === 0 || now - Math.max(...v) > windowMs) ipHits.delete(k);
+    }
+    return recent.length > max;
+}
+
 export function recordLoginEvent(event: LoginEventInput) {
     return prisma.loginEvent.create({
         data: {

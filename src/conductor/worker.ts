@@ -1,129 +1,154 @@
-import { prisma } from '@/lib/prisma';
-import { pickNextJob, markCompleted, markFailed } from '@/lib/job-queue';
 import { JOB_HANDLERS } from '@/lib/job-handlers';
 
 /**
- * Standalone Discovery Worker
- * 
- * Polls the JobQueue for fcc_rooftop_discovery jobs and processes them locally.
- * This must run on a machine with Playwright/Chromium (your PC), not on Vercel.
- * 
- * Usage: npx tsx src/conductor/worker.ts
- * 
- * Supports filtering by job type via --type flag:
- *   npx tsx src/conductor/worker.ts --type fcc_rooftop_discovery
+ * Standalone Discovery Worker (HTTP mode — F17)
+ *
+ * Polls JobQueue via /api/worker/job with CRON_SECRET Bearer — no direct DB creds on laptop.
+ * Handler execution stays local (Playwright). This must run on a machine with Playwright/Chromium.
+ *
+ * Env: CRON_SECRET (required), APP_URL or NEXTAUTH_URL (prod URL, e.g. https://tower-finder.vercel.app)
+ * Usage: npx tsx src/conductor/worker.ts [--type fcc_rooftop_discovery]
  */
 
-/** Retry a function up to N times with delay on transient DB errors */
+const APP_URL = (
+  process.env.APP_URL ||
+  process.env.NEXTAUTH_URL ||
+  (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
+).replace(/\/$/, '');
+
+const CRON_SECRET = process.env.CRON_SECRET;
+
+if (!CRON_SECRET) {
+  console.error('[Worker] CRON_SECRET not set — add it to .env (same value as Vercel env)');
+  process.exit(1);
+}
+
+/** Retry on transient network errors */
 async function withRetry<T>(fn: () => Promise<T>, retries = 3, delayMs = 5000): Promise<T> {
-    for (let i = 0; i < retries; i++) {
-        try {
-            return await fn();
-        } catch (err: any) {
-            const isTransient = err?.code === 'P1001' || err?.code === 'P1002' || err?.message?.includes("Can't reach database");
-            if (isTransient && i < retries - 1) {
-                console.warn(`[Worker] DB transient error, retrying in ${delayMs / 1000}s... (attempt ${i + 1}/${retries})`);
-                await new Promise(res => setTimeout(res, delayMs));
-                continue;
-            }
-            throw err;
-        }
+  for (let i = 0; i < retries; i++) {
+    try {
+      return await fn();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      const isTransient = msg.includes('fetch failed') || msg.includes('ECONN') || msg.includes('ETIMEDOUT');
+      if (isTransient && i < retries - 1) {
+        console.warn(`[Worker] Transient error, retrying in ${delayMs / 1000}s... (attempt ${i + 1}/${retries})`);
+        await new Promise((res) => setTimeout(res, delayMs));
+        continue;
+      }
+      throw err;
     }
-    throw new Error('withRetry exhausted'); // unreachable
+  }
+  throw new Error('withRetry exhausted');
 }
 
-async function main() {
-    const typeFilter = process.argv.find(a => a.startsWith('--type='))?.split('=')[1]
-        || (process.argv.includes('--type') ? process.argv[process.argv.indexOf('--type') + 1] : null);
-
-    console.log('[Worker] 🚀 Starting AT&T Discovery Worker...');
-    if (typeFilter) {
-        console.log(`[Worker] 🎯 Filtering for job type: ${typeFilter}`);
-    } else {
-        console.log(`[Worker] 🌐 Looking for any and all jobs...`);
-    }
-
-    // Graceful Shutdown Handler
-    let running = true;
-    const shutdown = async () => {
-        console.log('[Worker] Shutting down gracefully...');
-        running = false;
-        try { await prisma.$disconnect(); } catch {}
-        process.exit(0);
-    };
-
-    process.on('SIGTERM', shutdown);
-    process.on('SIGINT', shutdown);
-
-    let processedTotal = 0;
-    let consecutiveDbErrors = 0;
-
-    while (running) {
-        // Pick next job — wrapped in retry for transient DB issues
-        let job;
-        try {
-            // console.log('[Worker] 🔍 Polling for next job...'); // optional, maybe too much
-            job = await withRetry(() => pickNextJob(typeFilter || undefined));
-            consecutiveDbErrors = 0; // reset on success
-        } catch (err: any) {
-            consecutiveDbErrors++;
-            console.error(`[Worker] Failed to pick job (${consecutiveDbErrors} consecutive DB errors):`, err.message);
-            // Back off exponentially: 10s, 20s, 40s, ... max 5 min
-            const backoff = Math.min(10000 * Math.pow(2, consecutiveDbErrors - 1), 300000);
-            console.log(`[Worker] Backing off for ${backoff / 1000}s...`);
-            await new Promise(res => setTimeout(res, backoff));
-            continue;
-        }
-
-        if (!job) {
-            process.stdout.write('.'); // indicator at least
-            // Show idle status periodically
-            if (processedTotal > 0 && processedTotal % 10 === 0) {
-                try {
-                    const scans: any[] = await (prisma as any).discoveryScan.findMany({
-                        where: { status: 'running' }
-                    });
-                    for (const scan of scans) {
-                        const pct = ((scan.completedCells / scan.totalCells) * 100).toFixed(2);
-                        console.log(`[Worker] 📊 ${scan.state}: ${scan.completedCells}/${scan.totalCells} (${pct}%) — ${scan.foundLeads} leads`);
-                    }
-                } catch {} // non-critical, just skip progress display
-            }
-            await new Promise(res => setTimeout(res, 1000));
-            continue;
-        }
-
-        console.log(`\n[Worker] 🚀 Picking up Job ${job.id} (${job.jobType})`);
-
-        const handler = JOB_HANDLERS[job.jobType];
-        if (!handler) {
-            console.warn(`[Worker] Unknown job type: ${job.jobType}, skipping.`);
-            try { await withRetry(() => markFailed(job!.id, `Unknown job type: ${job!.jobType}`)); } catch {}
-            continue;
-        }
-
-        try {
-            const result = await handler(job.params as Record<string, any>, job.id);
-            await withRetry(() => markCompleted(job!.id, result));
-            processedTotal++;
-            console.log(`[Worker] ✅ Job ${job.id} completed. Total processed: ${processedTotal}`);
-        } catch (error: any) {
-            console.error(`[Worker] ❌ Job ${job.id} failed:`, error.message);
-            try {
-                await withRetry(() => markFailed(job!.id, error.message));
-            } catch (dbErr: any) {
-                // If we can't even mark it failed, log and move on.
-                // Job will stay "processing" and can be manually reset.
-                console.error(`[Worker] ⚠️ Could not mark job ${job.id} as failed (DB error):`, dbErr.message);
-            }
-        }
-
-        // Small delay between jobs to avoid rate-limiting
-        await new Promise(res => setTimeout(res, 2000));
-    }
+async function pollJob(typeFilter?: string): Promise<{ id: number; jobType: string; params: Record<string, unknown> } | null> {
+  const url = new URL('/api/worker/job', APP_URL);
+  if (typeFilter) url.searchParams.set('type', typeFilter);
+  const res = await fetch(url.toString(), {
+    headers: { authorization: `Bearer ${CRON_SECRET}` },
+    signal: AbortSignal.timeout(10000),
+  });
+  if (!res.ok) throw new Error(`poll failed ${res.status}: ${await res.text()}`);
+  const data = (await res.json()) as { job: { id: number; jobType: string; params: Record<string, unknown> } | null };
+  return data.job;
 }
 
-main().catch(err => {
-    console.error('[Worker] Fatal error:', err);
-    process.exit(1);
+async function completeJob(jobId: number, result?: Record<string, unknown>): Promise<void> {
+  const res = await fetch(new URL('/api/worker/job', APP_URL).toString(), {
+    method: 'POST',
+    headers: { authorization: `Bearer ${CRON_SECRET}`, 'content-type': 'application/json' },
+    body: JSON.stringify({ jobId, action: 'complete', result }),
+    signal: AbortSignal.timeout(10000),
+  });
+  if (!res.ok) throw new Error(`complete failed ${res.status}: ${await res.text()}`);
+}
+
+async function failJob(jobId: number, error: string): Promise<void> {
+  const res = await fetch(new URL('/api/worker/job', APP_URL).toString(), {
+    method: 'POST',
+    headers: { authorization: `Bearer ${CRON_SECRET}`, 'content-type': 'application/json' },
+    body: JSON.stringify({ jobId, action: 'fail', error }),
+    signal: AbortSignal.timeout(10000),
+  });
+  if (!res.ok) throw new Error(`fail failed ${res.status}: ${await res.text()}`);
+}
+
+async function main(): Promise<void> {
+  const typeFilter =
+    process.argv.find((a) => a.startsWith('--type='))?.split('=')[1] ||
+    (process.argv.includes('--type') ? process.argv[process.argv.indexOf('--type') + 1] : null);
+
+  console.log('[Worker] Starting AT&T Discovery Worker (HTTP mode)...');
+  console.log(`[Worker] APP_URL=${APP_URL}`);
+  if (typeFilter) console.log(`[Worker] Filtering for job type: ${typeFilter}`);
+  else console.log('[Worker] Looking for any and all jobs...');
+
+  let running = true;
+  const shutdown = async (): Promise<void> => {
+    console.log('[Worker] Shutting down gracefully...');
+    running = false;
+    process.exit(0);
+  };
+  process.on('SIGTERM', shutdown);
+  process.on('SIGINT', shutdown);
+
+  let processedTotal = 0;
+  let consecutiveErrors = 0;
+
+  while (running) {
+    let job: { id: number; jobType: string; params: Record<string, unknown> } | null = null;
+    try {
+      job = await withRetry(() => pollJob(typeFilter || undefined));
+      consecutiveErrors = 0;
+    } catch (err: unknown) {
+      consecutiveErrors++;
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error(`[Worker] Failed to poll job (${consecutiveErrors} consecutive errors):`, msg);
+      const backoff = Math.min(10000 * Math.pow(2, consecutiveErrors - 1), 300000);
+      console.log(`[Worker] Backing off for ${backoff / 1000}s...`);
+      await new Promise((res) => setTimeout(res, backoff));
+      continue;
+    }
+
+    if (!job) {
+      process.stdout.write('.');
+      await new Promise((res) => setTimeout(res, 1000));
+      continue;
+    }
+
+    console.log(`\n[Worker] Picking up Job ${job.id} (${job.jobType})`);
+
+    const handler = JOB_HANDLERS[job.jobType];
+    if (!handler) {
+      console.warn(`[Worker] Unknown job type: ${job.jobType}, skipping.`);
+      try {
+        await withRetry(() => failJob(job!.id, `Unknown job type: ${job!.jobType}`));
+      } catch {}
+      continue;
+    }
+
+    try {
+      const result = await handler(job.params as Record<string, unknown>, String(job.id));
+      await withRetry(() => completeJob(job!.id, result as Record<string, unknown>));
+      processedTotal++;
+      console.log(`[Worker] Job ${job.id} completed. Total processed: ${processedTotal}`);
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : String(error);
+      console.error(`[Worker] Job ${job.id} failed:`, msg);
+      try {
+        await withRetry(() => failJob(job!.id, msg));
+      } catch (dbErr: unknown) {
+        const m2 = dbErr instanceof Error ? dbErr.message : String(dbErr);
+        console.error(`[Worker] Could not mark job ${job.id} as failed:`, m2);
+      }
+    }
+
+    await new Promise((res) => setTimeout(res, 2000));
+  }
+}
+
+main().catch((err) => {
+  console.error('[Worker] Fatal error:', err);
+  process.exit(1);
 });

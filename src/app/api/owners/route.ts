@@ -4,9 +4,11 @@ import { Prisma } from '@prisma/client';
 import { ABBR_TO_PROVINCE } from '@/lib/locations';
 import { dedupeDisplayValues } from '@/lib/normalize';
 import { filterOfficialCanadianCities, filterOfficialCanadianCounties, filterCanadianPostalCodes, isCanada } from '@/lib/official-cities';
+import { getAuthUser } from '@/lib/auth-helpers';
 
 // GET /api/owners - List all owners grouped by parcel
 export async function GET(request: Request) {
+    try { await getAuthUser(); } catch { return NextResponse.json({ error: 'Unauthorized' }, { status: 401 }); }
     try {
         const { searchParams } = new URL(request.url);
         const pageStr = searchParams.get('page');
@@ -305,6 +307,7 @@ export async function GET(request: Request) {
 
 // POST /api/owners - Create a new owner with optional contacts and link to a tower's parcel
 export async function POST(request: Request) {
+    try { await getAuthUser(); } catch { return NextResponse.json({ error: 'Unauthorized' }, { status: 401 }); }
     try {
         const body = await request.json();
         const { name, type, address, contacts, towerId } = body;

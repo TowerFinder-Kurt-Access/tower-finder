@@ -25,7 +25,8 @@ interface TwoFactorBody {
 // POST /api/profile/two-factor
 //   { action: 'enable' }          -> emails a code; must be verified before it turns on
 //   { action: 'verify', code }    -> code proven -> twoFactorEnabled = true
-//   { action: 'disable' }         -> immediate opt-out (session is already proof enough)
+//   { action: 'disable' }         -> sends OTP for confirmation (no code) or verifies it (with code)
+//   { action: 'disable', code }   -> verifies OTP -> twoFactorEnabled = false
 export async function POST(request: Request) {
     let user;
     try {
@@ -77,6 +78,32 @@ export async function POST(request: Request) {
         }
 
         if (body.action === 'disable') {
+            const code = (body.code ?? '').trim();
+            // Step 1: no code yet -> send OTP for confirmation
+            if (!code) {
+                const issued = await issueLoginOtp(user.email);
+                if (issued.cooldownRemainingSeconds > 0) {
+                    return NextResponse.json(
+                        { error: 'A code was already sent. Wait before requesting another.', code: 'otp_cooldown', remainingSeconds: issued.cooldownRemainingSeconds },
+                        { status: 429 }
+                    );
+                }
+                return NextResponse.json({ status: 'otp_sent' });
+            }
+            // Step 2: code provided -> verify then disable
+            if (!/^\d{6}$/.test(code)) {
+                return NextResponse.json({ error: 'Enter the 6-digit code', code: 'otp_invalid' }, { status: 400 });
+            }
+            const verified = await verifyLoginOtp(user.email, code);
+            if (verified.ok === false) {
+                const message =
+                    verified.reason === 'max_attempts'
+                        ? 'Too many wrong codes. Request a new one.'
+                        : verified.reason === 'invalid'
+                          ? 'Incorrect code. Try again.'
+                          : 'That code expired or was already used — request a new one.';
+                return NextResponse.json({ error: message, code: `otp_${verified.reason}` }, { status: 400 });
+            }
             const updated = await prisma.user.update({
                 where: { id: user.id },
                 data: { twoFactorEnabled: false },

@@ -41,6 +41,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
 // DELETE /api/towers/[id]/notes/[noteId] - Delete a note
 export async function DELETE(request: Request, { params }: RouteParams) {
     try {
+        await getAuthUser();
         const { noteId } = await params;
         const noteIdNum = parseInt(noteId);
 

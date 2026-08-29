@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server';
+import { getAuthUser } from '@/lib/auth-helpers';
 import axios from 'axios';
 
 export async function GET(request) {
+    try { await getAuthUser(); } catch { return NextResponse.json({ error: 'Unauthorized' }, { status: 401 }); }
     const { searchParams } = new URL(request.url);
     const name = searchParams.get('name');
     const address = searchParams.get('address');

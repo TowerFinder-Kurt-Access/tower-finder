@@ -5,13 +5,18 @@ import { prisma } from '@/lib/prisma';
  * All job types share this queue — the cron runner picks one job at a time.
  */
 
-/** Enqueue a new job */
-export async function enqueueJob(jobType: string, params: Record<string, any>, runAfter?: Date) {
+/** Enqueue a new job — dedup pending with same jobType+params */
+export async function enqueueJob(jobType: string, params: Record<string, unknown>, runAfter?: Date) {
+    // ponytail: app-level dedup — use DB unique hash if throughput grows
+    const existing = await prisma.jobQueue.findFirst({
+        where: { jobType, status: 'pending', params: { equals: params as unknown as object } },
+    });
+    if (existing) return existing;
     return prisma.jobQueue.create({
         data: {
             jobType,
             status: 'pending',
-            params,
+            params: params as unknown as object,
             runAfter: runAfter ?? undefined,
         },
     });

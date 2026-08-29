@@ -52,6 +52,5 @@ export const authConfig = {
     },
     // Trust Vercel's host header to prevent "UnknownAction" errors
     trustHost: true,
-    // Check both standard variable names for robustness
-    secret: process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET,
+    secret: process.env.NEXTAUTH_SECRET,
 } satisfies NextAuthConfig;

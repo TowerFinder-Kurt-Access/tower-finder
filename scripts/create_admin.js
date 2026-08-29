@@ -6,7 +6,8 @@ const prisma = new PrismaClient();
 
 async function createAdmin() {
     try {
-        const password = process.env.MASTER_PASSWORD || 'admin123';
+        const password = process.env.MASTER_PASSWORD;
+        if (!password) throw new Error('MASTER_PASSWORD required — refusing weak default');
         const email = 'admin@tower-finder.com';
 
         // Hash password
@@ -30,7 +31,7 @@ async function createAdmin() {
 
         console.log('✅ Admin user created/updated successfully!');
         console.log('📧 Email:', admin.email);
-        console.log('🔑 Password:', password);
+        console.log('🔑 Password: [redacted]');
         console.log('\nYou can now login at http://localhost:3000/login');
     } catch (error) {
         console.error('❌ Error creating admin user:', error);
