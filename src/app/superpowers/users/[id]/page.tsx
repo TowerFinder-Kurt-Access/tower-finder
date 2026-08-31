@@ -31,6 +31,7 @@ interface User {
     name: string;
     role: string;
     isActive: boolean;
+    twoFactorEnabled: boolean;
     createdAt: string;
     lastLogin?: string;
     towerAssignments?: any[];
@@ -313,7 +314,21 @@ export default function AdminUserDetailPage({ params }: PageProps) {
 
             {/* User Information */}
             <Paper sx={{ p: 3, mb: 3 }}>
-                <Typography variant="h6" sx={{ mb: 2 }}>Account Information</Typography>
+                <Typography variant="h6" sx={{ mb: 1 }}>Account Information</Typography>
+                <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
+                    <Chip
+                        label={user.twoFactorEnabled ? '2FA On' : '2FA Off'}
+                        color={user.twoFactorEnabled ? 'success' : 'default'}
+                        size="small"
+                        variant={user.twoFactorEnabled ? 'filled' : 'outlined'}
+                    />
+                    <Chip
+                        label={user.isActive ? 'Active' : 'Inactive'}
+                        color={user.isActive ? 'success' : 'default'}
+                        size="small"
+                    />
+                    <Chip label={user.role} color={user.role === 'ADMIN' ? 'primary' : 'default'} size="small" />
+                </Box>
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                     <TextField
                         label="Name"

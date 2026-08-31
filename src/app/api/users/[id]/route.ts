@@ -35,6 +35,7 @@ export async function GET(request: Request, { params }: RouteParams) {
                 name: true,
                 role: true,
                 isActive: true,
+                twoFactorEnabled: true,
                 createdAt: true,
                 updatedAt: true,
                 lastLogin: true,
