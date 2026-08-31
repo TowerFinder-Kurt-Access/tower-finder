@@ -43,16 +43,16 @@ export async function POST(request: Request, { params }: RouteParams) {
         // Hash the new password
         const hashedPassword = await bcrypt.hash(newPassword, 10);
 
-        // Update the password — bump sessionVersion to sign the user out everywhere,
-        // disable 2FA so the user can log in with just the new password, and clean
-        // up stale OTP rows that would otherwise block the next login attempt.
+        // Update the password — bump sessionVersion to sign the user out everywhere
+        // and clean up stale OTP rows. 2FA is intentionally preserved: if the user
+        // had it enabled, the next login still requires OTP (prevents silent bypass
+        // after admin reset — see #10).
         await prisma.user.update({
             where: { id: userId },
             data: {
                 password: hashedPassword,
                 passwordChangedAt: new Date(),
                 sessionVersion: { increment: 1 },
-                twoFactorEnabled: false,
                 mustChangePassword: true,
             }
         });
