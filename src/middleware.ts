@@ -68,5 +68,5 @@ export default auth(async (req: any) => {
 });
 
 export const config = {
-    matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
+    matcher: ['/((?!_next/static|_next/image|favicon.ico|favicon.svg).*)'],
 };
