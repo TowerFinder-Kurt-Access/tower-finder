@@ -8,6 +8,12 @@ import { LayoutWithSnackbar } from '@/components/LayoutWithSnackbar';
 export const metadata: Metadata = {
   title: "Tower Finder 4900",
   description: "Advanced Tower Detection and CRM Dashboard",
+  icons: {
+    icon: [
+      { url: "/favicon.svg", type: "image/svg+xml" },
+      { url: "/favicon.ico", type: "image/x-icon" }
+    ]
+  }
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {

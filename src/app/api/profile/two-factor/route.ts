@@ -72,7 +72,7 @@ export async function POST(request: Request) {
             }
             const updated = await prisma.user.update({
                 where: { id: user.id },
-                data: { twoFactorEnabled: true },
+                data: { twoFactorEnabled: true, sessionVersion: { increment: 1 } },
             });
             return NextResponse.json({ twoFactorEnabled: updated.twoFactorEnabled });
         }
@@ -106,7 +106,7 @@ export async function POST(request: Request) {
             }
             const updated = await prisma.user.update({
                 where: { id: user.id },
-                data: { twoFactorEnabled: false },
+                data: { twoFactorEnabled: false, sessionVersion: { increment: 1 } },
             });
             return NextResponse.json({ twoFactorEnabled: updated.twoFactorEnabled });
         }

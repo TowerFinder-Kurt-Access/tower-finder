@@ -34,6 +34,7 @@ interface User {
     name: string;
     role: string;
     isActive: boolean;
+    twoFactorEnabled: boolean;
     createdAt: string;
     lastLogin?: string;
 }
@@ -177,6 +178,19 @@ export default function AdminUsersPage() {
             )
         },
         {
+            field: 'twoFactorEnabled',
+            headerName: '2FA',
+            width: 100,
+            renderCell: (params: GridRenderCellParams) => (
+                <Chip
+                    label={params.value ? 'On' : 'Off'}
+                    color={params.value ? 'success' : 'default'}
+                    size="small"
+                    variant={params.value ? 'filled' : 'outlined'}
+                />
+            )
+        },
+        {
             field: 'lastLogin',
             headerName: 'Last Login',
             width: 180,
@@ -192,7 +206,7 @@ export default function AdminUsersPage() {
                 <Box>
                     <IconButton
                         size="small"
-                        onClick={() => router.push(`/admin/users/${params.row.id}`)}
+                        onClick={() => router.push(`/superpowers/users/${params.row.id}`)}
                         title="View Details"
                     >
                         <VisibilityIcon fontSize="small" />

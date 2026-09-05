@@ -92,7 +92,6 @@ export async function POST(request: Request) {
                 password: hashedPassword,
                 passwordChangedAt: new Date(),
                 sessionVersion: { increment: 1 },
-                twoFactorEnabled: false,
             },
         });
 

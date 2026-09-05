@@ -20,6 +20,7 @@ export async function GET(request: Request) {
                 name: true,
                 role: true,
                 isActive: true,
+                twoFactorEnabled: true,
                 createdAt: true,
                 updatedAt: true,
                 lastLogin: true,
@@ -47,7 +48,6 @@ export async function GET(request: Request) {
             },
             orderBy: { createdAt: 'desc' }
         });
-
         return NextResponse.json(users);
     } catch (error) {
         if (error instanceof Error && error.message.includes('Forbidden')) {
