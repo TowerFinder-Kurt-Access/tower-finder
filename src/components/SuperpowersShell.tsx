@@ -11,10 +11,36 @@ import SuperpowersSidebar from './SuperpowersSidebar';
 import ContentArea from './ContentArea';
 import { PasswordChangeReminder } from './PasswordChangeReminder';
 
+const PUBLIC_ROUTES = ['/login', '/forgot-password', '/reset-password'];
+
 export default function SuperpowersShell({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
     const { data: session, status } = useSession();
     const onSuperpowers = pathname?.startsWith('/superpowers') ?? false;
+    const onPublicRoute = PUBLIC_ROUTES.some((r) => pathname === r || pathname?.startsWith(`${r}/`));
+
+    // Public routes render bare: no NavRail/sidebar chrome around the auth card.
+    if (onPublicRoute) {
+        return <>{children}</>;
+    }
+
+    // While session loads on a protected route, hold the shell so an
+    // expired/revoked session never flashes the dashboard behind login.
+    if (status === 'loading' && !onSuperpowers) {
+        return (
+            <Box sx={{ display: 'flex', height: '100vh', width: '100vw', alignItems: 'center', justifyContent: 'center' }}>
+                <CircularProgress />
+            </Box>
+        );
+    }
+
+    if (!session?.user && !onSuperpowers) {
+        return (
+            <Box sx={{ display: 'flex', height: '100vh', width: '100vw', alignItems: 'center', justifyContent: 'center' }}>
+                <CircularProgress />
+            </Box>
+        );
+    }
 
     if (onSuperpowers) {
         if (status === 'loading') {
@@ -32,7 +58,7 @@ export default function SuperpowersShell({ children }: { children: React.ReactNo
             );
         }
         return (
-            <Box sx={{ display: 'flex', height: '100vh', width: '100vw', overflow: 'hidden' }}>
+            <Box className="app-shell" sx={{ display: 'flex', height: '100vh', width: '100vw', overflow: 'hidden' }}>
                 <SuperpowersSidebar />
                 <ContentArea>{children}</ContentArea>
                 <PasswordChangeReminder />
@@ -41,7 +67,7 @@ export default function SuperpowersShell({ children }: { children: React.ReactNo
     }
 
     return (
-        <Box sx={{ display: 'flex', height: '100vh', width: '100vw', overflow: 'hidden' }}>
+        <Box className="app-shell" sx={{ display: 'flex', height: '100vh', width: '100vw', overflow: 'hidden' }}>
             <NavRail />
             <ContentArea>{children}</ContentArea>
             <PasswordChangeReminder />
