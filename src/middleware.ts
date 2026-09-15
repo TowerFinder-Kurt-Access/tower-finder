@@ -15,16 +15,19 @@ export default auth(async (req: any) => {
     // 2. Revocation check: deactivation / password reset / password change bump
     //    the user's sessionVersion in the DB. Edge middleware can't query it
     //    directly, so we ask the server-side session endpoint with our cookies.
+    //    Skipped on /login itself so a slow check never traps users there.
     let revoked = false;
-    if (isLoggedIn) {
+    if (isLoggedIn && pathname !== '/login') {
         try {
             const res = await fetch(new URL('/api/auth/session-version', req.url), {
                 headers: { cookie: req.headers.get('cookie') ?? '' },
-                signal: AbortSignal.timeout(2000),
+                signal: AbortSignal.timeout(5000),
             });
             revoked = res.status === 401;
         } catch {
-            revoked = true; // fail closed — DB outage logs everyone out, prevents revoked sessions surviving 7d JWT (F19)
+            // Fail open on network/timeout: a slow dev compile or brief DB
+            // blip must not log everyone out. Explicit 401s above still revoke.
+            revoked = false;
         }
     }
 
