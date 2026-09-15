@@ -50,6 +50,7 @@ model Tower {
   assignments         TowerAssignment[]
   leadSource          TowerLead?
   cellMapperLog       CellMapperLog?
+  customerLeadForms   CustomerLeadForm[]
 
   @@unique([lat, lon])
   @@index([aiTowerScore])
@@ -171,6 +172,7 @@ model User {
   notes            Note[]
   towerAssignments TowerAssignment[]
   loginEvents      LoginEvent[]
+  customerLeadForms CustomerLeadForm[]
 
   @@index([email])
   @@index([role])
@@ -441,6 +443,62 @@ model PasswordResetToken {
 
   @@index([email])
   @@index([expiresAt])
+}
+
+model CustomerLeadForm {
+  id                  Int       @id @default(autoincrement())
+  dealType            String?   // BUYOUT | RENEGOTIATION | NEW_LEASE
+  callDate            DateTime?
+  source              String?
+  fileId              String?
+  owner               String?
+  phone               String?
+  contact             String?
+  email               String?
+  mailingAddress      String?
+  siteAddress         String?
+  towerId             Int?
+  tower               Tower?    @relation(fields: [towerId], references: [id], onDelete: SetNull)
+  payorOfRent         String?   // ATC | Crown | SBA | Carrier | Other
+  payorDetail         String?
+  tenants             String[]  @default([])
+  siteType            String?   // Tower | Rooftop | Water Tank | Other
+  siteTypeDetail      String?
+  currentRent         Float?
+  currentRentPeriod   String?   // Monthly | Annual
+  rentIncreaseType    String?   // Annual | Term | N/A
+  rentIncreaseAmount  String?
+  leaseCommencement   DateTime?
+  leaseExpiration     DateTime?
+  rentEscalationDate  DateTime?
+  rofr                String?   // No | Yes
+  mortgage            String?   // No | Yes
+  mortgageInfo        String?
+  feesPercent         Boolean   @default(false)
+  feesPercentValue    Float?
+  feesDollar          Boolean   @default(false)
+  feesDollarValue     Float?
+  notes               String?
+  agreedItems         Json?     // { fieldKey: true } agreed-and-finished marks
+  brettConfirmed      Boolean   @default(false)
+  brettConfirmedAt    DateTime?
+  brettConfirmedBy    String?
+  larryCallNotes      String?
+  larryComments       String?
+  larryCalledAt       DateTime?
+  adminSignName       String?
+  adminSignAt         DateTime?
+  larrySignName       String?
+  larrySignAt         DateTime?
+  status              String    @default("draft") // draft | finalized | closed
+  createdById         Int?
+  createdBy           User?     @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  @@index([towerId])
+  @@index([status])
+  @@index([fileId])
 }
 
 enum Role {
