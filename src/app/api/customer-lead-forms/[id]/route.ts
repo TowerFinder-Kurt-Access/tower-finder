@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAdmin } from '@/lib/auth-helpers';
 import { toCustomerLeadFormData, validateCustomerLeadForm } from '@/lib/customer-lead-form';
+import { towerReferenceError } from '@/lib/customer-lead-form-server';
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -39,10 +40,9 @@ export async function PATCH(request: Request, { params }: RouteParams) {
     const body = await request.json();
     const err = validateCustomerLeadForm(body);
     if (err) return NextResponse.json({ error: err }, { status: 400 });
+    const towerError = await towerReferenceError(body.towerId);
+    if (towerError) return NextResponse.json({ error: towerError }, { status: 400 });
     const data = toCustomerLeadFormData(body);
-    if (body.larryCalledNow) {
-      (data as Record<string, unknown>).larryCalledAt = new Date();
-    }
     const updated = await prisma.customerLeadForm.update({
       where: { id: parseInt(id) },
       data: data as Record<string, never>,

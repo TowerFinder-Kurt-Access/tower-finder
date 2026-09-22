@@ -31,13 +31,6 @@ export interface LeadFormState {
   feesDollar: boolean;
   feesDollarValue: string;
   notes: string;
-  agreedItems: Record<string, boolean>;
-  brettConfirmed: boolean;
-  brettConfirmedBy: string;
-  larryCallNotes: string;
-  larryComments: string;
-  adminSignName: string;
-  larrySignName: string;
   status: string;
 }
 

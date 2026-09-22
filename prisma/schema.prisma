@@ -479,17 +479,6 @@ model CustomerLeadForm {
   feesDollar          Boolean   @default(false)
   feesDollarValue     Float?
   notes               String?
-  agreedItems         Json?     // { fieldKey: true } agreed-and-finished marks
-  brettConfirmed      Boolean   @default(false)
-  brettConfirmedAt    DateTime?
-  brettConfirmedBy    String?
-  larryCallNotes      String?
-  larryComments       String?
-  larryCalledAt       DateTime?
-  adminSignName       String?
-  adminSignAt         DateTime?
-  larrySignName       String?
-  larrySignAt         DateTime?
   status              String    @default("draft") // draft | finalized | closed
   createdById         Int?
   createdBy           User?     @relation(fields: [createdById], references: [id], onDelete: SetNull)

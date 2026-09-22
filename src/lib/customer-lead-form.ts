@@ -30,13 +30,6 @@ export interface CustomerLeadFormInput {
   feesDollar?: boolean;
   feesDollarValue?: number | null;
   notes?: string | null;
-  agreedItems?: Record<string, boolean> | null;
-  brettConfirmed?: boolean;
-  brettConfirmedBy?: string | null;
-  larryCallNotes?: string | null;
-  larryComments?: string | null;
-  adminSignName?: string | null;
-  larrySignName?: string | null;
   status?: string | null;
 }
 
@@ -58,6 +51,7 @@ export function validateCustomerLeadForm(input: CustomerLeadFormInput): string |
   if (input.rofr && !(YES_NO as readonly string[]).includes(input.rofr)) return 'Invalid rofr';
   if (input.mortgage && !(YES_NO as readonly string[]).includes(input.mortgage)) return 'Invalid mortgage';
   if (input.status && !(FORM_STATUSES as readonly string[]).includes(input.status)) return 'Invalid status';
+  if (input.towerId != null && (!Number.isInteger(input.towerId) || input.towerId <= 0)) return 'Invalid Tower ID';
   if (input.tenants) {
     for (const t of input.tenants) {
       if (typeof t !== 'string' || t.length > 80) return 'Invalid tenants';
@@ -115,22 +109,6 @@ export function toCustomerLeadFormData(input: CustomerLeadFormInput): Record<str
   if (input.feesDollar !== undefined) data.feesDollar = input.feesDollar;
   if (input.feesDollarValue !== undefined) data.feesDollarValue = toNumOrNull(input.feesDollarValue);
   if (input.notes !== undefined) data.notes = input.notes || null;
-  if (input.agreedItems !== undefined) data.agreedItems = input.agreedItems;
-  if (input.brettConfirmed !== undefined) {
-    data.brettConfirmed = input.brettConfirmed;
-    data.brettConfirmedAt = input.brettConfirmed ? new Date() : null;
-  }
-  if (input.brettConfirmedBy !== undefined) data.brettConfirmedBy = input.brettConfirmedBy || null;
-  if (input.larryCallNotes !== undefined) data.larryCallNotes = input.larryCallNotes || null;
-  if (input.larryComments !== undefined) data.larryComments = input.larryComments || null;
-  if (input.adminSignName !== undefined) {
-    data.adminSignName = input.adminSignName || null;
-    data.adminSignAt = input.adminSignName ? new Date() : null;
-  }
-  if (input.larrySignName !== undefined) {
-    data.larrySignName = input.larrySignName || null;
-    data.larrySignAt = input.larrySignName ? new Date() : null;
-  }
   if (input.status !== undefined) data.status = input.status || 'draft';
   return data;
 }
