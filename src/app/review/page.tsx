@@ -259,6 +259,19 @@ function ReviewContent() {
     return () => clearTimeout(handle);
   }, [towerQuery, loadTowerOptions]);
 
+  /* Print-to-PDF save name comes from document.title: keep it unique per
+     form (File ID → Tower ID → record ID) so downloads don't all land
+     on "Customer Lead Form.pdf". */
+  useEffect(() => {
+    const prev = document.title;
+    const clean = (v: string): string => v.replace(/[\\/:*?"<>|]/g, '').trim().slice(0, 60);
+    const tag = clean(form.fileId) || (form.towerId ? `Tower-${clean(form.towerId)}` : '')
+      || (form.id ? `Form-${form.id}` : 'Draft');
+    const owner = clean(form.owner);
+    document.title = owner ? `Lead Form - ${tag} - ${owner}` : `Lead Form - ${tag}`;
+    return () => { document.title = prev; };
+  }, [form.fileId, form.towerId, form.id, form.owner]);
+
   const towerValue = useMemo((): TowerOption | null => {
     if (!form.towerId) return null;
     const id = Number(form.towerId);
