@@ -8,6 +8,7 @@ export default function ContentArea({ children }: { children: React.ReactNode })
     return (
         <Box
             key={pathname}
+            className="content-area"
             sx={{
                 flex: 1,
                 overflow: 'auto',

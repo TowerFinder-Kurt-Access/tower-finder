@@ -34,6 +34,7 @@ export default function SuperpowersSidebar() {
         <Box
             component="nav"
             aria-label="Superpowers navigation"
+            className="no-print"
             sx={{
                 width: drawerWidth,
                 flexShrink: 0,

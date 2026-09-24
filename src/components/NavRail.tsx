@@ -1,12 +1,13 @@
 'use client';
 import { usePathname } from 'next/navigation';
-import { signOut } from 'next-auth/react';
+import { signOut, useSession } from 'next-auth/react';
 import { useState } from 'react';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import MapIcon from '@mui/icons-material/Map';
 import GroupIcon from '@mui/icons-material/Group';
 import TableRowsIcon from '@mui/icons-material/TableRows';
+import DescriptionIcon from '@mui/icons-material/Description';
 import PersonIcon from '@mui/icons-material/Person';
 import CellTowerIcon from '@mui/icons-material/CellTower';
 import LogoutIcon from '@mui/icons-material/Logout';
@@ -22,19 +23,22 @@ const COUNTRIES = [
 
 export default function NavRail() {
     const pathname = usePathname();
+    const { data: session } = useSession();
     const { country, setCountry } = useCountry();
     const [isCollapsed, setIsCollapsed] = useState(false);
 
+    const isAdmin = session?.user?.role === 'ADMIN';
     const navItems = [
         { label: 'Map', icon: <MapIcon />, path: '/' },
         { label: 'Towers', icon: <TableRowsIcon />, path: '/towers' },
         { label: 'Property Owners', icon: <GroupIcon />, path: '/owners' },
+        ...(isAdmin ? [{ label: 'Review', icon: <DescriptionIcon />, path: '/review' }] : []),
     ];
 
     const drawerWidth = isCollapsed ? 80 : 260;
 
     return (
-        <Box sx={{
+        <Box className="no-print" sx={{
             width: drawerWidth,
             flexShrink: 0,
             bgcolor: '#1a1a1a',

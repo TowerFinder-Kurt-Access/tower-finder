@@ -53,6 +53,7 @@ export function SnackbarProvider({ children }: { children: ReactNode }) {
                 autoHideDuration={4000}
                 onClose={(_e, reason) => { if (reason !== 'clickaway') setOpen(false); }}
                 anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+                className="no-print"
             >
                 <Alert
                     severity={severity}
