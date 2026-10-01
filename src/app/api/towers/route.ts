@@ -617,11 +617,16 @@ export async function GET(request: Request) {
                 orderBy: (() => {
                     const sort = searchParams.get('sort');
                     const order = (searchParams.get('order') || 'asc') as Prisma.SortOrder;
-                    if (sort === 'businessCount') return { businessCount: order };
-                    if (sort === 'avgBusinessDistance') return { avgBusinessDistance: order };
-                    if (sort === 'aiTowerScore') return { aiTowerScore: { sort: order, nulls: 'last' } as Prisma.SortOrderInput };
-                    if (sort === 'hasOwnerName') return { parcel: { ownerId: order } } as Prisma.TowerOrderByWithRelationInput;
-                    return { id: 'asc' as Prisma.SortOrder };
+                    const primary: Prisma.TowerOrderByWithRelationInput =
+                        sort === 'businessCount' ? { businessCount: order }
+                        : sort === 'avgBusinessDistance' ? { avgBusinessDistance: order }
+                        : sort === 'aiTowerScore' ? { aiTowerScore: { sort: order, nulls: 'last' } as Prisma.SortOrderInput }
+                        : sort === 'hasOwnerName' ? { parcel: { ownerId: order } }
+                        : sort === 'id' ? { id: order }
+                        : { id: 'asc' as Prisma.SortOrder };
+                    // id tiebreaker keeps every row on exactly one page.
+                    if (sort === 'id') return primary;
+                    return [primary, { id: order }] as Prisma.TowerOrderByWithRelationInput[];
                 })(),
                 skip,
                 take
