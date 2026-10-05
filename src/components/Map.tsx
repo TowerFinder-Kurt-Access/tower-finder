@@ -287,20 +287,21 @@ export default function Map({
                 {towers && towers.map(tower => {
                     const isSelected = selectedTower?.id === tower.id;
                     const isFromLead = tower.source && tower.source.startsWith('Tower Leads');
-                    const markerColor = isSelected ? '#2196f3' : (isFromLead ? '#1565C0' : 'red');
-                    const fillColor = isSelected ? '#2196f3' : (isFromLead ? '#42A5F5' : '#f00');
+                    const fillColor = isSelected ? '#0d47a1' : (isFromLead ? '#1565C0' : '#e53935');
 
                     return (
                         <CircleMarker
                             key={`tower-${tower.id}`}
                             center={[tower.lat, tower.lon] as LatLngExpression}
                             pathOptions={{
-                                color: markerColor,
+                                // White halo separates the tower from same-sized landmark dots.
+                                color: '#ffffff',
                                 fillColor: fillColor,
-                                fillOpacity: isSelected ? 0.9 : (isFromLead ? 0.7 : 0.5)
+                                fillOpacity: 1,
+                                weight: isSelected ? 5 : 3,
                             }}
-                            radius={isSelected ? 14 : 10}
-                            className={isSelected ? 'selected-tower-pulse' : ''}
+                            radius={isSelected ? 14 : 11}
+                            className={isSelected ? 'selected-tower-pulse' : 'tower-marker'}
                             eventHandlers={{
                                 click: () => onTowerSelect(tower)
                             }}
@@ -447,7 +448,7 @@ export default function Map({
                             fillOpacity: isSelectedBiz ? 0.95 : 0.7,
                             weight: isSelectedBiz ? 3 : 1,
                         }}
-                        radius={isSelectedBiz ? 11 : 6}
+                        radius={isSelectedBiz ? 10 : 5}
                     >
                         <Popup>
                             <div style={{ minWidth: '150px' }}>
