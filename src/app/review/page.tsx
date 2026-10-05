@@ -31,7 +31,6 @@ import SaveIcon from '@mui/icons-material/Save';
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
-import { useAppearance } from '@/components/AppearanceProvider';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import SearchIcon from '@mui/icons-material/Search';
 import CloseIcon from '@mui/icons-material/Close';
@@ -195,7 +194,6 @@ function ReviewContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
-  const { symbol: currencySymbol } = useAppearance();
   const [form, setForm] = useState<FormState>(EMPTY);
   const [forms, setForms] = useState<Array<{ id: number; owner: string | null; fileId: string | null; siteAddress: string | null; dealType: string | null; status: string; updatedAt?: string }>>([]);
   const [view, setView] = useState<'list' | 'form'>('list');
@@ -888,7 +886,7 @@ function ReviewContent() {
               inputProps={{ inputMode: 'decimal' }}
               value={form.rentIncreaseAmount}
               onChange={(e) => set('rentIncreaseAmount', amountOf(e.target.value))}
-              InputProps={{ startAdornment: <InputAdornment position="start">{currencySymbol}</InputAdornment> }}
+              InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
               helperText=" "
             />
           </Box>
@@ -932,7 +930,7 @@ function ReviewContent() {
               inputProps={{ inputMode: 'decimal' }}
               value={form.feesDollarValue}
               onChange={(e) => set('feesDollarValue', amountOf(e.target.value))}
-              InputProps={{ startAdornment: <InputAdornment position="start">{currencySymbol}</InputAdornment> }}
+              InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }}
               helperText=" "
             />
           </Box>

@@ -19,7 +19,6 @@ import Fab from '@mui/material/Fab';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import { validatePassword } from '@/lib/password-policy';
 import { PasswordField } from '@/components/PasswordField';
-import AppearanceSection from '@/components/AppearanceSection';
 
 export default function ProfilePage() {
     const { data: session, update } = useSession();
@@ -395,8 +394,6 @@ export default function ProfilePage() {
                     </Button>
                 </Box>
             </Paper>
-
-            <AppearanceSection />
 
             {/* Logout Section */}
             <Paper sx={{ p: 3 }}>
