@@ -99,6 +99,7 @@ export async function GET(req: Request) {
     });
 
     let mapData: any[] = [];
+    let unpositioned = 0;
     if (includeMap && scanState) {
         const jobs = await prisma.jobQueue.findMany({
             where: {
@@ -110,18 +111,26 @@ export async function GET(req: Request) {
             take: 1000,
         });
 
-        mapData = jobs.map((job: any) => {
+        // Only place cells we have a real centroid for; a fake one stacks every
+        // unknown county on one dot and reads as real coverage.
+        mapData = jobs.reduce<any[]>((acc, job: any) => {
             const county = job.params.county;
-            const centroid = CA_COUNTY_CENTROIDS[county] || [37.0, -120.0];
-            return {
+            const centroid = CA_COUNTY_CENTROIDS[county];
+            if (!centroid) {
+                unpositioned += 1;
+                return acc;
+            }
+            acc.push({
                 lat: centroid[0],
                 lon: centroid[1],
                 h3Index: county, // Use county name as ID
                 status: job.status,
                 foundCount: job.result?.foundCount || 0
-            };
-        });
+            });
+            return acc;
+        }, []);
+        mapData.sort((a, b) => a.h3Index.localeCompare(b.h3Index));
     }
 
-    return NextResponse.json({ scans: enrichedScans, mapData });
+    return NextResponse.json({ scans: enrichedScans, mapData, unpositioned });
 }
