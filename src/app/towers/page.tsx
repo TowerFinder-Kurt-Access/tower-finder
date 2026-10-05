@@ -4,7 +4,7 @@ import { useState, useEffect, Suspense, useCallback, useRef } from 'react';
 import Box from '@mui/material/Box';
 import axios from 'axios';
 import Link from 'next/link';
-import { Paper, Typography, Drawer, IconButton, Button, Chip, Stack } from '@mui/material';
+import { Paper, Typography, Drawer, IconButton, Button, Chip } from '@mui/material';
 import MapIcon from '@mui/icons-material/Map';
 import CloseIcon from '@mui/icons-material/Close';
 import TowerTableSimple from '@/components/TowerTableSimple';
@@ -37,15 +37,7 @@ interface Tower {
     aiLabel?: string | null;
 }
 
-interface OwnerResult {
-    result: {
-        owner: string;
-        address: string;
-        parcel_id: string;
-        geometry: any;
-        [key: string]: any;
-    } | null;
-}
+
 
 function TowersPageContent() {
     const router = useRouter();
@@ -69,7 +61,9 @@ function TowersPageContent() {
         try {
             const saved = typeof window !== 'undefined' ? localStorage.getItem('towersPageSettings') : null;
             if (saved) return JSON.parse(saved).page ?? 0;
-        } catch {}
+        } catch (e) {
+            console.error("Unreadable tower page settings:", e);
+        }
         return 0;
     });
     const [rowsPerPage, setRowsPerPage] = useState<number>(() => {
@@ -77,12 +71,14 @@ function TowersPageContent() {
         try {
             const saved = typeof window !== 'undefined' ? localStorage.getItem('towersPageSettings') : null;
             if (saved) return JSON.parse(saved).rowsPerPage ?? 25;
-        } catch {}
+        } catch (e) {
+            console.error("Unreadable tower page settings:", e);
+        }
         return 25;
     });
     const [isLoading, setIsLoading] = useState<boolean>(false);
     const [isExporting, setIsExporting] = useState<boolean>(false);
-    const [selectedTower, setSelectedTower] = useState<Tower | null>(null);
+    
     const [isOwnerLoading, setIsOwnerLoading] = useState<boolean>(false);
     const [notesDrawerTower, setNotesDrawerTower] = useState<any>(null);
     const [addOwnerTower, setAddOwnerTower] = useState<any>(null);
@@ -125,7 +121,9 @@ function TowersPageContent() {
         try {
             const saved = typeof window !== 'undefined' ? localStorage.getItem('towersPageSettings') : null;
             if (saved) return JSON.parse(saved).filters ?? {};
-        } catch {}
+        } catch (e) {
+            console.error("Unreadable tower page settings:", e);
+        }
         return {};
     });
     // Restore sort from localStorage too, so sorting (e.g. AI Score) survives
@@ -135,7 +133,9 @@ function TowersPageContent() {
         try {
             const saved = typeof window !== 'undefined' ? localStorage.getItem('towersPageSettings') : null;
             if (saved) return JSON.parse(saved).sortModel ?? null;
-        } catch {}
+        } catch (e) {
+            console.error("Unreadable tower page settings:", e);
+        }
         return null;
     });
 

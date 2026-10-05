@@ -1,6 +1,20 @@
 'use client';
 
-import { useState, useEffect, useMemo, use } from 'react';
+// Street View links are admin-entered text, so only known map hosts may open in a tab.
+const EXTERNAL_HOSTS = new Set(['www.google.com', 'maps.google.com', 'www.bing.com', 'webmap.onxmaps.com']);
+
+const openExternal = (url: string): void => {
+    try {
+        const { hostname, protocol } = new URL(url);
+        if (protocol !== 'https:' && protocol !== 'http:') throw new Error('Blocked non-http link');
+        if (!EXTERNAL_HOSTS.has(hostname)) throw new Error(`Blocked host: ${hostname}`);
+        window.open(url, '_blank', 'noopener');
+    } catch (e) {
+        console.error('Blocked external link:', e);
+    }
+};
+
+import { useState, useEffect, useMemo, use, useSyncExternalStore } from 'react';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
 import dynamic from 'next/dynamic';
@@ -48,7 +62,6 @@ import CancelIcon from '@mui/icons-material/Cancel';
 import NotesPanel from '@/components/NotesPanel';
 import AddOwnerDialog from '@/components/AddOwnerDialog';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
-import { TOWER_STATUS_OPTIONS, getStatusLabel } from '@/lib/constants';
 
 // Dynamically import Map to avoid SSR issues with Leaflet
 const Map = dynamic(() => import('@/components/Map'), {
@@ -159,7 +172,6 @@ function getId(val: any): number | undefined {
     return undefined;
 }
 
-const AUTHOR_STORAGE_KEY = 'tower-finder-note-author';
 const ADD_NEW_VALUE = '__ADD_NEW__';
 
 export default function TowerDetailPage({ params }: PageProps) {
@@ -174,7 +186,6 @@ export default function TowerDetailPage({ params }: PageProps) {
     const [notes, setNotes] = useState<Note[]>([]);
     const [isOwnerLoading, setIsOwnerLoading] = useState(false);
     const [addOwnerOpen, setAddOwnerOpen] = useState(false);
-    const [mounted, setMounted] = useState(false);
     const [streetViewUrl, setStreetViewUrl] = useState('');
     const [isEditingStreetView, setIsEditingStreetView] = useState(false);
     const [selectedBizId, setSelectedBizId] = useState<number | null>(null);
@@ -232,15 +243,8 @@ export default function TowerDetailPage({ params }: PageProps) {
     const [pendingStatusId, setPendingStatusId] = useState<number | null>(null);
     const [statusNote, setStatusNote] = useState('');
 
-    useEffect(() => {
-        setMounted(true);
-    }, []);
-
-    useEffect(() => {
-        loadTower();
-        loadNavigation();
-        loadLookups();
-    }, [towerId]);
+    // Hydration-safe mounted flag: true in the browser, false during the server render.
+    const mounted = useSyncExternalStore(() => () => {}, () => true, () => false);
 
     const loadTower = async () => {
         try {
@@ -299,6 +303,16 @@ export default function TowerDetailPage({ params }: PageProps) {
         }
     };
 
+    // Start the fetches on the next tick so the effect body itself does no state work.
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            loadTower();
+            loadNavigation();
+            loadLookups();
+        }, 0);
+        return () => clearTimeout(timer);
+    }, [towerId]);
+
     const handleViewOnMap = () => {
         if (tower) {
             router.push(`/?selectTower=${tower.id}`);
@@ -307,13 +321,13 @@ export default function TowerDetailPage({ params }: PageProps) {
 
     const handleOpenGoogleMaps = () => {
         if (tower) {
-            window.open(`https://www.google.com/maps?q=${tower.lat},${tower.lon}`, '_blank');
+            openExternal(`https://www.google.com/maps?q=${tower.lat},${tower.lon}`);
         }
     };
 
     const handleOpenSatelliteView = () => {
         if (tower) {
-            window.open(`https://www.google.com/maps/@${tower.lat},${tower.lon},20z/data=!3m1!1e3`, '_blank');
+            openExternal(`https://www.google.com/maps/@${tower.lat},${tower.lon},20z/data=!3m1!1e3`);
         }
     };
 
@@ -345,7 +359,7 @@ export default function TowerDetailPage({ params }: PageProps) {
 
     const handleBizSatellite = (biz: any) => {
         const c = bizCoords(biz);
-        if (c) window.open(`https://www.google.com/maps/@${c[0]},${c[1]},20z/data=!3m1!1e3`, '_blank');
+        if (c) openExternal(`https://www.google.com/maps/@${c[0]},${c[1]},20z/data=!3m1!1e3`);
     };
 
     const BIZ_PAGE_SIZE = 12;
@@ -407,13 +421,13 @@ export default function TowerDetailPage({ params }: PageProps) {
 
     const handleOpenBingMaps = () => {
         if (tower) {
-            window.open(`https://www.bing.com/maps?cp=${tower.lat}~${tower.lon}&lvl=17&style=r`, '_blank');
+            openExternal(`https://www.bing.com/maps?cp=${tower.lat}~${tower.lon}&lvl=17&style=r`);
         }
     };
 
     const handleOpenOnXMaps = () => {
         if (tower) {
-            window.open(`https://webmap.onxmaps.com/hunt/map/query/${tower.lat},${tower.lon},14.57/overview#15.5/${tower.lat}/${tower.lon}`, '_blank');
+            openExternal(`https://webmap.onxmaps.com/hunt/map/query/${tower.lat},${tower.lon},14.57/overview#15.5/${tower.lat}/${tower.lon}`);
         }
     };
 
@@ -727,7 +741,7 @@ export default function TowerDetailPage({ params }: PageProps) {
 
     const handleOpenSavedStreetView = () => {
         if (streetViewUrl) {
-            window.open(streetViewUrl, '_blank');
+            openExternal(streetViewUrl);
         }
     };
 
@@ -757,8 +771,6 @@ export default function TowerDetailPage({ params }: PageProps) {
     }
 
     // Extract display values
-    const typeName = getName(tower.type);
-    const carrierName = getName(tower.carrier);
     const cityName = getName(tower.parcel?.city) || tower.parcel?.cityRaw || '';
     const provinceName = getName(tower.parcel?.province) || tower.parcel?.provinceRaw || tower.parcel?.stateRaw || tower.parcel?.state || '';
     const postalCode = tower.parcel?.postalCode || tower.parcel?.zip || '';

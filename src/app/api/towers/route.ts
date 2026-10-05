@@ -124,8 +124,8 @@ export async function GET(request: Request) {
         // Default limit to prevent sending too many towers at once (performance optimization)
         // Use 1000 as default limit if not specified, unless fetching by ID
         const DEFAULT_LIMIT = 1000;
-        const limit = limitStr ? parseInt(limitStr) : (id ? undefined : DEFAULT_LIMIT);
-        const page = pageStr ? parseInt(pageStr) : undefined; // Only set page if explicitly provided
+        const limit = limitStr ? parseInt(limitStr, 10) : (id ? undefined : DEFAULT_LIMIT);
+        const page = pageStr ? parseInt(pageStr, 10) : undefined; // Only set page if explicitly provided
 
         // Bounding box support
         const bbox = searchParams.get('bbox'); // minLon,minLat,maxLon,maxLat
@@ -351,7 +351,7 @@ export async function GET(request: Request) {
         let whereClause: Prisma.TowerWhereInput = {};
 
         if (id) {
-            whereClause = { id: parseInt(id) };
+            whereClause = { id: parseInt(id, 10) };
         } else {
             // Build an array of conditions to AND together
             const andConditions: Prisma.TowerWhereInput[] = [];
@@ -516,8 +516,8 @@ export async function GET(request: Request) {
             // Business count filter
             if (minBusinessCount !== null || maxBusinessCount !== null) {
                 const countFilter: any = {};
-                if (minBusinessCount !== null) countFilter.gte = parseInt(minBusinessCount);
-                if (maxBusinessCount !== null) countFilter.lte = parseInt(maxBusinessCount);
+                if (minBusinessCount !== null) countFilter.gte = parseInt(minBusinessCount, 10);
+                if (maxBusinessCount !== null) countFilter.lte = parseInt(maxBusinessCount, 10);
                 andConditions.push({ businessCount: countFilter });
             }
 
@@ -631,10 +631,6 @@ export async function GET(request: Request) {
             needsCount ? prisma.tower.count({ where: whereClause }) : Promise.resolve(undefined)
         ]);
 
-        const limitApplied = limit !== undefined ? ` (limit: ${limit}, page: ${page || 0})` : '';
-        console.log(`[API /api/towers] Returning ${towers.length} towers${limitApplied}${totalCount !== undefined ? ` of ${totalCount} total` : ''}`);
-
-        // Expose a derived hasOwnerName flag (sortable/filterable above)
         const withFlags = towers.map(t => ({
             ...t,
             hasOwnerName: !!(t.parcel && t.parcel.ownerId)
