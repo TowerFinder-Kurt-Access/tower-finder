@@ -67,13 +67,19 @@ const CA_COUNTY_CENTROIDS: Record<string, [number, number]> = {
 export async function GET(req: Request) {
     try { await requireAdmin(); } catch (e:any) { return NextResponse.json({ error: (e as Error).message || 'Unauthorized' }, { status: e?.message?.includes('Forbidden')?403:401 }); }
 
-    const { searchParams } = new URL(req.url);
+    let searchParams: URLSearchParams;
+    try {
+        searchParams = new URL(req.url).searchParams;
+    } catch {
+        return NextResponse.json({ error: 'Invalid URL' }, { status: 400 });
+    }
     const includeMap = searchParams.get('includeMap') === 'true';
     const scanState = searchParams.get('state');
 
     const scans = await prisma.discoveryScan.findMany({
         where: scanState ? { state: scanState } : {},
         orderBy: { createdAt: 'desc' },
+        take: 50,
     });
 
     const enrichedScans = scans.map((scan) => {
@@ -98,7 +104,10 @@ export async function GET(req: Request) {
             where: {
                 jobType: 'fcc-discovery-county',
                 params: { path: ['state'], equals: scanState }
-            }
+            },
+            // Only the three fields the map layer reads; these rows carry large JSON.
+            select: { params: true, status: true, result: true },
+            take: 1000,
         });
 
         mapData = jobs.map((job: any) => {

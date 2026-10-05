@@ -33,7 +33,143 @@ interface OwnerRow {
     towerIds: string;
 }
 
+interface FilterBarProps {
+    filters: Record<string, string>;
+    filterOptions: { cities: string[]; states: string[]; counties: string[]; zips: string[] };
+    globalCountry: string | null;
+    searchRef: React.RefObject<HTMLInputElement | null>;
+    submitSearch: () => void;
+    activeFilterCount: number;
+    activeChips: { field: string; label: string; value: string }[];
+    onFilterChange: (field: string, values: string[]) => void;
+    onRemoveFilter: (field: string, value: string) => void;
+    onClearAll: () => void;
+}
+
+const FilterAutocomplete = ({ label, options, selected, onChange }: { label: string; options: string[]; selected: string[]; onChange: (values: string[]) => void }) => (
+    <Autocomplete
+        multiple
+        size="small"
+        options={options}
+        disableCloseOnSelect
+        value={selected}
+        onChange={(_, newValue) => onChange(newValue)}
+        renderOption={(props, option, { selected: sel }) => {
+            const { key, ...otherProps } = props as any;
+            return (
+                <li key={key} {...otherProps}>
+                    <Checkbox icon={<CheckBoxOutlineBlankIcon fontSize="small" />} checkedIcon={<CheckBoxIcon fontSize="small" />} style={{ marginRight: 8 }} checked={sel} size="small" />
+                    {option}
+                </li>
+            );
+        }}
+        renderTags={() => null}
+        renderInput={(params) => (
+            <TextField
+                {...params}
+                label={label}
+                placeholder={selected.length ? `${selected.length} selected` : 'All'}
+                sx={{
+                    minWidth: 140,
+                    '& .MuiInputLabel-root': {
+                        color: selected.length ? 'primary.main' : undefined,
+                        fontWeight: selected.length ? 600 : 400,
+                    }
+                }}
+            />
+        )}
+        sx={{ minWidth: 140 }}
+    />
+);
+
+const US_LABEL = { state: 'State', zip: 'ZIP' } as const;
+const CA_LABEL = { state: 'Province', zip: 'Postal Code' } as const;
+
+const ExternalFiltersBar = ({ filters, filterOptions, globalCountry, searchRef, submitSearch, activeFilterCount, activeChips, onFilterChange, onRemoveFilter, onClearAll }: FilterBarProps) => {
+    const labels = globalCountry === 'USA' ? US_LABEL : CA_LABEL;
+    const fields = [
+        { field: 'city', label: 'City', options: filterOptions.cities },
+        { field: 'county', label: 'County', options: filterOptions.counties },
+        { field: 'state', label: labels.state, options: filterOptions.states },
+        { field: 'zip', label: labels.zip, options: filterOptions.zips },
+    ] as const;
+    return (
+        <Box sx={{ borderBottom: '1px solid #e0e0e0', mb: 1 }}>
+            <Box
+                component="form"
+                onSubmit={(e) => { e.preventDefault(); submitSearch(); }}
+                sx={{ pb: 1, display: 'flex', gap: 1 }}
+            >
+                <TextField
+                    fullWidth
+                    size="small"
+                    placeholder="Search owners by name, address, city, county, phone…"
+                    defaultValue={filters.search || ''}
+                    inputRef={searchRef}
+                    sx={{ bgcolor: 'white' }}
+                />
+                <Button type="submit" variant="contained" color="primary" sx={{ minWidth: 100 }}>
+                    Search
+                </Button>
+                {filters.search && (
+                    <Button
+                        variant="outlined"
+                        color="inherit"
+                        onClick={() => { if (searchRef.current) searchRef.current.value = ''; submitSearch(); }}
+                        sx={{ textTransform: 'none' }}
+                    >
+                        Clear
+                    </Button>
+                )}
+            </Box>
+            <Box sx={{ pb: 1, display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center' }}>
+                <Badge badgeContent={activeFilterCount} color="primary" sx={{ mr: 0.5 }}>
+                    <FilterListIcon color={activeFilterCount > 0 ? 'primary' : 'action'} />
+                </Badge>
+                {fields.map(({ field, label, options }) => (
+                    <FilterAutocomplete
+                        key={field}
+                        label={label}
+                        options={options}
+                        selected={(filters[field] || '').split(',').filter(Boolean)}
+                        onChange={(values) => onFilterChange(field, values)}
+                    />
+                ))}
+                {activeFilterCount > 0 && (
+                    <Button
+                        size="small"
+                        variant="outlined"
+                        color="error"
+                        startIcon={<ClearIcon />}
+                        onClick={onClearAll}
+                        sx={{ ml: 'auto', textTransform: 'none', fontWeight: 600 }}
+                    >
+                        Clear All ({activeFilterCount})
+                    </Button>
+                )}
+            </Box>
+            {activeChips.length > 0 && (
+                <Box sx={{ pb: 1, display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+                    {activeChips.map((chip, i) => (
+                        <Chip
+                            key={`${chip.field}-${chip.value}-${i}`}
+                            label={`${chip.label}: ${chip.value}`}
+                            size="small"
+                            color="primary"
+                            variant="outlined"
+                            onDelete={() => onRemoveFilter(chip.field, chip.value)}
+                            sx={{ fontWeight: 500 }}
+                        />
+                    ))}
+                </Box>
+            )}
+        </Box>
+    );
+};
+
 export default function OwnersPage() {
+    // Recent pages keyed by query string, so a page flip renders without waiting.
+    const pageCacheRef = useRef(new Map<string, unknown>());
     const [rows, setRows] = useState<OwnerRow[]>([]);
     const [totalRows, setTotalRows] = useState<number>(0);
     const [loading, setLoading] = useState(true);
@@ -103,7 +239,22 @@ export default function OwnersPage() {
                 if (filters.zip) params.append('zip', filters.zip);
                 if (filters.search) params.append('search', filters.search);
 
-                const res = await axios.get(`/api/owners?${params.toString()}`);
+                const qs = params.toString();
+                const cached = pageCacheRef.current.get(qs);
+                const res = cached ? { data: cached } : await axios.get(`/api/owners?${qs}`);
+
+                if (!cached) {
+                    // Cap the cache so a long session cannot hold many pages of rows.
+                    if (pageCacheRef.current.size >= 4) pageCacheRef.current.delete(pageCacheRef.current.keys().next().value as string);
+                    pageCacheRef.current.set(qs, res.data);
+                    // Warm the next page so flipping pages renders instantly.
+                    const next = new URLSearchParams(params);
+                    next.set('page', String(paginationModel.page + 1));
+                    const nextQs = next.toString();
+                    if (!pageCacheRef.current.has(nextQs)) {
+                        void axios.get(`/api/owners?${nextQs}`).then((r) => { pageCacheRef.current.set(nextQs, r.data); }).catch((e) => console.error('Owner page prefetch failed:', e));
+                    }
+                }
 
                 // Convert towerIds array to comma-separated string for display
                 const formattedRows = res.data.data.map((row: any) => ({
@@ -269,113 +420,6 @@ export default function OwnersPage() {
         }
     }
 
-    const FilterAutocomplete = ({ field, label, options }: { field: string; label: string; options: string[] }) => {
-        const selected = ((filters as any)[field] || '').split(',').filter(Boolean);
-        return (
-            <Autocomplete
-                multiple
-                size="small"
-                options={options}
-                disableCloseOnSelect
-                value={selected}
-                onChange={(_, newValue) => handleExternalFilterChange(field, newValue)}
-                renderOption={(props, option, { selected: sel }) => {
-                    const { key, ...otherProps } = props as any;
-                    return (
-                        <li key={key} {...otherProps}>
-                            <Checkbox icon={<CheckBoxOutlineBlankIcon fontSize="small" />} checkedIcon={<CheckBoxIcon fontSize="small" />} style={{ marginRight: 8 }} checked={sel} size="small" />
-                            {option}
-                        </li>
-                    );
-                }}
-                renderTags={() => null}
-                renderInput={(params) => (
-                    <TextField
-                        {...params}
-                        label={label}
-                        placeholder={selected.length ? `${selected.length} selected` : 'All'}
-                        sx={{
-                            minWidth: 140,
-                            '& .MuiInputLabel-root': {
-                                color: selected.length ? 'primary.main' : undefined,
-                                fontWeight: selected.length ? 600 : 400,
-                            }
-                        }}
-                    />
-                )}
-                sx={{ minWidth: 140 }}
-            />
-        );
-    };
-
-    const ExternalFiltersBar = () => (
-        <Box sx={{ borderBottom: '1px solid #e0e0e0', mb: 1 }}>
-            <Box
-                component="form"
-                onSubmit={(e) => { e.preventDefault(); submitSearch(); }}
-                sx={{ pb: 1, display: 'flex', gap: 1 }}
-            >
-                <TextField
-                    fullWidth
-                    size="small"
-                    placeholder="Search owners by name, address, city, county, phone…"
-                    defaultValue={filters.search || ''}
-                    inputRef={searchRef}
-                    sx={{ bgcolor: 'white' }}
-                />
-                <Button type="submit" variant="contained" color="primary" sx={{ minWidth: 100 }}>
-                    Search
-                </Button>
-                {filters.search && (
-                    <Button
-                        variant="outlined"
-                        color="inherit"
-                        onClick={() => { if (searchRef.current) searchRef.current.value = ''; submitSearch(); }}
-                        sx={{ textTransform: 'none' }}
-                    >
-                        Clear
-                    </Button>
-                )}
-            </Box>
-            <Box sx={{ pb: 1, display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center' }}>
-                <Badge badgeContent={activeFilterCount} color="primary" sx={{ mr: 0.5 }}>
-                    <FilterListIcon color={activeFilterCount > 0 ? 'primary' : 'action'} />
-                </Badge>
-                <FilterAutocomplete field="city" label="City" options={filterOptions.cities} />
-                <FilterAutocomplete field="county" label="County" options={filterOptions.counties} />
-                <FilterAutocomplete field="state" label={globalCountry === 'USA' ? 'State' : 'Province'} options={filterOptions.states} />
-                <FilterAutocomplete field="zip" label={globalCountry === 'USA' ? 'ZIP' : 'Postal Code'} options={filterOptions.zips} />
-                {activeFilterCount > 0 && (
-                    <Button
-                        size="small"
-                        variant="outlined"
-                        color="error"
-                        startIcon={<ClearIcon />}
-                        onClick={() => { setFilters({}); setPaginationModel(prev => ({ ...prev, page: 0 })); }}
-                        sx={{ ml: 'auto', textTransform: 'none', fontWeight: 600 }}
-                    >
-                        Clear All ({activeFilterCount})
-                    </Button>
-                )}
-            </Box>
-            {activeChips.length > 0 && (
-                <Box sx={{ pb: 1, display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-                    {activeChips.map((chip, i) => (
-                        <Chip
-                            key={`${chip.field}-${chip.value}-${i}`}
-                            label={`${chip.label}: ${chip.value}`}
-                            size="small"
-                            color="primary"
-                            variant="outlined"
-                            onDelete={() => removeFilterValue(chip.field, chip.value)}
-                            sx={{ fontWeight: 500 }}
-                        />
-                    ))}
-                </Box>
-            )}
-        </Box>
-    );
-
     return (
         <Box sx={{ p: 4, height: '100%', display: 'flex', flexDirection: 'column' }}>
             <Typography variant="h4" gutterBottom fontWeight="bold">
@@ -385,7 +429,18 @@ export default function OwnersPage() {
                 Properties identified with cellular towers.
             </Typography>
             <Paper sx={{ flex: 1, mt: 2, p: 2, width: '100%', display: 'flex', flexDirection: 'column' }} elevation={2}>
-                <ExternalFiltersBar />
+                <ExternalFiltersBar
+                    filters={filters}
+                    filterOptions={filterOptions}
+                    globalCountry={globalCountry}
+                    searchRef={searchRef}
+                    submitSearch={submitSearch}
+                    activeFilterCount={activeFilterCount}
+                    activeChips={activeChips}
+                    onFilterChange={handleExternalFilterChange}
+                    onRemoveFilter={removeFilterValue}
+                    onClearAll={() => { setFilters({}); setPaginationModel(prev => ({ ...prev, page: 0 })); }}
+                />
                 {loading ? (
                     <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
                         <CircularProgress />
