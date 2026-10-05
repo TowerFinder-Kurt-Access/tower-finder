@@ -80,7 +80,7 @@ function whereFrom(conds: Prisma.Sql[], extra?: Prisma.Sql): Prisma.Sql {
 
 // Lookup-facet queries only need the Parcel join when a condition references `p`.
 function needsParcel(f: FacetFilters): boolean {
-    return !!f.country || !!(f.city.length || f.state.length || f.county.length || f.zip.length);
+    return Boolean(f.country) || Boolean(f.city.length || f.state.length || f.county.length || f.zip.length);
 }
 
 // GET /api/towers - List all towers
@@ -124,7 +124,9 @@ export async function GET(request: Request) {
         // Default limit to prevent sending too many towers at once (performance optimization)
         // Use 1000 as default limit if not specified, unless fetching by ID
         const DEFAULT_LIMIT = 1000;
-        const limit = limitStr ? parseInt(limitStr, 10) : (id ? undefined : DEFAULT_LIMIT);
+        let limit: number | undefined = DEFAULT_LIMIT;
+        if (limitStr) limit = parseInt(limitStr, 10);
+        else if (id) limit = undefined;
         const page = pageStr ? parseInt(pageStr, 10) : undefined; // Only set page if explicitly provided
 
         // Bounding box support
@@ -134,7 +136,7 @@ export async function GET(request: Request) {
         if (distinct === 'countries') {
             const result = await prisma.$queryRaw<{ country: string }[]>`
                 SELECT DISTINCT country FROM "Parcel"
-                WHERE country IS NOT NULL AND country != ''
+                WHERE country IS NOT NULL AND country <> ''
                 ORDER BY country
             `;
             return NextResponse.json(result.map(r => r.country));
@@ -151,14 +153,14 @@ export async function GET(request: Request) {
                     WHERE 1=1 ${countryFilter}
                     UNION
                     SELECT p."stateRaw" as name FROM "Parcel" p 
-                    WHERE p."stateRaw" IS NOT NULL AND p."stateRaw" != '' 
+                    WHERE p."stateRaw" IS NOT NULL AND p."stateRaw" <> '' 
                     ${countryFilter}
                     UNION
                     SELECT p."provinceRaw" as name FROM "Parcel" p 
-                    WHERE p."provinceRaw" IS NOT NULL AND p."provinceRaw" != '' 
+                    WHERE p."provinceRaw" IS NOT NULL AND p."provinceRaw" <> '' 
                     ${countryFilter}
                 ) combined
-                WHERE name IS NOT NULL AND name != ''
+                WHERE name IS NOT NULL AND name <> ''
                 ORDER BY name
             `;
             const provinces = new Set<string>();
@@ -191,10 +193,10 @@ export async function GET(request: Request) {
                     WHERE 1=1 ${countryFilter} ${stateFilter}
                     UNION
                     SELECT p."cityRaw" as name FROM "Parcel" p 
-                    WHERE p."cityRaw" IS NOT NULL AND p."cityRaw" != '' 
+                    WHERE p."cityRaw" IS NOT NULL AND p."cityRaw" <> '' 
                     ${countryFilter} ${stateFilter}
                 ) combined
-                WHERE name IS NOT NULL AND name != ''
+                WHERE name IS NOT NULL AND name <> ''
                 ORDER BY name
              `;
             const cities = dedupeDisplayValues(result.map(r => r.city));
@@ -217,14 +219,14 @@ export async function GET(request: Request) {
             const result = await prisma.$queryRaw<{ zip: string }[]>`
                 SELECT DISTINCT name as zip FROM (
                     SELECT p."postalCode" as name FROM "Parcel" p
-                    WHERE p."postalCode" IS NOT NULL AND p."postalCode" != ''
+                    WHERE p."postalCode" IS NOT NULL AND p."postalCode" <> ''
                     ${countryFilter} ${stateFilter}
                     UNION
                     SELECT p.zip as name FROM "Parcel" p
-                    WHERE p.zip IS NOT NULL AND p.zip != ''
+                    WHERE p.zip IS NOT NULL AND p.zip <> ''
                     ${countryFilter} ${stateFilter}
                 ) combined
-                WHERE name IS NOT NULL AND name != ''
+                WHERE name IS NOT NULL AND name <> ''
                 ORDER BY name
             `;
             const zips = dedupeDisplayValues(result.map(r => r.zip));
@@ -615,13 +617,14 @@ export async function GET(request: Request) {
                 orderBy: (() => {
                     const sort = searchParams.get('sort');
                     const order = (searchParams.get('order') || 'asc') as Prisma.SortOrder;
-                    const primary: Prisma.TowerOrderByWithRelationInput =
-                        sort === 'businessCount' ? { businessCount: order }
-                        : sort === 'avgBusinessDistance' ? { avgBusinessDistance: order }
-                        : sort === 'aiTowerScore' ? { aiTowerScore: { sort: order, nulls: 'last' } as Prisma.SortOrderInput }
-                        : sort === 'hasOwnerName' ? { parcel: { ownerId: order } }
-                        : sort === 'id' ? { id: order }
-                        : { id: 'asc' as Prisma.SortOrder };
+                    const byField: Record<string, Prisma.TowerOrderByWithRelationInput> = {
+                        businessCount: { businessCount: order },
+                        avgBusinessDistance: { avgBusinessDistance: order },
+                        aiTowerScore: { aiTowerScore: { sort: order, nulls: 'last' } as Prisma.SortOrderInput },
+                        hasOwnerName: { parcel: { ownerId: order } },
+                        id: { id: order },
+                    };
+                    const primary = byField[sort ?? ''] ?? { id: 'asc' as Prisma.SortOrder };
                     // Always an array: a single object breaks Prisma's findMany overload once relationLoadStrategy is set. The id tiebreaker keeps one row per page.
                     return [primary, { id: order }] as Prisma.TowerOrderByWithRelationInput[];
                 })(),
@@ -633,7 +636,7 @@ export async function GET(request: Request) {
 
         const withFlags = towers.map(t => ({
             ...t,
-            hasOwnerName: !!(t.parcel && t.parcel.ownerId)
+            hasOwnerName: Boolean(t.parcel?.ownerId)
         }));
 
         // If pagination was used, return both data and count
