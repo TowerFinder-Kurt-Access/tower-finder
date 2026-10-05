@@ -53,6 +53,8 @@ function TowersPageContent() {
     const { country: globalCountry } = useCountry();
 
     const abortControllerRef = useRef<AbortController | null>(null);
+    // Recent tower pages keyed by their query string, so a page flip renders without waiting.
+    const pageCacheRef = useRef(new Map<string, unknown>());
 
     // Must be declared before the state lazy initializers that reference it
     const urlIdParam = searchParams.get('id');
@@ -229,7 +231,22 @@ function TowersPageContent() {
                 if (filters.hasOwnerName) params.append('hasOwnerName', filters.hasOwnerName);
             }
 
-            const res = await axios.get(`/api/towers?${params.toString()}`, { signal: controller.signal });
+            const qs = params.toString();
+            const cached = pageCacheRef.current.get(qs);
+            const res = cached ? { data: cached } : await axios.get(`/api/towers?${qs}`, { signal: controller.signal });
+
+            if (!cached) {
+                // Cap the cache so a long session cannot hold many pages of rows.
+                if (pageCacheRef.current.size >= 4) pageCacheRef.current.delete(pageCacheRef.current.keys().next().value as string);
+                pageCacheRef.current.set(qs, res.data);
+                // Warm the next page so flipping pages renders instantly.
+                const next = new URLSearchParams(params);
+                next.set('page', String(page + 1));
+                const nextQs = next.toString();
+                if (!pageCacheRef.current.has(nextQs)) {
+                    void axios.get(`/api/towers?${nextQs}`).then((r) => { pageCacheRef.current.set(nextQs, r.data); }).catch((e) => console.error('Page prefetch failed:', e));
+                }
+            }
 
             // API returns plain array when filtering by id, paginated object otherwise
             const rawData = Array.isArray(res.data) ? res.data : (res.data.data || []);
