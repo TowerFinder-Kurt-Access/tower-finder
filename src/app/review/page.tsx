@@ -1,7 +1,7 @@
 'use client';
 
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
@@ -20,11 +20,17 @@ import CircularProgress from '@mui/material/CircularProgress';
 import MenuItem from '@mui/material/MenuItem';
 import IconButton from '@mui/material/IconButton';
 import Autocomplete from '@mui/material/Autocomplete';
+import Dialog from '@mui/material/Dialog';
+import DialogActions from '@mui/material/DialogActions';
+import DialogContent from '@mui/material/DialogContent';
+import DialogContentText from '@mui/material/DialogContentText';
+import DialogTitle from '@mui/material/DialogTitle';
 import InputAdornment from '@mui/material/InputAdornment';
 import PrintIcon from '@mui/icons-material/Print';
 import SaveIcon from '@mui/icons-material/Save';
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import { useAppearance } from '@/components/AppearanceProvider';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import SearchIcon from '@mui/icons-material/Search';
@@ -187,6 +193,8 @@ function toInput(state: FormState): Record<string, unknown> {
 
 function ReviewContent() {
   const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
   const { symbol: currencySymbol } = useAppearance();
   const [form, setForm] = useState<FormState>(EMPTY);
   const [forms, setForms] = useState<Array<{ id: number; owner: string | null; fileId: string | null; siteAddress: string | null; dealType: string | null; status: string; updatedAt?: string }>>([]);
@@ -198,7 +206,10 @@ function ReviewContent() {
   const [towerOptions, setTowerOptions] = useState<TowerOptionState>({ options: [], page: 0, hasMore: false, loadingMore: false });
   const [towerQuery, setTowerQuery] = useState('');
   const towerQueryRef = useRef('');
-  const [busy, setBusy] = useState<{ id: number; action: 'open' | 'print' } | null>(null);
+  // Read the view from the URL once, so a router.replace does not reload and wipe edits.
+  const started = useRef(false);
+  const [busy, setBusy] = useState<{ id: number; action: 'open' | 'print' | 'delete' } | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<number | null>(null);
   const { showSnackbar } = useSnackbar();
 
   const set = (k: keyof FormState, v: FormState[keyof FormState]): void => {
@@ -320,12 +331,17 @@ function ReviewContent() {
     setView('form');
   }, []);
   useEffect(() => {
+    if (started.current) return;
+    started.current = true;
     const init = async (): Promise<void> => {
       try {
         await loadList();
         const id = searchParams.get('id');
         const towerId = searchParams.get('towerId');
-        if (id) {
+        if (searchParams.get('new')) {
+          setForm(EMPTY);
+          setView('form');
+        } else if (id) {
           await loadOne(Number(id));
         } else if (towerId) {
           const pre = await axios.get(`/api/customer-lead-forms/prefill?towerId=${towerId}`);
@@ -340,6 +356,10 @@ function ReviewContent() {
     };
     void init();
   }, [loadList, loadOne, searchParams, showSnackbar]);
+
+  const showRecord = useCallback((id: number): void => {
+    router.replace(`${pathname}?id=${id}`);
+  }, [router, pathname]);
 
   const save = async (): Promise<void> => {
     const invalid = fieldError();
@@ -371,26 +391,52 @@ function ReviewContent() {
   const openRow = useCallback(async (id: number): Promise<void> => {
     setBusy({ id, action: 'open' });
     try {
+      showRecord(id);
       await loadOne(id);
     } finally {
       setBusy(null);
     }
-  }, [loadOne]);
+  }, [loadOne, showRecord]);
   const printRow = useCallback(async (id: number): Promise<void> => {
     setBusy({ id, action: 'print' });
     try {
       await loadOne(id);
+      showRecord(id);
       setTimeout(() => window.print(), 150);
     } finally {
       setBusy(null);
     }
-  }, [loadOne]);
+  }, [loadOne, showRecord]);
+  const removeRow = useCallback(async (id: number): Promise<void> => {
+    setConfirmDelete(null);
+    setBusy({ id, action: 'delete' });
+    try {
+      if (form.id === id) router.replace(pathname);
+      await axios.delete(`/api/customer-lead-forms/${id}`);
+      showSnackbar('Form deleted', 'success');
+      await loadList();
+    } catch (e) {
+      const msg = axios.isAxiosError(e) ? ((e.response?.data?.error as string) || 'Delete failed') : 'Delete failed';
+      showSnackbar(msg, 'error');
+    } finally {
+      setBusy(null);
+    }
+  }, [loadList, showSnackbar, form.id, router, pathname]);
+  const deleteForm = useCallback(async (id: number): Promise<void> => {
+    await removeRow(id);
+    if (form.id === id) {
+      setForm(EMPTY);
+      setView('list');
+    }
+  }, [removeRow, form.id]);
   const newForm = (): void => {
     setForm(EMPTY);
     setView('form');
+    router.replace(`${pathname}?new=1`);
   };
   const backToList = (): void => {
     setView('list');
+    router.replace(pathname);
     void loadList();
   };
   const columns: GridColDef[] = useMemo(() => ([
@@ -452,11 +498,12 @@ function ReviewContent() {
       renderCell: (p) => <Typography variant="body2" color="text.secondary">{formatDay(p.value)}</Typography>,
     },
     {
-      field: 'actions', headerName: 'Actions', width: 104, sortable: false, filterable: false, align: 'center', headerAlign: 'center',
+      field: 'actions', headerName: 'Actions', width: 148, sortable: false, filterable: false, align: 'center', headerAlign: 'center',
       renderCell: (p) => {
         const rowId = Number(p.row.id);
         const opening = busy?.id === rowId && busy.action === 'open';
         const printing = busy?.id === rowId && busy.action === 'print';
+        const deleting = busy?.id === rowId && busy.action === 'delete';
         return (
           <Box sx={{ display: 'flex', gap: 0.5 }}>
             <IconButton
@@ -475,11 +522,21 @@ function ReviewContent() {
             >
               {printing ? <CircularProgress size={16} /> : <PrintIcon fontSize="small" />}
             </IconButton>
+            <IconButton
+              size="small"
+              title="Delete"
+              aria-label={`Delete lead form ${rowId}`}
+              disabled={!!busy}
+              onClick={(e) => { e.stopPropagation(); setConfirmDelete(rowId); }}
+              sx={{ color: 'error.main' }}
+            >
+              {deleting ? <CircularProgress size={16} /> : <DeleteOutlineIcon fontSize="small" />}
+            </IconButton>
           </Box>
         );
       },
     },
-  ]), [openRow, printRow, busy]);
+  ]), [openRow, printRow, removeRow, busy]);
   const counts = useMemo((): Record<StatusFilter, number> => ({
     all: forms.length,
     draft: forms.filter((f) => statusOf(f.status) === 'draft').length,
@@ -694,8 +751,19 @@ function ReviewContent() {
         >
           {saving ? 'Saving...' : 'Save'}
         </Button>
+        {form.id && (
+          <Button
+            variant="outlined"
+            color="error"
+            startIcon={busy?.id === form.id && busy.action === 'delete' ? <CircularProgress size={16} color="inherit" /> : <DeleteOutlineIcon />}
+            onClick={() => setConfirmDelete(form.id ?? null)}
+            disabled={!!busy}
+            sx={{ whiteSpace: 'nowrap' }}
+          >
+            Delete
+          </Button>
+        )}
         <Button variant="outlined" startIcon={<PrintIcon />} onClick={openPrint}>Print</Button>
-        <Button variant="text" onClick={newForm}>New form</Button>
         <TextField select label="Status" size="small" value={form.status} onChange={(e) => set('status', e.target.value)} sx={{ minWidth: 160 }}>
           <MenuItem value="draft">{STATUS_META.draft.label}</MenuItem>
           <MenuItem value="finalized">{STATUS_META.finalized.label}</MenuItem>
@@ -875,6 +943,25 @@ function ReviewContent() {
       )}
       </Box>
       <LeadPrintDoc form={form} />
+      <Dialog open={confirmDelete !== null} onClose={() => setConfirmDelete(null)}>
+        <DialogTitle>Delete lead form?</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Lead form #{confirmDelete} will be removed permanently. This action cannot be undone.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirmDelete(null)} autoFocus>Cancel</Button>
+          <Button
+            color="error"
+            variant="contained"
+            onClick={() => { void deleteForm(confirmDelete ?? 0); }}
+            sx={{ boxShadow: 'none' }}
+          >
+            Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
     </>
   );
 }
