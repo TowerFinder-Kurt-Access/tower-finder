@@ -26,6 +26,25 @@ export async function GET(request: Request, { params }: RouteParams) {
   return NextResponse.json(form);
 }
 
+export async function DELETE(request: Request, { params }: RouteParams) {
+  try {
+    await requireAdmin();
+  } catch (e) {
+    if (e instanceof Error && e.message.includes('Forbidden')) {
+      return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 });
+    }
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+  try {
+    const { id } = await params;
+    await prisma.customerLeadForm.delete({ where: { id: parseInt(id) } });
+    return NextResponse.json({ deleted: true });
+  } catch (error) {
+    console.error('Error deleting customer lead form:', error);
+    return NextResponse.json({ error: 'Failed to delete form' }, { status: 500 });
+  }
+}
+
 export async function PATCH(request: Request, { params }: RouteParams) {
   try {
     await requireAdmin();
