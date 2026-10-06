@@ -32,10 +32,16 @@ async function main() {
     }
 
     type Target = { label: string | null; source: string | null };
-    const counts = { tower: 0, not_tower: 0, conflicted: 0, unlabeled: 0, updated: 0 };
+    const counts = { tower: 0, not_tower: 0, conflicted: 0, unlabeled: 0, updated: 0, reviewer: 0 };
 
     const targets = new Map<number, Target>();
     for (const t of towers) {
+        // A reviewer verdict is the only clean label we get. Mined status/note signals
+        // are guesses, so they never overwrite a human answer.
+        if (t.labelSource === 'reviewer') {
+            counts.reviewer++;
+            continue;
+        }
         const hasNegNote = negNoteTowers.has(t.id);
         const hasNegStatus = t.statusId === NOT_TOWER_STATUS_ID;
         const hasPosStatus = t.statusId !== null && TOWER_STATUS_IDS.has(t.statusId);
@@ -61,7 +67,7 @@ async function main() {
         }
     }
 
-    const changes = [...targets.entries()];
+    const changes = Array.from(targets.entries());
     const now = new Date();
     const CHUNK = 500;
     for (let i = 0; i < changes.length; i += CHUNK) {
@@ -84,6 +90,7 @@ async function main() {
     console.log('\n--- backfill summary ---');
     console.log(`tower:      ${counts.tower}`);
     console.log(`not_tower:  ${counts.not_tower}`);
+    console.log(`reviewer:   ${counts.reviewer} (kept as-is)`);
     console.log(`conflicted: ${counts.conflicted} (skipped)`);
     console.log(`unlabeled:  ${counts.unlabeled}`);
     console.log(`rows written this run: ${counts.updated}`);

@@ -85,7 +85,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
 
         const body = await request.json();
         const { statusId, parcelId, ownerName, ownerAddress, ownerType, streetViewUrl,
-            typeId, carrierId, parcelUpdate } = body;
+            typeId, carrierId, parcelUpdate, verdict } = body;
 
         // Update Tower Basic Info
         let updateData: any = {};
@@ -93,6 +93,20 @@ export async function PATCH(request: Request, { params }: RouteParams) {
         if (streetViewUrl !== undefined) updateData.streetViewUrl = streetViewUrl;
         if (typeId !== undefined) updateData.typeId = typeId;
         if (carrierId !== undefined) updateData.carrierId = carrierId;
+
+        // Reviewer tower verdict. This is the only clean training label we have, so
+        // 'reviewer' is the labelSource scripts/backfill-tower-labels.ts preserves.
+        if (verdict !== undefined) {
+            if (verdict !== null && verdict !== 'tower' && verdict !== 'not_tower') {
+                return NextResponse.json(
+                    { error: 'Invalid verdict. Use "tower", "not_tower" or null.' },
+                    { status: 400 }
+                );
+            }
+            updateData.humanLabel = verdict;
+            updateData.labelSource = verdict ? 'reviewer' : null;
+            updateData.labeledAt = verdict ? new Date() : null;
+        }
 
         // Handle parcel address field updates
         if (parcelUpdate) {
