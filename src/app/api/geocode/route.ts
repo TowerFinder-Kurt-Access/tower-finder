@@ -28,6 +28,6 @@ export async function GET(request: Request) {
         return NextResponse.json(bounds);
     } catch (error) {
         console.error('Geocoding error:', error);
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+        return NextResponse.json({ error: 'Geocoding service unavailable' }, { status: 503 });
     }
 }

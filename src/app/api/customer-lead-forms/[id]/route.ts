@@ -19,11 +19,30 @@ export async function GET(request: Request, { params }: RouteParams) {
   }
   const { id } = await params;
   const form = await prisma.customerLeadForm.findUnique({
-    where: { id: parseInt(id) },
+    where: { id: parseInt(id, 10) },
     include: { tower: { include: { parcel: { include: { owner: true } } } } },
   });
   if (!form) return NextResponse.json({ error: 'Not found' }, { status: 404 });
   return NextResponse.json(form);
+}
+
+export async function DELETE(request: Request, { params }: RouteParams) {
+  try {
+    await requireAdmin();
+  } catch (e) {
+    if (e instanceof Error && e.message.includes('Forbidden')) {
+      return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 });
+    }
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+  try {
+    const { id } = await params;
+    await prisma.customerLeadForm.delete({ where: { id: parseInt(id, 10) } });
+    return NextResponse.json({ deleted: true });
+  } catch (error) {
+    console.error('Error deleting customer lead form:', error);
+    return NextResponse.json({ error: 'Failed to delete form' }, { status: 500 });
+  }
 }
 
 export async function PATCH(request: Request, { params }: RouteParams) {
@@ -44,7 +63,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
     if (towerError) return NextResponse.json({ error: towerError }, { status: 400 });
     const data = toCustomerLeadFormData(body);
     const updated = await prisma.customerLeadForm.update({
-      where: { id: parseInt(id) },
+      where: { id: parseInt(id, 10) },
       data: data as Record<string, never>,
     });
     return NextResponse.json(updated);

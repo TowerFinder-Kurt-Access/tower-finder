@@ -43,12 +43,19 @@ export default function ProfilePage() {
         severity: 'success'
     });
 
+    // Re-seed the draft when the signed-in user changes (state adjusted during render).
+    const [seededUserId, setSeededUserId] = useState<string | null>(null);
+    const signedInUserId = session?.user?.id ?? null;
+    if (signedInUserId && signedInUserId !== seededUserId) {
+        setSeededUserId(signedInUserId);
+        setProfile({
+            name: session?.user?.name || '',
+            email: session?.user?.email || ''
+        });
+    }
+
     useEffect(() => {
         if (session?.user) {
-            setProfile({
-                name: session.user.name || '',
-                email: session.user.email || ''
-            });
             axios
                 .get('/api/profile/two-factor')
                 .then((res) => setTwoFactorEnabled(res.data?.twoFactorEnabled === true))
@@ -261,7 +268,7 @@ export default function ProfilePage() {
                 <Typography variant="h6" sx={{ mb: 1 }}>Two-Factor Authentication</Typography>
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                     Optional: require a 6-digit code emailed to you each time you sign in.
-                    You'll verify email delivery once when turning it on.
+                    You will verify email delivery once when turning it on.
                 </Typography>
                 <FormControlLabel
                     control={

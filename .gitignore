@@ -91,3 +91,9 @@ test_fcc_uls.ts
 
 # graphify
 graphify-out
+
+# local planning notes and helpers, kept off the branch
+/docs/plan.md
+/docs/modernization-plan-2026-09-28.md
+/docs/status-report-2026-09-11.md
+/scripts/md-to-pdf.js

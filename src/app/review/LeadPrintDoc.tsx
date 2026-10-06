@@ -72,8 +72,8 @@ export function LeadPrintDoc({ form }: { form: LeadFormState }) {
       <div style={{ marginTop: 8 }}>{field('Mortgage Info', form.mortgageInfo)}</div>
       <div className="doc-rule" />
       <div className="doc-grid">
-        {field('Fees %', form.feesPercent ? form.feesPercentValue || 'Yes' : '')}
-        {field('Fees $', form.feesDollar ? form.feesDollarValue || 'Yes' : '')}
+        {field('Fees %', form.feesPercentValue || (form.feesPercent ? 'Yes' : ''))}
+        {field('Fees $', form.feesDollarValue || (form.feesDollar ? 'Yes' : ''))}
       </div>
       <div style={{ marginTop: 8 }}>
         <div><strong>NOTES:</strong></div>

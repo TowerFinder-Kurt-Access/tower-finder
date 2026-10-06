@@ -4,7 +4,7 @@ import { useState, useEffect, Suspense, useCallback, useRef } from 'react';
 import Box from '@mui/material/Box';
 import axios from 'axios';
 import Link from 'next/link';
-import { Paper, Typography, Drawer, IconButton, Button, Chip, Stack } from '@mui/material';
+import { Paper, Typography, Drawer, IconButton, Button, Chip } from '@mui/material';
 import MapIcon from '@mui/icons-material/Map';
 import CloseIcon from '@mui/icons-material/Close';
 import TowerTableSimple from '@/components/TowerTableSimple';
@@ -37,15 +37,7 @@ interface Tower {
     aiLabel?: string | null;
 }
 
-interface OwnerResult {
-    result: {
-        owner: string;
-        address: string;
-        parcel_id: string;
-        geometry: any;
-        [key: string]: any;
-    } | null;
-}
+
 
 function TowersPageContent() {
     const router = useRouter();
@@ -53,6 +45,8 @@ function TowersPageContent() {
     const { country: globalCountry } = useCountry();
 
     const abortControllerRef = useRef<AbortController | null>(null);
+    // Recent tower pages keyed by their query string, so a page flip renders without waiting.
+    const pageCacheRef = useRef(new Map<string, unknown>());
 
     // Must be declared before the state lazy initializers that reference it
     const urlIdParam = searchParams.get('id');
@@ -67,7 +61,9 @@ function TowersPageContent() {
         try {
             const saved = typeof window !== 'undefined' ? localStorage.getItem('towersPageSettings') : null;
             if (saved) return JSON.parse(saved).page ?? 0;
-        } catch {}
+        } catch (e) {
+            console.error("Unreadable tower page settings:", e);
+        }
         return 0;
     });
     const [rowsPerPage, setRowsPerPage] = useState<number>(() => {
@@ -75,12 +71,14 @@ function TowersPageContent() {
         try {
             const saved = typeof window !== 'undefined' ? localStorage.getItem('towersPageSettings') : null;
             if (saved) return JSON.parse(saved).rowsPerPage ?? 25;
-        } catch {}
+        } catch (e) {
+            console.error("Unreadable tower page settings:", e);
+        }
         return 25;
     });
     const [isLoading, setIsLoading] = useState<boolean>(false);
     const [isExporting, setIsExporting] = useState<boolean>(false);
-    const [selectedTower, setSelectedTower] = useState<Tower | null>(null);
+    
     const [isOwnerLoading, setIsOwnerLoading] = useState<boolean>(false);
     const [notesDrawerTower, setNotesDrawerTower] = useState<any>(null);
     const [addOwnerTower, setAddOwnerTower] = useState<any>(null);
@@ -123,7 +121,9 @@ function TowersPageContent() {
         try {
             const saved = typeof window !== 'undefined' ? localStorage.getItem('towersPageSettings') : null;
             if (saved) return JSON.parse(saved).filters ?? {};
-        } catch {}
+        } catch (e) {
+            console.error("Unreadable tower page settings:", e);
+        }
         return {};
     });
     // Restore sort from localStorage too, so sorting (e.g. AI Score) survives
@@ -133,7 +133,9 @@ function TowersPageContent() {
         try {
             const saved = typeof window !== 'undefined' ? localStorage.getItem('towersPageSettings') : null;
             if (saved) return JSON.parse(saved).sortModel ?? null;
-        } catch {}
+        } catch (e) {
+            console.error("Unreadable tower page settings:", e);
+        }
         return null;
     });
 
@@ -229,7 +231,22 @@ function TowersPageContent() {
                 if (filters.hasOwnerName) params.append('hasOwnerName', filters.hasOwnerName);
             }
 
-            const res = await axios.get(`/api/towers?${params.toString()}`, { signal: controller.signal });
+            const qs = params.toString();
+            const cached = pageCacheRef.current.get(qs);
+            const res = cached ? { data: cached } : await axios.get(`/api/towers?${qs}`, { signal: controller.signal });
+
+            if (!cached) {
+                // Cap the cache so a long session cannot hold many pages of rows.
+                if (pageCacheRef.current.size >= 4) pageCacheRef.current.delete(pageCacheRef.current.keys().next().value as string);
+                pageCacheRef.current.set(qs, res.data);
+                // Warm the next page so flipping pages renders instantly.
+                const next = new URLSearchParams(params);
+                next.set('page', String(page + 1));
+                const nextQs = next.toString();
+                if (!pageCacheRef.current.has(nextQs)) {
+                    void axios.get(`/api/towers?${nextQs}`).then((r) => { pageCacheRef.current.set(nextQs, r.data); }).catch((e) => console.error('Page prefetch failed:', e));
+                }
+            }
 
             // API returns plain array when filtering by id, paginated object otherwise
             const rawData = Array.isArray(res.data) ? res.data : (res.data.data || []);

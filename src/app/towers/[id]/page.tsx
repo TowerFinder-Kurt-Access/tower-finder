@@ -1,6 +1,20 @@
 'use client';
 
-import { useState, useEffect, use } from 'react';
+// Street View links are admin-entered text, so only known map hosts may open in a tab.
+const EXTERNAL_HOSTS = new Set(['www.google.com', 'maps.google.com', 'www.bing.com', 'webmap.onxmaps.com']);
+
+const openExternal = (url: string): void => {
+    try {
+        const { hostname, protocol } = new URL(url);
+        if (protocol !== 'https:' && protocol !== 'http:') throw new Error('Blocked non-http link');
+        if (!EXTERNAL_HOSTS.has(hostname)) throw new Error(`Blocked host: ${hostname}`);
+        window.open(url, '_blank', 'noopener');
+    } catch (e) {
+        console.error('Blocked external link:', e);
+    }
+};
+
+import { useState, useEffect, useMemo, use, useSyncExternalStore } from 'react';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
 import dynamic from 'next/dynamic';
@@ -48,7 +62,6 @@ import CancelIcon from '@mui/icons-material/Cancel';
 import NotesPanel from '@/components/NotesPanel';
 import AddOwnerDialog from '@/components/AddOwnerDialog';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
-import { TOWER_STATUS_OPTIONS, getStatusLabel } from '@/lib/constants';
 
 // Dynamically import Map to avoid SSR issues with Leaflet
 const Map = dynamic(() => import('@/components/Map'), {
@@ -159,7 +172,6 @@ function getId(val: any): number | undefined {
     return undefined;
 }
 
-const AUTHOR_STORAGE_KEY = 'tower-finder-note-author';
 const ADD_NEW_VALUE = '__ADD_NEW__';
 
 export default function TowerDetailPage({ params }: PageProps) {
@@ -174,10 +186,10 @@ export default function TowerDetailPage({ params }: PageProps) {
     const [notes, setNotes] = useState<Note[]>([]);
     const [isOwnerLoading, setIsOwnerLoading] = useState(false);
     const [addOwnerOpen, setAddOwnerOpen] = useState(false);
-    const [mounted, setMounted] = useState(false);
     const [streetViewUrl, setStreetViewUrl] = useState('');
     const [isEditingStreetView, setIsEditingStreetView] = useState(false);
     const [selectedBizId, setSelectedBizId] = useState<number | null>(null);
+    const [bizPage, setBizPage] = useState(0);
     const [mapCenter, setMapCenter] = useState<[number, number] | null>(null);
     const [isSavingStreetView, setIsSavingStreetView] = useState(false);
     const [isNormalizing, setIsNormalizing] = useState(false);
@@ -231,15 +243,8 @@ export default function TowerDetailPage({ params }: PageProps) {
     const [pendingStatusId, setPendingStatusId] = useState<number | null>(null);
     const [statusNote, setStatusNote] = useState('');
 
-    useEffect(() => {
-        setMounted(true);
-    }, []);
-
-    useEffect(() => {
-        loadTower();
-        loadNavigation();
-        loadLookups();
-    }, [towerId]);
+    // Hydration-safe mounted flag: true in the browser, false during the server render.
+    const mounted = useSyncExternalStore(() => () => {}, () => true, () => false);
 
     const loadTower = async () => {
         try {
@@ -298,6 +303,16 @@ export default function TowerDetailPage({ params }: PageProps) {
         }
     };
 
+    // Start the fetches on the next tick so the effect body itself does no state work.
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            loadTower();
+            loadNavigation();
+            loadLookups();
+        }, 0);
+        return () => clearTimeout(timer);
+    }, [towerId]);
+
     const handleViewOnMap = () => {
         if (tower) {
             router.push(`/?selectTower=${tower.id}`);
@@ -306,13 +321,13 @@ export default function TowerDetailPage({ params }: PageProps) {
 
     const handleOpenGoogleMaps = () => {
         if (tower) {
-            window.open(`https://www.google.com/maps?q=${tower.lat},${tower.lon}`, '_blank');
+            openExternal(`https://www.google.com/maps?q=${tower.lat},${tower.lon}`);
         }
     };
 
     const handleOpenSatelliteView = () => {
         if (tower) {
-            window.open(`https://www.google.com/maps/@${tower.lat},${tower.lon},20z/data=!3m1!1e3`, '_blank');
+            openExternal(`https://www.google.com/maps/@${tower.lat},${tower.lon},20z/data=!3m1!1e3`);
         }
     };
 
@@ -344,18 +359,75 @@ export default function TowerDetailPage({ params }: PageProps) {
 
     const handleBizSatellite = (biz: any) => {
         const c = bizCoords(biz);
-        if (c) window.open(`https://www.google.com/maps/@${c[0]},${c[1]},20z/data=!3m1!1e3`, '_blank');
+        if (c) openExternal(`https://www.google.com/maps/@${c[0]},${c[1]},20z/data=!3m1!1e3`);
     };
+
+    const BIZ_PAGE_SIZE = 12;
+    const BIZ_RADII = [100, 200, 300, 500, 750, 1000, 1500, 2000];
+
+    // Counts per tier drive the chip labels.
+    const radiusCounts = useMemo(() => {
+        const list = tower?.businessesNearby ?? [];
+        const countsByRadius: Record<number, number> = {};
+        for (const r of BIZ_RADII) countsByRadius[r] = list.filter((b) => b.distance <= r).length;
+        return countsByRadius;
+    }, [tower?.businessesNearby]);
+
+    // Widest tier that still holds a business; the default view stops there.
+    const maxUsefulRadius = useMemo(() => {
+        const list = tower?.businessesNearby ?? [];
+        if (list.length === 0) return 0;
+        const furthest = Math.max(...list.map((b) => b.distance));
+        const tier = [...BIZ_RADII].reverse().find((r) => r >= furthest);
+        return tier ?? 2000;
+    }, [tower?.businessesNearby]);
+
+    // Rows are stored nearest-first, so the first one carrying a phone is the answer.
+    const nearestCallableBiz = useMemo(() => {
+        const list = tower?.businessesNearby;
+        if (!list || list.length === 0) return null;
+        return list.find((b) => !!b.phone) ?? null;
+    }, [tower?.businessesNearby]);
+
+    // Explains why the banner skips closer businesses that list no number.
+    const closerWithoutPhone = useMemo(() => {
+        const list = tower?.businessesNearby ?? [];
+        if (!nearestCallableBiz) return 0;
+        return list.filter((b) => !b.phone && b.distance < nearestCallableBiz.distance).length;
+    }, [tower?.businessesNearby, nearestCallableBiz]);
+
+    // null means "use the widest tier that holds something"; only a pick overrides it.
+    const [bizRadiusPick, setBizRadiusPick] = useState<number | null>(null);
+    const [lastTowerId, setLastTowerId] = useState<number | null>(null);
+    const bizRadius = bizRadiusPick ?? maxUsefulRadius;
+
+    const bizWithinRadius = useMemo(() => {
+        const list = tower?.businessesNearby ?? [];
+        return list.filter((b) => b.distance <= bizRadius);
+    }, [tower?.businessesNearby, bizRadius]);
+
+    // Reset during render so the next tower does not flash the previous tower's page.
+    if (tower && tower.id !== lastTowerId) {
+        setLastTowerId(tower.id);
+        setBizRadiusPick(null);
+        setBizPage(0);
+    }
+
+    const bizTotalPages = Math.max(1, Math.ceil(bizWithinRadius.length / BIZ_PAGE_SIZE));
+    const bizPageItems = useMemo(() => {
+        const start = bizPage * BIZ_PAGE_SIZE;
+        return bizWithinRadius.slice(start, start + BIZ_PAGE_SIZE);
+    }, [bizWithinRadius, bizPage]);
 
     const handleOpenBingMaps = () => {
         if (tower) {
-            window.open(`https://www.bing.com/maps?cp=${tower.lat}~${tower.lon}&lvl=17&style=r`, '_blank');
+            openExternal(`https://www.bing.com/maps?cp=${tower.lat}~${tower.lon}&lvl=17&style=r`);
         }
     };
 
     const handleOpenOnXMaps = () => {
         if (tower) {
-            window.open(`https://webmap.onxmaps.com/hunt/map/query/${tower.lat},${tower.lon},14.57/overview#15.5/${tower.lat}/${tower.lon}`, '_blank');
+            openExternal(`https://webmap.onxmaps.com/hunt/map/query/${tower.lat},${tower.lon},14.57/overview#15.5/${tower.lat}/${tower.lon}`);
         }
     };
 
@@ -669,7 +741,7 @@ export default function TowerDetailPage({ params }: PageProps) {
 
     const handleOpenSavedStreetView = () => {
         if (streetViewUrl) {
-            window.open(streetViewUrl, '_blank');
+            openExternal(streetViewUrl);
         }
     };
 
@@ -699,8 +771,6 @@ export default function TowerDetailPage({ params }: PageProps) {
     }
 
     // Extract display values
-    const typeName = getName(tower.type);
-    const carrierName = getName(tower.carrier);
     const cityName = getName(tower.parcel?.city) || tower.parcel?.cityRaw || '';
     const provinceName = getName(tower.parcel?.province) || tower.parcel?.provinceRaw || tower.parcel?.stateRaw || tower.parcel?.state || '';
     const postalCode = tower.parcel?.postalCode || tower.parcel?.zip || '';
@@ -1272,6 +1342,51 @@ export default function TowerDetailPage({ params }: PageProps) {
                                             </Box>
                                         </Box>
                                     )}
+                                    <Box sx={{ gridColumn: { xs: '1', md: '1 / -1' } }}>
+                                        <Divider sx={{ my: 1 }} />
+                                        <Stack direction="row" spacing={1} sx={{ mb: 1 }}>
+                                            <PhoneIcon color="primary" />
+                                            <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 600 }}>
+                                                Tower Phones
+                                            </Typography>
+                                        </Stack>
+                                        {tower.phones && tower.phones.length > 0 ? (
+                                            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 1 }}>
+                                                {tower.phones.map((phone) => (
+                                                    <Paper key={phone.id} variant="outlined" sx={{ p: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between', bgcolor: '#fafafa' }}>
+                                                        <Typography variant="body2" sx={{ fontFamily: 'monospace', fontWeight: 'bold' }}>
+                                                            {phone.number.length === 10
+                                                                ? `(${phone.number.slice(0, 3)}) ${phone.number.slice(3, 6)}-${phone.number.slice(6)}`
+                                                                : phone.number}
+                                                        </Typography>
+                                                        <Chip
+                                                            label={phone.status}
+                                                            size="small"
+                                                            variant="outlined"
+                                                            sx={{
+                                                                height: 20,
+                                                                fontSize: '0.65rem',
+                                                                borderColor: phone.status === 'active' || phone.status === 'verified_active'
+                                                                    ? 'success.main'
+                                                                    : phone.status === 'inactive'
+                                                                        ? 'error.main'
+                                                                        : 'grey.400',
+                                                                color: phone.status === 'active' || phone.status === 'verified_active'
+                                                                    ? 'success.main'
+                                                                    : phone.status === 'inactive'
+                                                                        ? 'error.main'
+                                                                        : 'text.secondary'
+                                                            }}
+                                                        />
+                                                    </Paper>
+                                                ))}
+                                            </Box>
+                                        ) : (
+                                            <Typography variant="body2" color="text.secondary" fontStyle="italic">
+                                                No tower phone numbers found.
+                                            </Typography>
+                                        )}
+                                    </Box>
                                 </Box>
                             )
                         ) : (
@@ -1279,53 +1394,6 @@ export default function TowerDetailPage({ params }: PageProps) {
                                 No parcel data. Use &quot;Lookup Property Owner&quot; to fetch parcel information.
                             </Typography>
                         )}
-                    </Paper>
-
-                    {/* Tower Phones Section */}
-                    <Paper sx={{ p: 3, mb: 3 }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                            <PhoneIcon sx={{ mr: 1, color: 'primary.main' }} />
-                            <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                                Tower Phones
-                            </Typography>
-                        </Box>
-                        <Divider sx={{ mb: 2 }} />
-                        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: '1fr 1fr 1fr' }, gap: 2 }}>
-                            {tower.phones && tower.phones.length > 0 ? (
-                                tower.phones.map((phone) => (
-                                    <Paper key={phone.id} variant="outlined" sx={{ p: 1.5, display: 'flex', alignItems: 'center', justifyContent: 'space-between', bgcolor: '#fafafa' }}>
-                                        <Typography variant="body1" sx={{ fontFamily: 'monospace', fontWeight: 'bold' }}>
-                                            {phone.number.length === 10 
-                                                ? `(${phone.number.slice(0, 3)}) ${phone.number.slice(3, 6)}-${phone.number.slice(6)}`
-                                                : phone.number}
-                                        </Typography>
-                                        <Chip 
-                                            label={phone.status} 
-                                            size="small" 
-                                            variant="outlined"
-                                            sx={{ 
-                                                height: 20, 
-                                                fontSize: '0.65rem',
-                                                borderColor: phone.status === 'active' || phone.status === 'verified_active' 
-                                                    ? 'success.main' 
-                                                    : phone.status === 'inactive' 
-                                                        ? 'error.main' 
-                                                        : 'grey.400',
-                                                color: phone.status === 'active' || phone.status === 'verified_active' 
-                                                    ? 'success.main' 
-                                                    : phone.status === 'inactive' 
-                                                        ? 'error.main' 
-                                                        : 'text.secondary'
-                                            }}
-                                        />
-                                    </Paper>
-                                ))
-                            ) : (
-                                <Typography variant="body2" color="text.secondary" fontStyle="italic">
-                                    No tower phone numbers found.
-                                </Typography>
-                            )}
-                        </Box>
                     </Paper>
 
                     {/* Notes Section */}
@@ -1347,13 +1415,98 @@ export default function TowerDetailPage({ params }: PageProps) {
                         </Box>
                         <Divider sx={{ mb: 2 }} />
 
+                        {tower.businessesNearby && tower.businessesNearby.length > 0 && (
+                            <Paper
+                                variant="outlined"
+                                sx={{
+                                    p: 2,
+                                    mb: 2,
+                                    borderColor: nearestCallableBiz ? 'success.main' : 'warning.main',
+                                    bgcolor: nearestCallableBiz ? '#f1f8f4' : '#fdf8ef',
+                                }}
+                            >
+                                {nearestCallableBiz ? (
+                                    <Stack
+                                        direction={{ xs: 'column', sm: 'row' }}
+                                        spacing={1.5}
+                                        alignItems={{ xs: 'flex-start', sm: 'center' }}
+                                    >
+                                        <PhoneIcon color="success" />
+                                        <Box sx={{ flexGrow: 1 }}>
+                                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                                                Nearest business you can call
+                                            </Typography>
+                                            <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                                                {nearestCallableBiz.name}
+                                                <Typography component="span" variant="body2" color="text.secondary" sx={{ ml: 1 }}>
+                                                    {Math.round(nearestCallableBiz.distance)}m away
+                                                </Typography>
+                                            </Typography>
+                                            {closerWithoutPhone > 0 && (
+                                                <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                                                    {closerWithoutPhone} closer {closerWithoutPhone === 1 ? 'business has' : 'businesses have'} no phone listed
+                                                </Typography>
+                                            )}
+                                        </Box>
+                                        <Button
+                                            variant="contained"
+                                            color="success"
+                                            href={`tel:${nearestCallableBiz.phone!.replace(/[^\d+]/g, '')}`}
+                                            startIcon={<PhoneIcon />}
+                                            sx={{ textTransform: 'none', whiteSpace: 'nowrap' }}
+                                        >
+                                            {nearestCallableBiz.phone}
+                                        </Button>
+                                    </Stack>
+                                ) : (
+                                    <Stack direction="row" spacing={1.5} alignItems="center">
+                                        <PhoneIcon color="warning" />
+                                        <Box>
+                                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                                                No business with a phone nearby
+                                            </Typography>
+                                            <Typography variant="body2">
+                                                {tower.businessesNearby.length} located within 2000m, none list a phone number.
+                                            </Typography>
+                                        </Box>
+                                    </Stack>
+                                )}
+                            </Paper>
+                        )}
+
+                        {tower.businessesNearby && tower.businessesNearby.length > 0 && Object.values(radiusCounts).filter((c) => c > 0).length > 1 && (
+                            <Stack direction="row" spacing={1} sx={{ mb: 2, flexWrap: 'wrap', gap: 1, alignItems: 'center' }}>
+                                <Typography variant="body2" color="text.secondary" sx={{ mr: 0.5 }}>
+                                    Show within
+                                </Typography>
+                                {BIZ_RADII.map((r) => {
+                                    const count = radiusCounts[r] ?? 0;
+                                    const selected = bizRadius === r;
+                                    const available = count > 0;
+                                    return (
+                                        <Chip
+                                            key={r}
+                                            label={`${r}m · ${count}`}
+                                            size="small"
+                                            onClick={() => { setBizRadiusPick(r); setBizPage(0); }}
+                                            disabled={!available}
+                                            color={selected ? 'primary' : 'default'}
+                                            variant={selected ? 'filled' : 'outlined'}
+                                            sx={{ textTransform: 'none' }}
+                                        />
+                                    );
+                                })}
+                            </Stack>
+                        )}
+
                         {!tower.businessesNearby || tower.businessesNearby.length === 0 ? (
                             <Typography variant="body2" color="text.secondary" fontStyle="italic">
                                 No nearby businesses found or batch has not run yet.
                             </Typography>
                         ) : (
+                            <>
                             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: '1fr 1fr 1fr' }, gap: 2 }}>
-                                {tower.businessesNearby.map((biz) => {
+                                {bizPageItems.map((biz) => {
                                     const addr = bizAddress(biz);
                                     const hasCoords = !!bizCoords(biz);
                                     const isSelected = selectedBizId === biz.id;
@@ -1411,6 +1564,41 @@ export default function TowerDetailPage({ params }: PageProps) {
                                     );
                                 })}
                             </Box>
+                            {bizTotalPages > 1 && (
+                                <Stack
+                                    direction="row"
+                                    spacing={2}
+                                    alignItems="center"
+                                    justifyContent="center"
+                                    sx={{ mt: 2 }}
+                                >
+                                    <Button
+                                        size="small"
+                                        variant="outlined"
+                                        startIcon={<NavigateBeforeIcon />}
+                                        disabled={bizPage === 0}
+                                        onClick={() => setBizPage((p) => Math.max(0, p - 1))}
+                                        sx={{ textTransform: 'none' }}
+                                    >
+                                        Previous
+                                    </Button>
+                                    <Typography variant="body2" color="text.secondary">
+                                        Page {bizPage + 1} of {bizTotalPages} &middot;{' '}
+                                        {bizWithinRadius.length} within {bizRadius}m
+                                    </Typography>
+                                    <Button
+                                        size="small"
+                                        variant="outlined"
+                                        endIcon={<NavigateNextIcon />}
+                                        disabled={bizPage >= bizTotalPages - 1}
+                                        onClick={() => setBizPage((p) => Math.min(bizTotalPages - 1, p + 1))}
+                                        sx={{ textTransform: 'none' }}
+                                    >
+                                        Next
+                                    </Button>
+                                </Stack>
+                            )}
+                            </>
                         )}
                     </Paper>
 

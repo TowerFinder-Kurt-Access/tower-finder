@@ -19,8 +19,8 @@ export async function GET(request: Request) {
         const state = searchParams.get('state');
         const zip = searchParams.get('zip');
 
-        const page = pageStr ? parseInt(pageStr) : 0;
-        const limit = limitStr ? parseInt(limitStr) : 25;
+        const page = pageStr ? parseInt(pageStr, 10) : 0;
+        const limit = limitStr ? parseInt(limitStr, 10) : 25;
         const skip = page * limit;
 
         // Handle distinct values request for filters
@@ -28,72 +28,52 @@ export async function GET(request: Request) {
             const countryParam = searchParams.get('country');
             const countryFilter = countryParam ? Prisma.sql`AND p.country = ${countryParam}` : Prisma.sql``;
 
-            const [citiesResult, statesResult, countiesResult, zipsResult] = await Promise.all([
-                prisma.$queryRaw<{ city: string }[]>`
-                    SELECT DISTINCT name as city FROM (
-                        SELECT c."name" FROM "City" c
-                        JOIN "Parcel" p ON p."cityId" = c.id
-                        WHERE p."ownerId" IS NOT NULL ${countryFilter}
-                        UNION
-                        SELECT p."cityRaw" as name FROM "Parcel" p
-                        WHERE p."cityRaw" IS NOT NULL AND p."cityRaw" != ''
-                        AND p."ownerId" IS NOT NULL ${countryFilter}
-                    ) combined
-                    WHERE name IS NOT NULL AND name != ''
-                    ORDER BY name
-                `,
-                prisma.$queryRaw<{ state: string }[]>`
-                    SELECT DISTINCT name as state FROM (
-                        SELECT pr."name" FROM "Province" pr
-                        JOIN "Parcel" p ON p."provinceId" = pr.id
-                        WHERE p."ownerId" IS NOT NULL ${countryFilter}
-                        UNION
-                        SELECT p."stateRaw" as name FROM "Parcel" p
-                        WHERE p."stateRaw" IS NOT NULL AND p."stateRaw" != ''
-                        AND p."ownerId" IS NOT NULL ${countryFilter}
-                        UNION
-                        SELECT p."provinceRaw" as name FROM "Parcel" p
-                        WHERE p."provinceRaw" IS NOT NULL AND p."provinceRaw" != ''
-                        AND p."ownerId" IS NOT NULL ${countryFilter}
-                    ) combined
-                    WHERE name IS NOT NULL AND name != ''
-                    ORDER BY name
-                `,
-                prisma.$queryRaw<{ county: string }[]>`
-                    SELECT DISTINCT p.county
-                    FROM "Parcel" p
-                    WHERE p.county IS NOT NULL AND p.county != ''
-                    AND p."ownerId" IS NOT NULL ${countryFilter}
-                    ORDER BY p.county
-                `,
-                prisma.$queryRaw<{ zip: string }[]>`
-                    SELECT DISTINCT name as zip FROM (
-                        SELECT p."postalCode" as name FROM "Parcel" p
-                        WHERE p."postalCode" IS NOT NULL AND p."postalCode" != ''
-                        AND p."ownerId" IS NOT NULL ${countryFilter}
-                        UNION
-                        SELECT p.zip as name FROM "Parcel" p
-                        WHERE p.zip IS NOT NULL AND p.zip != ''
-                        AND p."ownerId" IS NOT NULL ${countryFilter}
-                    ) combined
-                    WHERE name IS NOT NULL AND name != ''
-                    ORDER BY name
-                `
-            ]);
+            // One round trip: a single row per facet, each with its sorted values.
+            const facetRows = await prisma.$queryRaw<{ facet: string; values: string[] }[]>(Prisma.sql`
+                SELECT facet, array_agg(DISTINCT value ORDER BY value) AS values
+                FROM (
+                    ${Prisma.join([
+                        Prisma.sql`SELECT 'cities'::text AS facet, c."name" AS value FROM "City" c
+                                JOIN "Parcel" p ON p."cityId" = c.id
+                                WHERE p."ownerId" IS NOT NULL ${countryFilter}`,
+                        Prisma.sql`SELECT 'cities' AS facet, p."cityRaw" AS value FROM "Parcel" p
+                                WHERE p."cityRaw" IS NOT NULL AND p."cityRaw" <> ''
+                                AND p."ownerId" IS NOT NULL ${countryFilter}`,
+                        Prisma.sql`SELECT 'states' AS facet, pr."name" AS value FROM "Province" pr
+                                JOIN "Parcel" p ON p."provinceId" = pr.id
+                                WHERE p."ownerId" IS NOT NULL ${countryFilter}`,
+                        Prisma.sql`SELECT 'states' AS facet, p."stateRaw" AS value FROM "Parcel" p
+                                WHERE p."stateRaw" IS NOT NULL AND p."stateRaw" <> ''
+                                AND p."ownerId" IS NOT NULL ${countryFilter}`,
+                        Prisma.sql`SELECT 'states' AS facet, p."provinceRaw" AS value FROM "Parcel" p
+                                WHERE p."provinceRaw" IS NOT NULL AND p."provinceRaw" <> ''
+                                AND p."ownerId" IS NOT NULL ${countryFilter}`,
+                        Prisma.sql`SELECT 'counties' AS facet, p."county" AS value FROM "Parcel" p
+                                WHERE p."county" IS NOT NULL AND p."county" <> ''
+                                AND p."ownerId" IS NOT NULL ${countryFilter}`,
+                        Prisma.sql`SELECT 'zips' AS facet, p."postalCode" AS value FROM "Parcel" p
+                                WHERE p."postalCode" IS NOT NULL AND p."postalCode" <> ''
+                                AND p."ownerId" IS NOT NULL ${countryFilter}`,
+                        Prisma.sql`SELECT 'zips' AS facet, p.zip AS value FROM "Parcel" p
+                                WHERE p.zip IS NOT NULL AND p.zip <> ''
+                                AND p."ownerId" IS NOT NULL ${countryFilter}`,
+                    ], ' UNION ALL ')}
+                ) all_facets
+                WHERE value IS NOT NULL AND value <> ''
+                GROUP BY facet
+            `);
 
-            const statesSet = new Set<string>();
-            statesResult.forEach(r => {
-                const fullName = ABBR_TO_PROVINCE[r.state] || r.state;
-                statesSet.add(fullName);
-            });
+            const byFacet: Record<string, string[]> = {};
+            facetRows.forEach((r) => { byFacet[r.facet] = r.values; });
 
             const isCA = isCanada(countryParam);
-            const cities = dedupeDisplayValues(citiesResult.map(r => r.city));
-            const counties = dedupeDisplayValues(countiesResult.map(r => r.county));
-            const zips = dedupeDisplayValues(zipsResult.map(r => r.zip));
+            const cities = dedupeDisplayValues(byFacet.cities || []);
+            const counties = dedupeDisplayValues(byFacet.counties || []);
+            const zips = dedupeDisplayValues(byFacet.zips || []);
+            const states = dedupeDisplayValues((byFacet.states || []).map((s) => ABBR_TO_PROVINCE[s] || s));
             return NextResponse.json({
                 cities: isCA ? filterOfficialCanadianCities(cities) : cities,
-                states: dedupeDisplayValues(Array.from(statesSet)),
+                states,
                 counties: isCA ? filterOfficialCanadianCounties(counties) : counties,
                 zips: isCA ? filterCanadianPostalCodes(zips) : zips
             });
@@ -197,105 +177,100 @@ export async function GET(request: Request) {
             ];
         }
 
-        const ownersWhere: any = {
-            parcels: {
-                some: parcelWhere
-            }
-        };
+        // One row per parcel that has a tower, so paginate on Parcel itself.
+        // Parcel.towerId is required, so every parcel already has a tower.
+        const parcelQuery: Prisma.ParcelWhereInput = { ...parcelWhere };
 
-        // Global text search across owner + parcel fields (each term must match)
+        // Global text search: each term must match the owner or the parcel.
         const search = searchParams.get('search');
         if (search) {
             const terms = search.split(/\s+/).filter(Boolean);
-            ownersWhere.AND = terms.map(term => ({
+            const ownerMatch = (term: string): any => ({
                 OR: [
                     { name: { contains: term, mode: 'insensitive' } },
                     { address: { contains: term, mode: 'insensitive' } },
                     { type: { contains: term, mode: 'insensitive' } },
                     { contacts: { some: { value: { contains: term, mode: 'insensitive' } } } },
-                    { parcels: { some: { address: { contains: term, mode: 'insensitive' } } } },
-                    { parcels: { some: { cityRaw: { contains: term, mode: 'insensitive' } } } },
-                    { parcels: { some: { city: { name: { contains: term, mode: 'insensitive' } } } } },
-                    { parcels: { some: { countyRaw: { contains: term, mode: 'insensitive' } } } },
-                    { parcels: { some: { provinceRaw: { contains: term, mode: 'insensitive' } } } },
-                    { parcels: { some: { stateRaw: { contains: term, mode: 'insensitive' } } } },
-                    { parcels: { some: { postalCode: { contains: term, mode: 'insensitive' } } } },
-                    { parcels: { some: { zip: { contains: term, mode: 'insensitive' } } } },
                 ],
+            });
+            const parcelMatch = (term: string): any => ({
+                OR: [
+                    { address: { contains: term, mode: 'insensitive' } },
+                    { cityRaw: { contains: term, mode: 'insensitive' } },
+                    { city: { name: { contains: term, mode: 'insensitive' } } },
+                    { countyRaw: { contains: term, mode: 'insensitive' } },
+                    { provinceRaw: { contains: term, mode: 'insensitive' } },
+                    { stateRaw: { contains: term, mode: 'insensitive' } },
+                    { postalCode: { contains: term, mode: 'insensitive' } },
+                    { zip: { contains: term, mode: 'insensitive' } },
+                ],
+            });
+            parcelQuery.AND = terms.map((term) => ({
+                OR: [{ owner: ownerMatch(term) }, ...parcelMatch(term).OR],
             }));
         }
 
-        // Get owners with their parcels and towers
-        const owners = await prisma.owner.findMany({
-            where: ownersWhere,
-            include: {
-                contacts: true,
-                parcels: {
-                    where: parcelWhere,
-                    include: {
-                        tower: true,
-                        city: true,
-                        province: true,
-                        countyNormalized: true
+        // Paginate in the database: one row per parcel, only the columns the table shows.
+        const [parcels, total] = await Promise.all([
+            prisma.parcel.findMany({
+                where: parcelQuery,
+                skip,
+                take: limit,
+                orderBy: { id: 'asc' } as Prisma.ParcelOrderByWithRelationInput,
+                select: {
+                    id: true,
+                    towerId: true,
+                    parcelId: true,
+                    address: true,
+                    cityRaw: true,
+                    countyRaw: true,
+                    stateRaw: true,
+                    provinceRaw: true,
+                    postalCode: true,
+                    zip: true,
+                    city: { select: { name: true } },
+                    province: { select: { name: true } },
+                    countyNormalized: { select: { name: true } },
+                    owner: {
+                        select: {
+                            id: true,
+                            name: true,
+                            type: true,
+                            address: true,
+                            contacts: { select: { type: true, value: true } }
+                        }
                     }
                 }
-            }
+            }),
+            prisma.parcel.count({ where: parcelQuery })
+        ]);
+
+        const rows = parcels.map((parcel) => {
+            const owner = parcel.owner;
+            const contacts = owner?.contacts ?? [];
+            return {
+                // Parcel id is unique, so the grid key is stable across pages.
+                id: `parcel-${parcel.id}`,
+                ownerId: owner?.id ?? null,
+                ownerName: owner?.name || 'Unknown',
+                ownerType: owner?.type || '',
+                ownerAddress: owner?.address || '',
+                parcelId: parcel.parcelId || 'Unknown',
+                address: parcel.address || '',
+                city: parcel.city?.name || parcel.cityRaw || '',
+                county: parcel.countyNormalized?.name || parcel.countyRaw || '',
+                state: parcel.province?.name || parcel.provinceRaw || parcel.stateRaw || '',
+                zip: parcel.postalCode || parcel.zip || '',
+                phones: contacts.filter((c) => c.type === 'Phone').map((c) => c.value),
+                emails: contacts.filter((c) => c.type === 'Email').map((c) => c.value),
+                towerCount: 1,
+                towerIds: [parcel.towerId]
+            };
         });
-
-        // Group by Owner + Parcel ID client-side
-        const resultItems: any[] = [];
-
-        owners.forEach((owner: any) => {
-            // Each parcel for this owner becomes a row in the "Owners" table (as it's grouped by parcel)
-            owner.parcels.forEach((parcel: any) => {
-                if (!parcel.tower) return;
-
-                const ownerName = owner.name || 'Unknown';
-                const parcelId = parcel?.parcelId || 'Unknown';
-                const address = parcel?.address || '';
-                const cityVal = parcel?.city?.name || parcel?.cityRaw || '';
-                const countyVal = parcel?.countyNormalized?.name || parcel?.countyRaw || '';
-                const stateVal = parcel?.province?.name || parcel?.provinceRaw || parcel?.stateRaw || '';
-                const zipVal = parcel?.postalCode || parcel?.zip || '';
-
-                const key = `${ownerName}-${parcelId}`;
-                
-                const contacts = owner.contacts || [];
-                const phones = contacts
-                    .filter((c: any) => c.type === 'Phone')
-                    .map((c: any) => c.value);
-                const emails = contacts
-                    .filter((c: any) => c.type === 'Email')
-                    .map((c: any) => c.value);
-
-                resultItems.push({
-                    id: key,
-                    ownerId: owner.id,
-                    ownerName,
-                    ownerType: owner.type || '',
-                    ownerAddress: owner.address || '',
-                    parcelId,
-                    address,
-                    city: cityVal,
-                    county: countyVal,
-                    state: stateVal,
-                    zip: zipVal,
-                    phones,
-                    emails,
-                    towerCount: 1, // With query on Owner -> Parcel, this is usually 1 tower per parcel in this schema
-                    towerIds: [parcel.tower.id]
-                });
-            });
-        });
-
-        const total = resultItems.length;
-
-        // Apply pagination
-        const paginatedOwners = resultItems.slice(skip, skip + limit);
 
         return NextResponse.json({
-            data: paginatedOwners,
-            total: total,
+            data: rows,
+            total,
             page: page,
             limit: limit
         });

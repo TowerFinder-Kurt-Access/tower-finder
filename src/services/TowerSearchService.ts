@@ -10,6 +10,23 @@ export interface OverpassTower {
     type: string;
 }
 
+interface LocationBounds {
+    north: number;
+    south: number;
+    east: number;
+    west: number;
+}
+
+interface NominatimPlace {
+    boundingbox: number[];
+}
+
+const NOMINATIM_URL = 'https://nominatim.openstreetmap.org/search';
+const NOMINATIM_TIMEOUT_MS = 8000;
+const BOUNDS_CACHE_TTL_MS = 10 * 60 * 1000;
+const boundsCache = new Map<string, { bounds: LocationBounds | null; expiresAt: number }>();
+const inFlightBoundsRequests = new Map<string, Promise<LocationBounds | null>>();
+
 export class TowerSearchService {
     static async searchInBounds(north: number, south: number, east: number, west: number): Promise<OverpassTower[]> {
         const query = `
@@ -55,40 +72,49 @@ export class TowerSearchService {
             throw error;
         }
     }
-    static async getBoundsForLocation(country: string, province?: string, city?: string): Promise<{ north: number, south: number, east: number, west: number } | null> {
-        try {
-            const queryParts = [];
-            if (city) queryParts.push(city);
-            if (province) queryParts.push(province);
-            queryParts.push(country);
+    static async getBoundsForLocation(country: string, province?: string, city?: string): Promise<LocationBounds | null> {
+        const queryParts = [];
+        if (city) queryParts.push(city);
+        if (province) queryParts.push(province);
+        queryParts.push(country);
 
-            const q = queryParts.join(', ');
+        const q = queryParts.join(', ');
+        const cachedBounds = boundsCache.get(q);
+        if (cachedBounds && cachedBounds.expiresAt > Date.now()) {
+            return cachedBounds.bounds;
+        }
 
-            // Use Nominatim to get bounding box
-            const response = await axios.get('https://nominatim.openstreetmap.org/search', {
-                params: {
-                    q,
-                    format: 'json',
-                    limit: 1,
-                    featuretype: city ? 'city' : (province ? 'state' : 'country')
-                    // Note: featuretype isn't always reliable, but helps. 
-                    // Better to just let q do the work.
-                },
-                headers: {
-                    'User-Agent': 'TowerFinder/1.0' // Required by Nominatim
-                }
-            });
+        const inFlightRequest = inFlightBoundsRequests.get(q);
+        if (inFlightRequest) {
+            return inFlightRequest;
+        }
 
-            if (response.data && response.data.length > 0) {
-                const place = response.data[0];
+        const request = axios.get<NominatimPlace[]>(NOMINATIM_URL, {
+            params: {
+                q,
+                format: 'json',
+                limit: 1,
+                featuretype: city ? 'city' : (province ? 'state' : 'country')
+            },
+            headers: {
+                'User-Agent': 'TowerFinder/1.0'
+            },
+            timeout: NOMINATIM_TIMEOUT_MS
+        }).then(response => {
+            const place = response.data?.[0];
+            let bounds: LocationBounds | null = null;
+            if (place) {
                 const [south, north, west, east] = place.boundingbox.map(Number);
-                return { north, south, east, west };
+                bounds = { north, south, east, west };
             }
 
-            return null;
-        } catch (error) {
-            console.error('Error fetching bounds from Nominatim:', error);
-            return null;
-        }
+            boundsCache.set(q, { bounds, expiresAt: Date.now() + BOUNDS_CACHE_TTL_MS });
+            return bounds;
+        }).finally(() => {
+            inFlightBoundsRequests.delete(q);
+        });
+
+        inFlightBoundsRequests.set(q, request);
+        return request;
     }
 }

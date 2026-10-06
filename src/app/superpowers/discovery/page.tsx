@@ -59,6 +59,7 @@ export default function DiscoveryProgressPage() {
     const { data: session, status } = useSession();
     const [scans, setScans] = useState<DiscoveryScan[]>([]);
     const [mapData, setMapData] = useState<MapCell[]>([]);
+    const [unpositioned, setUnpositioned] = useState(0);
     const [selectedScan, setSelectedScan] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
     const [mapLoading, setMapLoading] = useState(false);
@@ -83,6 +84,7 @@ export default function DiscoveryProgressPage() {
             setMapLoading(true);
             const res = await axios.get(`/api/admin/discovery-progress?includeMap=true&state=${encodeURIComponent(state)}`);
             setMapData(res.data.mapData || []);
+            setUnpositioned(res.data.unpositioned || 0);
         } catch (error) {
             console.error('Failed to load map data:', error);
         } finally {
@@ -117,6 +119,8 @@ export default function DiscoveryProgressPage() {
 
     const activeScan = scans.find(s => s.state === selectedScan);
     const clamp = (n: number) => Math.max(0, Math.min(100, n));
+    // The API sends progress in tenths of a percent, so 207 means 20.7%.
+    const pctOf = (tenths: number) => clamp(Math.round(tenths / 10));
 
     return (
         <Box sx={{ minHeight: '100vh', bgcolor: '#f7f8f9', px: { xs: 2, md: 3 }, py: { xs: 2, md: 3 } }}>
@@ -157,7 +161,7 @@ export default function DiscoveryProgressPage() {
                 <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', lg: '1fr 1fr 1fr' }, gap: { xs: 1.5, md: 2 } }}>
                     {scans.map(scan => {
                         const isSelected = selectedScan === scan.state;
-                        const pct = clamp(scan.progressPercent);
+                        const pct = pctOf(scan.progressPercent);
                         const pending = Math.max(0, scan.totalCells - scan.completedCells - scan.failedCells);
                         const statusKey = scan.status.toLowerCase();
                         return (
@@ -224,9 +228,7 @@ export default function DiscoveryProgressPage() {
                                             '& .MuiLinearProgress-bar': { borderRadius: 99, bgcolor: '#10b981' },
                                         }}
                                     />
-                                    {scan.progressPercent > 100 && (
-                                        <Typography sx={{ fontSize: 10, color: '#dc2626', mt: 0.5, fontWeight: 700 }}>Capped from {scan.progressPercent}%</Typography>
-                                    )}
+
                                 </Box>
 
                                 <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1, mt: 'auto', pt: 1.6, borderTop: '1px solid #f1f5f9' }}>
@@ -255,7 +257,14 @@ export default function DiscoveryProgressPage() {
                         </Box>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minHeight: 20 }}>
                             {mapLoading && <Typography sx={{ fontSize: 12, fontWeight: 700, color: '#059669' }}>Updating map…</Typography>}
-                            <Typography sx={{ fontSize: 11, color: '#64748b' }}>{mapData.length.toLocaleString()} cells</Typography>
+                            <Typography sx={{ fontSize: 11, color: '#64748b' }}>
+                                {mapData.length.toLocaleString()} cells
+                                {unpositioned > 0 && (
+                                    <Box component="span" sx={{ color: '#b45309', fontWeight: 700 }}>
+                                        {' '}· {unpositioned.toLocaleString()} hidden, no county centroid
+                                    </Box>
+                                )}
+                            </Typography>
                         </Box>
                     </Box>
 

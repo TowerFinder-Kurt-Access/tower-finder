@@ -554,6 +554,7 @@ export default function TowerTableSimple({
     const editStatusOptions = (lookups?.statuses || []).map(s => s.name);
 
     const columns: GridColDef[] = [
+        { field: 'id', headerName: 'ID', width: 80, type: 'number' },
         {
             field: 'type', headerName: 'Type', width: 120,
             type: 'singleSelect',
@@ -731,7 +732,7 @@ export default function TowerTableSimple({
     ];
 
     // Sorting runs server-side; only fields the API can order by are sortable
-    const SERVER_SORTABLE = new Set(['businessCount', 'avgBusinessDistance', 'aiTowerScore', 'hasOwnerName']);
+    const SERVER_SORTABLE = new Set(['id', 'businessCount', 'avgBusinessDistance', 'aiTowerScore', 'hasOwnerName']);
     const sortableColumns = columns.map(c => ({ ...c, sortable: SERVER_SORTABLE.has(c.field) }));
 
     // Stable references for controlled DataGrid props — creating new objects/arrays on

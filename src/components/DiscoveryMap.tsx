@@ -102,9 +102,10 @@ export default function DiscoveryMap({ cells, state }: { cells: MapCell[]; state
             zoomControl={false}
             preferCanvas={true}
         >
+            {/* Esri World Light Gray: no API key, closest match to the old CARTO light tiles. */}
             <TileLayer
-                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/">CARTO</a>'
-                url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+                attribution='Tiles &copy; <a href="https://www.esri.com/">Esri</a> &mdash; Source: Esri, HERE, Garmin, &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                url="https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}"
             />
             <FitBounds cells={cells} />
             {markers}
