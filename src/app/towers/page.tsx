@@ -35,6 +35,8 @@ interface Tower {
     avgBusinessDistance?: number;
     aiTowerScore?: number | null;
     aiLabel?: string | null;
+    humanLabel?: string | null;
+    labelSource?: string | null;
 }
 
 
@@ -411,6 +413,18 @@ function TowersPageContent() {
         }
     };
 
+    const handleVerdict = async (tower: Tower, verdict: 'tower' | 'not_tower' | null) => {
+        try {
+            await axios.patch(`/api/towers/${tower.id}`, { verdict });
+            // Drop the page cache or the row keeps its old verdict until the cache is rebuilt.
+            pageCacheRef.current.clear();
+            loadTowers();
+        } catch (error) {
+            console.error('Failed to save tower verdict:', error);
+            alert('Could not save the tower verdict. Try again.');
+        }
+    };
+
     const handleExport = async (ids?: number[], all?: boolean) => {
         setIsExporting(true);
         try {
@@ -510,6 +524,7 @@ function TowersPageContent() {
                         }}
                         onNotesClick={handleNotesClick}
                         onAddOwner={(tower) => setAddOwnerTower(tower)}
+                        onVerdict={handleVerdict}
                         onExport={handleExport}
                         country={globalCountry}
                     />

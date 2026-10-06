@@ -83,6 +83,31 @@ therefore targets the **47,139 unreviewed `Tower` records** (statusId null or
 Retrain loop: as reviewers keep setting statuses/notes, re-run backfill →
 train → score (three commands, see script headers).
 
+### Phase 1b — Honest score column + reviewer verdicts ✅ SHIPPED 2026-10-07
+Users reported the AI Score as inaccurate for tower detection on the map. The
+audit confirmed the cause: the score never reads map imagery, and it is trained
+on labels guessed from workflow status and notes. It is a ranking heuristic.
+The UI now says so, and reviewers can supply clean labels.
+
+- **Column renamed** "AI Score" to "Tower Likelihood". A tooltip on the header
+  and every chip carries the model version, the feature summary, and the
+  held-out precision/recall. The chip no longer turns green on a high score,
+  because a high score is not a confirmation.
+- **Reviewer verdicts** — "Confirm: is a tower" / "Confirm: not a tower" /
+  "Clear verdict" in the row Actions menu, plus a `Verdict` column. A filled
+  chip is a reviewer label; an outlined chip is a mined label. Writes
+  `humanLabel`, `labelSource = 'reviewer'`, `labeledAt` through a validated
+  `verdict` field on `PATCH /api/towers/[id]`.
+- **Backfill protection** — `scripts/backfill-tower-labels.ts` skips rows whose
+  `labelSource` is `'reviewer'`, so a rerun never overwrites a human answer.
+  `scripts/score-towers.ts` already skips labeled rows.
+- **No schema change.** Every column used here already existed.
+
+Next step: hand-check about 200 rows against satellite to measure the true
+error rate (`docs/status-report-2026-09-11.md` §3), then rerun backfill → train
+→ score once enough reviewer verdicts accumulate. New features should wait for
+that measurement.
+
 ### Phases 2-5 below — original lead-side design (NOT yet implemented)
 Kept for reference: scoring `TowerLead` still requires lead-native labels
 (discard button) or a heuristic prior; revisit after the tower-side score

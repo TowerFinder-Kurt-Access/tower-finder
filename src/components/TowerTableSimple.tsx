@@ -17,6 +17,19 @@ import InfoIcon from '@mui/icons-material/Info';
 import NotesIcon from '@mui/icons-material/Notes';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
+import TowerIcon from '@mui/icons-material/SettingsInputAntenna';
+import BlockIcon from '@mui/icons-material/Block';
+import UndoIcon from '@mui/icons-material/Undo';
+
+// The score is a ranking heuristic, not a tower detector. It never looks at map
+// imagery, so the copy has to say so before anyone treats it as a verdict.
+const AI_SCORE_TOOLTIP = [
+    'Heuristic rank, not a tower detection.',
+    'Model rf-v1-2026-06-11 reads nearby business counts, tower spacing, and region.',
+    'It never looks at map or satellite imagery.',
+    'Held-out precision is 68% and recall is 44%, so it misses more than half of real towers.',
+    'Use it to order your review queue only.',
+].join(' ');
 
 // Defined at module level so MUI DataGrid receives a stable slot reference —
 // a new function on every render causes DataGrid to unmount/remount the footer
@@ -108,6 +121,7 @@ interface TowerTableSimpleProps {
     onSortChange?: (model: { field: string; order: 'asc' | 'desc' } | null) => void;
     onNotesClick?: (tower: any) => void;
     onAddOwner?: (tower: any) => void;
+    onVerdict?: (tower: any, verdict: 'tower' | 'not_tower' | null) => void;
     onSelectionChange?: (ids: number[]) => void;
     onExport?: (ids?: number[], all?: boolean) => void;
     isExporting?: boolean;
@@ -136,6 +150,7 @@ export default function TowerTableSimple({
     onSortChange,
     onNotesClick,
     onAddOwner,
+    onVerdict,
     onSelectionChange,
     onExport,
     country
@@ -342,7 +357,7 @@ export default function TowerTableSimple({
         county: 'County', zip: country === 'USA' ? 'ZIP' : 'Postal Code',
         type: 'Type', status: 'Status', carrier: 'Carrier',
         minBusinessCount: 'Min Businesses', maxAvgDistance: 'Max Distance',
-        minAiScore: 'Min AI %', maxAiScore: 'Max AI %'
+        minAiScore: 'Min Likelihood %', maxAiScore: 'Max Likelihood %'
     };
     for (const [field, label] of Object.entries(fieldLabels)) {
         const val = (filters as any)[field];
@@ -452,7 +467,7 @@ export default function TowerTableSimple({
                         sx={{ width: 130 }}
                     />
                     <TextField
-                        label="Min AI Score %"
+                        label="Min Likelihood %"
                         size="small"
                         type="number"
                         inputProps={{ min: 0, max: 100 }}
@@ -461,7 +476,7 @@ export default function TowerTableSimple({
                         sx={{ width: 130 }}
                     />
                     <TextField
-                        label="Max AI Score %"
+                        label="Max Likelihood %"
                         size="small"
                         type="number"
                         inputProps={{ min: 0, max: 100 }}
@@ -585,9 +600,18 @@ export default function TowerTableSimple({
         },
         {
             field: 'aiTowerScore',
-            headerName: 'AI Score',
-            width: 100,
+            headerName: 'Tower Likelihood',
+            width: 120,
             type: 'number',
+            renderHeader: () => (
+                <Tooltip
+                    title={AI_SCORE_TOOLTIP}
+                    placement="top"
+                    componentsProps={{ tooltip: { sx: { maxWidth: 320 } } }}
+                >
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>Tower Likelihood</Typography>
+                </Tooltip>
+            ),
             renderCell: (params: GridRenderCellParams) => {
                 const score = params.row.aiTowerScore;
                 if (score === null || score === undefined) {
@@ -595,11 +619,44 @@ export default function TowerTableSimple({
                 }
                 const pct = Math.round(score * 100);
                 return (
+                    <Tooltip title={AI_SCORE_TOOLTIP} placement="top" componentsProps={{ tooltip: { sx: { maxWidth: 320 } } }}>
+                        <Chip
+                            label={`${pct}%`}
+                            size="small"
+                            color={pct >= 70 ? 'warning' : pct >= 40 ? 'default' : 'default'}
+                        />
+                    </Tooltip>
+                );
+            }
+        },
+        {
+            field: 'humanLabel',
+            headerName: 'Verdict',
+            width: 110,
+            sortable: false,
+            renderCell: (params: GridRenderCellParams) => {
+                const label = params.row.humanLabel;
+                const source = params.row.labelSource;
+                if (label !== 'tower' && label !== 'not_tower') {
+                    return <Typography variant="body2" color="text.secondary">–</Typography>;
+                }
+                const chip = (
                     <Chip
-                        label={`${pct}%`}
+                        label={label === 'tower' ? 'Tower' : 'Not tower'}
                         size="small"
-                        color={pct >= 70 ? 'success' : pct >= 40 ? 'warning' : 'default'}
+                        color={label === 'tower' ? 'success' : 'default'}
+                        variant={source === 'reviewer' ? 'filled' : 'outlined'}
                     />
+                );
+                return (
+                    <Tooltip
+                        title={source === 'reviewer'
+                            ? 'Reviewer verdict — used as training data.'
+                            : 'Guessed from review status or notes. Weak label.'}
+                        placement="top"
+                    >
+                        {chip}
+                    </Tooltip>
                 );
             }
         },
@@ -867,6 +924,39 @@ export default function TowerTableSimple({
                         </ListItemIcon>
                         <ListItemText>Add Property Owner</ListItemText>
                     </MenuItem>
+                )}
+                {onVerdict && selectedTower && <MenuItem disabled>
+                    <ListItemText sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>
+                        {selectedTower.humanLabel === 'tower' ? 'Verdict: tower' :
+                            selectedTower.humanLabel === 'not_tower' ? 'Verdict: not a tower' : 'Verdict: not set'}
+                    </ListItemText>
+                </MenuItem>}
+                {onVerdict && (
+                    <>
+                        <MenuItem onClick={() => {
+                            if (selectedTower) onVerdict(selectedTower, 'tower');
+                            handleMenuClose();
+                        }}>
+                            <ListItemIcon><TowerIcon fontSize="small" color="success" /></ListItemIcon>
+                            <ListItemText>Confirm: is a tower</ListItemText>
+                        </MenuItem>
+                        <MenuItem onClick={() => {
+                            if (selectedTower) onVerdict(selectedTower, 'not_tower');
+                            handleMenuClose();
+                        }}>
+                            <ListItemIcon><BlockIcon fontSize="small" /></ListItemIcon>
+                            <ListItemText>Confirm: not a tower</ListItemText>
+                        </MenuItem>
+                        {selectedTower?.humanLabel && (
+                            <MenuItem onClick={() => {
+                                if (selectedTower) onVerdict(selectedTower, null);
+                                handleMenuClose();
+                            }}>
+                                <ListItemIcon><UndoIcon fontSize="small" /></ListItemIcon>
+                                <ListItemText>Clear verdict</ListItemText>
+                            </MenuItem>
+                        )}
+                    </>
                 )}
             </Menu>
         </Box>
