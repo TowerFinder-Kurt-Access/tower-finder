@@ -1,11 +1,78 @@
+import type { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { GeoapifyService } from '@/services/GeoapifyService';
 import { enqueueJob } from '@/lib/job-queue';
 
-/**
- * Find towers that haven't been processed and submit a batch to Geoapify.
- */
-export async function submitGeoapifyBatch(): Promise<any> {
+interface NearbyBusinessRow {
+    name: string;
+    phone: string | null;
+    distance: number;
+    rawData: Prisma.InputJsonValue;
+    towerId: number;
+}
+
+/** One tower's entry in a Geoapify batch payload. */
+interface GeoapifyBatchEntry {
+    error?: unknown;
+    result?: unknown;
+}
+
+/** A Geoapify GeoJSON feature reduced to the fields we store and filter on. */
+interface GeoapifyFeature {
+    raw: Prisma.InputJsonValue;
+    name: string | null;
+    placeId: string | null;
+    phone: string | null;
+    distance: number;
+    categories: unknown;
+}
+
+/** Validates a tower's third-party features; the phone arrives as a string or a number. */
+function readFeatures(result: unknown): GeoapifyFeature[] {
+    if (!result || typeof result !== 'object' || !('features' in result)) return [];
+    const { features } = result;
+    if (!Array.isArray(features)) return [];
+
+    const parsed: GeoapifyFeature[] = [];
+    for (const feature of features) {
+        if (!feature || typeof feature !== 'object' || !('properties' in feature)) continue;
+        const { properties } = feature;
+        if (!properties || typeof properties !== 'object') continue;
+
+        // One boundary assertion: every field read below is still checked before use.
+        const props = properties as Record<string, unknown>;
+        const contact = props.contact;
+        const phone = contact && typeof contact === 'object' && 'phone' in contact ? contact.phone : undefined;
+
+        parsed.push({
+            // Parsed JSON is always a valid Json column value; Prisma cannot infer that from `object`.
+            raw: feature as unknown as Prisma.InputJsonValue,
+            name: typeof props.name === 'string' && props.name.length > 0 ? props.name : null,
+            placeId: typeof props.place_id === 'string' && props.place_id.length > 0 ? props.place_id : null,
+            phone: typeof phone === 'string' && phone.length > 0
+                ? phone
+                : typeof phone === 'number' ? String(phone) : null,
+            distance: typeof props.distance === 'number' && Number.isFinite(props.distance) ? props.distance : 0,
+            categories: props.categories
+        });
+    }
+    return parsed;
+}
+
+/** True when a place is a public service rather than a business. */
+function isNonBusinessCategory(categories: unknown): boolean {
+    if (!Array.isArray(categories)) return false;
+    return categories.some(
+        (category) =>
+            typeof category === 'string' &&
+            GeoapifyService.NON_BUSINESS_CATEGORIES.some(
+                (excluded) => category === excluded || category.startsWith(`${excluded}.`)
+            )
+    );
+}
+
+/** Finds unprocessed towers and submits a Geoapify batch for them. */
+export async function submitGeoapifyBatch(): Promise<Record<string, unknown>> {
     const towers = await prisma.tower.findMany({
         where: { placesProcessedAt: null },
         take: 100, // Process 100 at a time to stay safe within batch limits and timeouts
@@ -28,10 +95,8 @@ export async function submitGeoapifyBatch(): Promise<any> {
     return { batchId, towerCount: towers.length };
 }
 
-/**
- * Poll for batch completion and process results.
- */
-export async function pollGeoapifyBatch(params: { batchId: string, towerIds: number[] }): Promise<any> {
+/** Stores the batch results once Geoapify finishes processing. */
+export async function pollGeoapifyBatch(params: { batchId: string, towerIds: number[] }): Promise<Record<string, unknown>> {
     const { batchId, towerIds } = params;
 
     const statusResult = await GeoapifyService.getBatchResult(batchId);
@@ -47,13 +112,15 @@ export async function pollGeoapifyBatch(params: { batchId: string, towerIds: num
         return { status: 'pending', batchId, message: 'Batch still pending, rescheduled' };
     }
 
-    const batchData = statusResult.results || {};
-    const resultsArray = batchData.results || [];
+    // Geoapify answers with { results: [{ result: { features } }] }, one entry per tower.
+    const payload = statusResult.results as { results?: GeoapifyBatchEntry[] } | null;
+    const towerResults = Array.isArray(payload?.results) ? payload.results : [];
+
     let totalBusinesses = 0;
 
     for (let i = 0; i < towerIds.length; i++) {
         const towerId = towerIds[i];
-        const towerResult = resultsArray[i];
+        const towerResult = towerResults[i];
 
         if (!towerResult || towerResult.error) {
             console.error(`[Geoapify Job] Error for tower ${towerId}:`, towerResult?.error);
@@ -65,15 +132,31 @@ export async function pollGeoapifyBatch(params: { batchId: string, towerIds: num
             continue;
         }
 
-        const places = towerResult.result?.features || [];
-        const businesses = places.map((place: any) => ({
-            name: place.properties?.name ? String(place.properties.name) : 'Unknown Business',
-            // Cast phone to string as Geoapify sometimes returns it as a number
-            phone: place.properties?.contact?.phone ? String(place.properties.contact.phone) : null,
-            distance: place.properties?.distance || 0,
-            rawData: place,
-            towerId
-        }));
+        const businesses: NearbyBusinessRow[] = [];
+        const seen = new Set<string>();
+        const features = readFeatures(towerResult.result);
+
+        for (const feature of features) {
+            // Unnamed places and public services are not callable leads.
+            if (!feature.name || isNonBusinessCategory(feature.categories)) continue;
+
+            // The same place can come back once per matching category.
+            if (feature.placeId) {
+                if (seen.has(feature.placeId)) continue;
+                seen.add(feature.placeId);
+            }
+
+            businesses.push({
+                name: feature.name,
+                phone: feature.phone,
+                distance: feature.distance,
+                rawData: feature.raw,
+                towerId
+            });
+        }
+
+        // Geoapify returns nearest-first, but we re-sort so the stored order is guaranteed.
+        businesses.sort((a, b) => a.distance - b.distance);
 
         // Delete existing nearby businesses for this tower before adding new ones
         await prisma.businessNearby.deleteMany({ where: { towerId } });
@@ -85,7 +168,7 @@ export async function pollGeoapifyBatch(params: { batchId: string, towerIds: num
 
         // Calculate summary stats
         const avgDistance = businesses.length > 0
-            ? businesses.reduce((sum: number, b: any) => sum + b.distance, 0) / businesses.length
+            ? businesses.reduce((sum, b) => sum + b.distance, 0) / businesses.length
             : null;
 
         await prisma.tower.update({
@@ -100,8 +183,7 @@ export async function pollGeoapifyBatch(params: { batchId: string, towerIds: num
         totalBusinesses += businesses.length;
     }
 
-    // Check if there are more towers to process. 
-    // If so, enqueue a NEW submission job to continue the cycle automatically.
+    // Continue the cycle while towers remain unprocessed.
     const remainingCount = await prisma.tower.count({
         where: { placesProcessedAt: null }
     });

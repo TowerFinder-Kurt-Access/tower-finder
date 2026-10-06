@@ -10,23 +10,32 @@ export class GeoapifyQuotaError extends Error {
 export class GeoapifyService {
     private static API_KEY = process.env.GEOAPIFY_API_KEY;
     private static BATCH_URL = 'https://api.geoapify.com/v1/batch';
-    private static PLACES_URL = 'https://api.geoapify.com/v2/places';
 
-    /**
-     * Submit a batch job to find businesses near towers.
-     * We use the batch API to minimize costs by sending multiple points at once.
-     */
+    /** Search radius around each tower, in meters. */
+    static readonly SEARCH_RADIUS_M = 2000;
+    /** Places per tower. Geoapify returns them nearest-first, so this only trims the tail. */
+    static readonly SEARCH_LIMIT = 50;
+    /** Roots that hold callable businesses; `commercial` alone misses banks and restaurants. */
+    static readonly CATEGORIES = 'commercial,catering,office,healthcare,service';
+    /** Public services that share a root with businesses but are not callable leads. */
+    static readonly NON_BUSINESS_CATEGORIES = [
+        'service.emergency',
+        'service.fire_station',
+        'service.police',
+        'service.recycling',
+        'service.social_facility'
+    ];
+
+    /** Submits a batch job that finds businesses near each tower. */
     static async submitPlacesBatch(towers: { id: number; lat: number; lon: number }[]) {
         if (!this.API_KEY) throw new Error('GEOAPIFY_API_KEY is not set');
 
-        // Construct the batch query
-        // For each tower, we want to find "commercial" places within 2000m
         const queries = towers.map(tower => ({
             params: {
-                categories: 'commercial',
-                filter: `circle:${tower.lon},${tower.lat},2000`,
+                categories: this.CATEGORIES,
+                filter: `circle:${tower.lon},${tower.lat},${this.SEARCH_RADIUS_M}`,
                 bias: `proximity:${tower.lon},${tower.lat}`,
-                limit: 20
+                limit: this.SEARCH_LIMIT
             }
         }));
 
@@ -36,8 +45,8 @@ export class GeoapifyService {
             body: JSON.stringify({
                 api: '/v2/places',
                 params: {
-                    categories: 'commercial',
-                    limit: 20
+                    categories: this.CATEGORIES,
+                    limit: this.SEARCH_LIMIT
                 },
                 inputs: queries
             })
@@ -51,15 +60,15 @@ export class GeoapifyService {
             throw new Error(`Geoapify Batch Submission failed: ${error}`);
         }
 
-        const data = await response.json();
-        return data.id; // Return the Geoapify Batch Job ID
+        const data: unknown = await response.json();
+        if (!data || typeof data !== 'object' || !('id' in data) || typeof data.id !== 'string') {
+            throw new Error('Geoapify Batch Submission returned no batch id');
+        }
+        return data.id;
     }
 
-    /**
-     * Poll for the results of a batch job.
-     * Returns the full result set or throws if not ready.
-     */
-    static async getBatchResult(batchJobId: string) {
+    /** Polls a batch job and returns its raw result set once ready. */
+    static async getBatchResult(batchJobId: string): Promise<{ status: 'pending' } | { status: 'completed'; results: unknown }> {
         if (!this.API_KEY) throw new Error('GEOAPIFY_API_KEY is not set');
 
         const response = await fetch(`${this.BATCH_URL}?id=${batchJobId}&apiKey=${this.API_KEY}`);
