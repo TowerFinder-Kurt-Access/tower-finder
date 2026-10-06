@@ -17,9 +17,6 @@ import InfoIcon from '@mui/icons-material/Info';
 import NotesIcon from '@mui/icons-material/Notes';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
-import TowerIcon from '@mui/icons-material/SettingsInputAntenna';
-import BlockIcon from '@mui/icons-material/Block';
-import UndoIcon from '@mui/icons-material/Undo';
 
 // The score is a ranking heuristic, not a tower detector. It never looks at map
 // imagery, so the copy has to say so before anyone treats it as a verdict. Numbers
@@ -131,7 +128,6 @@ interface TowerTableSimpleProps {
     onSortChange?: (model: { field: string; order: 'asc' | 'desc' } | null) => void;
     onNotesClick?: (tower: any) => void;
     onAddOwner?: (tower: any) => void;
-    onVerdict?: (tower: any, verdict: 'tower' | 'not_tower' | null) => void;
     onSelectionChange?: (ids: number[]) => void;
     onExport?: (ids?: number[], all?: boolean) => void;
     isExporting?: boolean;
@@ -158,7 +154,6 @@ export default function TowerTableSimple({
     onSortChange,
     onNotesClick,
     onAddOwner,
-    onVerdict,
     onSelectionChange,
     onExport,
     country
@@ -596,37 +591,6 @@ export default function TowerTableSimple({
             }
         },
         {
-            field: 'humanLabel',
-            headerName: 'Verdict',
-            width: 110,
-            sortable: false,
-            renderCell: (params: GridRenderCellParams) => {
-                const label = params.row.humanLabel;
-                const source = params.row.labelSource;
-                if (label !== 'tower' && label !== 'not_tower') {
-                    return <Typography variant="body2" color="text.secondary">–</Typography>;
-                }
-                const chip = (
-                    <Chip
-                        label={label === 'tower' ? 'Tower' : 'Not tower'}
-                        size="small"
-                        color={label === 'tower' ? 'success' : 'default'}
-                        variant={source === 'reviewer' ? 'filled' : 'outlined'}
-                    />
-                );
-                return (
-                    <Tooltip
-                        title={source === 'reviewer'
-                            ? 'Reviewer verdict — used as training data.'
-                            : 'Guessed from review status or notes. Weak label.'}
-                        placement="top"
-                    >
-                        {chip}
-                    </Tooltip>
-                );
-            }
-        },
-        {
             field: 'hasOwnerName',
             headerName: 'Owner Name',
             width: 120,
@@ -887,39 +851,6 @@ export default function TowerTableSimple({
                         </ListItemIcon>
                         <ListItemText>Add Property Owner</ListItemText>
                     </MenuItem>
-                )}
-                {onVerdict && selectedTower && <MenuItem disabled>
-                    <ListItemText sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>
-                        {selectedTower.humanLabel === 'tower' ? 'Verdict: tower' :
-                            selectedTower.humanLabel === 'not_tower' ? 'Verdict: not a tower' : 'Verdict: not set'}
-                    </ListItemText>
-                </MenuItem>}
-                {onVerdict && (
-                    <>
-                        <MenuItem onClick={() => {
-                            if (selectedTower) onVerdict(selectedTower, 'tower');
-                            handleMenuClose();
-                        }}>
-                            <ListItemIcon><TowerIcon fontSize="small" color="success" /></ListItemIcon>
-                            <ListItemText>Confirm: is a tower</ListItemText>
-                        </MenuItem>
-                        <MenuItem onClick={() => {
-                            if (selectedTower) onVerdict(selectedTower, 'not_tower');
-                            handleMenuClose();
-                        }}>
-                            <ListItemIcon><BlockIcon fontSize="small" /></ListItemIcon>
-                            <ListItemText>Confirm: not a tower</ListItemText>
-                        </MenuItem>
-                        {selectedTower?.humanLabel && (
-                            <MenuItem onClick={() => {
-                                if (selectedTower) onVerdict(selectedTower, null);
-                                handleMenuClose();
-                            }}>
-                                <ListItemIcon><UndoIcon fontSize="small" /></ListItemIcon>
-                                <ListItemText>Clear verdict</ListItemText>
-                            </MenuItem>
-                        )}
-                    </>
                 )}
             </Menu>
         </Box>

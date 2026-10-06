@@ -97,8 +97,3 @@ graphify-out
 /docs/modernization-plan-2026-09-28.md
 /docs/status-report-2026-09-11.md
 /scripts/md-to-pdf.js
-
-# Generated external-structure caches, rebuilt by scripts/fetch-external-structures.ts
-data/external/
-data/cell-site-imagery/
-data/missing-cell-sites-*.csv
