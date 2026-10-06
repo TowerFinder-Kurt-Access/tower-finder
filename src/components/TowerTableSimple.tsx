@@ -312,7 +312,7 @@ export default function TowerTableSimple({
         county: 'County', zip: country === 'USA' ? 'ZIP' : 'Postal Code',
         type: 'Type', status: 'Status', carrier: 'Carrier',
         minBusinessCount: 'Min Businesses', maxAvgDistance: 'Max Distance',
-        minAiScore: 'Min Likelihood %', maxAiScore: 'Max Likelihood %'
+        minAiScore: 'Min AI Score %', maxAiScore: 'Max AI Score %'
     };
     for (const [field, label] of Object.entries(fieldLabels)) {
         const val = (filters as any)[field];
@@ -422,7 +422,7 @@ export default function TowerTableSimple({
                         sx={{ width: 130 }}
                     />
                     <TextField
-                        label="Min Likelihood %"
+                        label="Min AI Score %"
                         size="small"
                         type="number"
                         inputProps={{ min: 0, max: 100 }}
@@ -431,7 +431,7 @@ export default function TowerTableSimple({
                         sx={{ width: 130 }}
                     />
                     <TextField
-                        label="Max Likelihood %"
+                        label="Max AI Score %"
                         size="small"
                         type="number"
                         inputProps={{ min: 0, max: 100 }}
@@ -555,7 +555,7 @@ export default function TowerTableSimple({
         },
         {
             field: 'aiTowerScore',
-            headerName: 'Tower Likelihood',
+            headerName: 'AI Score',
             width: 120,
             type: 'number',
             renderHeader: () => (
@@ -564,7 +564,7 @@ export default function TowerTableSimple({
                     placement="top"
                     componentsProps={{ tooltip: { sx: { maxWidth: 320 } } }}
                 >
-                    <Typography variant="body2" sx={{ fontWeight: 600 }}>Tower Likelihood</Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>AI Score</Typography>
                 </Tooltip>
             ),
             renderCell: (params: GridRenderCellParams) => {

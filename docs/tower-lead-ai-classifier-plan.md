@@ -89,7 +89,8 @@ audit confirmed the cause: the score never reads map imagery, and it is trained
 on labels guessed from workflow status and notes. It is a ranking heuristic.
 The UI now says so, and reviewers can supply clean labels.
 
-- **Column renamed** "AI Score" to "Tower Likelihood". A tooltip on the header
+- **Column header kept as "AI Score"** at the owner's request; a rename to
+  "Tower Likelihood" was tried and reverted. A tooltip on the header
   and every chip carries the model version, the feature summary, and the
   held-out precision/recall. The chip no longer turns green on a high score,
   because a high score is not a confirmation.
