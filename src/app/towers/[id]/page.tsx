@@ -61,6 +61,7 @@ import SaveIcon from '@mui/icons-material/Save';
 import CancelIcon from '@mui/icons-material/Cancel';
 import NotesPanel from '@/components/NotesPanel';
 import AddOwnerDialog from '@/components/AddOwnerDialog';
+import { getRadiusTiers } from '@/lib/nearby-business';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
 
 // Dynamically import Map to avoid SSR issues with Leaflet
@@ -383,24 +384,11 @@ export default function TowerDetailPage({ params }: PageProps) {
     };
 
     const BIZ_PAGE_SIZE = 12;
-    const BIZ_RADII = [100, 200, 300, 500, 750, 1000, 1500, 2000];
 
-    // Counts per tier drive the chip labels.
-    const radiusCounts = useMemo(() => {
-        const list = tower?.businessesNearby ?? [];
-        const countsByRadius: Record<number, number> = {};
-        for (const r of BIZ_RADII) countsByRadius[r] = list.filter((b) => b.distance <= r).length;
-        return countsByRadius;
-    }, [tower?.businessesNearby]);
+    const bizTiers = useMemo(() => getRadiusTiers(tower?.businessesNearby ?? []), [tower?.businessesNearby]);
 
-    // Widest tier that still holds a business; the default view stops there.
-    const maxUsefulRadius = useMemo(() => {
-        const list = tower?.businessesNearby ?? [];
-        if (list.length === 0) return 0;
-        const furthest = Math.max(...list.map((b) => b.distance));
-        const tier = [...BIZ_RADII].reverse().find((r) => r >= furthest);
-        return tier ?? 2000;
-    }, [tower?.businessesNearby]);
+    // Default to the widest tier, which holds every stored business.
+    const maxUsefulRadius = bizTiers[bizTiers.length - 1]?.radius ?? 0;
 
     // Rows are stored nearest-first, so the first one carrying a phone is the answer.
     const nearestCallableBiz = useMemo(() => {
@@ -1494,22 +1482,19 @@ export default function TowerDetailPage({ params }: PageProps) {
                             </Paper>
                         )}
 
-                        {tower.businessesNearby && tower.businessesNearby.length > 0 && Object.values(radiusCounts).filter((c) => c > 0).length > 1 && (
+                        {tower.businessesNearby && tower.businessesNearby.length > 0 && bizTiers.length > 1 && (
                             <Stack direction="row" spacing={1} sx={{ mb: 2, flexWrap: 'wrap', gap: 1, alignItems: 'center' }}>
                                 <Typography variant="body2" color="text.secondary" sx={{ mr: 0.5 }}>
                                     Show within
                                 </Typography>
-                                {BIZ_RADII.map((r) => {
-                                    const count = radiusCounts[r] ?? 0;
-                                    const selected = bizRadius === r;
-                                    const available = count > 0;
+                                {bizTiers.map(({ radius, count }) => {
+                                    const selected = bizRadius === radius;
                                     return (
                                         <Chip
-                                            key={r}
-                                            label={`${r}m · ${count}`}
+                                            key={radius}
+                                            label={`${radius}m · ${count}`}
                                             size="small"
-                                            onClick={() => { setBizRadiusPick(r); setBizPage(0); }}
-                                            disabled={!available}
+                                            onClick={() => { setBizRadiusPick(radius); setBizPage(0); }}
                                             color={selected ? 'primary' : 'default'}
                                             variant={selected ? 'filled' : 'outlined'}
                                             sx={{ textTransform: 'none' }}
