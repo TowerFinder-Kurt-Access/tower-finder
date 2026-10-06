@@ -15,6 +15,8 @@ import { latLngToCell, gridDisk } from 'h3-js';
 const H3_RES = 8; // ~461 m hex edge
 const MAX_RING = 4; // nearest-neighbor search horizon (~3.5 km)
 const NEAREST_CAP_M = 5000;
+/** Sentinel for business features on towers that have no BusinessNearby rows. */
+const BIZ_UNMEASURED = 99;
 
 /** Tower source files double as a coarse region indicator. */
 const SOURCE_BUCKETS = [
@@ -32,7 +34,55 @@ export const FEATURE_NAMES: string[] = [
     'lon',
     ...SOURCE_BUCKETS.map(s => `src_${s}`),
     'src_other',
+    // Business aggregates read straight from BusinessNearby. Tower.businessCount is
+    // capped at 20 by the places job, and 26,972 of 45,452 scored rows sit exactly on
+    // that cap, so the saturated copy cannot rank them. These are uncapped.
+    'bizCount',
+    'bizWithin150',
+    'bizWithin400',
+    'logNearestBusinessM',
+    'bizCategoryKinds',
 ];
+
+/** One grouped row per tower, straight from BUSINESS_FEATURES_SQL. */
+export interface BusinessAggregate {
+    towerId: number;
+    n: number;
+    n150: number;
+    n400: number;
+    minM: number;
+    /** Distinct top-level geoapify categories nearby, a proxy for site diversity. */
+    cats: number;
+}
+
+/**
+ * Shared by train and score so the business features cannot drift between them.
+ * One grouped scan over BusinessNearby, returning only towers that have places.
+ */
+export const BUSINESS_FEATURES_SQL = `
+    SELECT "towerId"::int AS "towerId",
+           count(*)::int AS n,
+           count(*) FILTER (WHERE "distance" <= 150)::int AS n150,
+           count(*) FILTER (WHERE "distance" <= 400)::int AS n400,
+           min("distance")::float AS "minM",
+           count(DISTINCT "rawData"->'properties'->'categories'->>0)::int AS cats
+    FROM "BusinessNearby"
+    GROUP BY "towerId"`;
+
+/**
+ * Same aggregates for one batch. $1 is the tower id array, passed as a query
+ * parameter so no value is ever concatenated into SQL.
+ */
+export const BUSINESS_FEATURES_FOR_IDS_SQL = `
+    SELECT "towerId"::int AS "towerId",
+           count(*)::int AS n,
+           count(*) FILTER (WHERE "distance" <= 150)::int AS n150,
+           count(*) FILTER (WHERE "distance" <= 400)::int AS n400,
+           min("distance")::float AS "minM",
+           count(DISTINCT "rawData"->'properties'->'categories'->>0)::int AS cats
+    FROM "BusinessNearby"
+    WHERE "towerId" = ANY($1::int[])
+    GROUP BY "towerId"`;
 
 export interface FeatureTower {
     id: number;
@@ -45,6 +95,7 @@ export interface FeatureTower {
 
 export interface TowerContext {
     cells: Map<string, { id: number; lat: number; lon: number }[]>;
+    business: Map<number, BusinessAggregate>;
 }
 
 function haversineM(lat1: number, lon1: number, lat2: number, lon2: number) {
@@ -61,7 +112,10 @@ function haversineM(lat1: number, lon1: number, lat2: number, lon2: number) {
  * against ALL towers (any status) — presence in the scrape, not review outcome,
  * so they are equally defined for labeled and unlabeled rows.
  */
-export function buildTowerContext(towers: { id: number; lat: number; lon: number }[]): TowerContext {
+export function buildTowerContext(
+    towers: { id: number; lat: number; lon: number }[],
+    business: BusinessAggregate[] = []
+): TowerContext {
     const cells = new Map<string, { id: number; lat: number; lon: number }[]>();
     for (const t of towers) {
         const cell = latLngToCell(t.lat, t.lon, H3_RES);
@@ -69,7 +123,7 @@ export function buildTowerContext(towers: { id: number; lat: number; lon: number
         list.push(t);
         cells.set(cell, list);
     }
-    return { cells };
+    return { cells, business: new Map(business.map(b => [b.towerId, b])) };
 }
 
 function nearestOtherTowerM(ctx: TowerContext, lat: number, lon: number, selfId: number): number {
@@ -114,6 +168,14 @@ function sourceBucket(source: string): string {
 export function towerToFeatures(tower: FeatureTower, ctx: TowerContext): number[] {
     const nearest = nearestOtherTowerM(ctx, tower.lat, tower.lon, tower.id);
     const bucket = sourceBucket(tower.source);
+    const biz = ctx.business.get(tower.id);
+    // A tower with no BusinessNearby rows is unmeasured, not empty. The sentinel
+    // keeps it out of the "isolated, therefore suspicious" range.
+    const n = biz ? Math.min(biz.n, 60) : BIZ_UNMEASURED;
+    const n150 = biz ? Math.min(biz.n150, 6) : BIZ_UNMEASURED;
+    const n400 = biz ? Math.min(biz.n400, 20) : BIZ_UNMEASURED;
+    const nearestBiz = biz ? biz.minM : NEAREST_CAP_M;
+    const cats = biz ? Math.min(biz.cats, 8) : BIZ_UNMEASURED;
     return [
         tower.businessCount ?? 0,
         tower.avgBusinessDistance !== null ? 1 : 0,
@@ -124,5 +186,10 @@ export function towerToFeatures(tower: FeatureTower, ctx: TowerContext): number[
         Math.round(tower.lon * 20) / 20,
         ...SOURCE_BUCKETS.map(s => (bucket === s ? 1 : 0)),
         bucket === 'other' ? 1 : 0,
+        n,
+        n150,
+        n400,
+        Math.round(Math.log1p(nearestBiz) * 10) / 10,
+        cats,
     ];
 }

@@ -1,9 +1,8 @@
 /**
- * Train the tower vs not_tower classifier on backfilled Tower.humanLabel rows
- * (see scripts/backfill-tower-labels.ts) and serialize it for scoring.
- *
  * Reports held-out AUC, precision/recall, confusion matrix, and permutation
- * feature importance. Writes src/lib/ml/model.json.
+ * feature importance. Also picks the operating threshold from the held-out PR
+ * curve, so `aiLabel` means "worth a look" instead of "top half of the pool".
+ * Writes src/lib/ml/model.json.
  *
  * Run: npx tsx --env-file=.env scripts/train-tower-classifier.ts
  */
@@ -11,13 +10,21 @@ import { PrismaClient } from '@prisma/client';
 import { RandomForestClassifier } from 'ml-random-forest';
 import * as fs from 'fs';
 import * as path from 'path';
-import { buildTowerContext, towerToFeatures, FEATURE_NAMES, FeatureTower } from '../src/lib/ml/features';
+import { buildTowerContext, towerToFeatures, FEATURE_NAMES, FeatureTower, BUSINESS_FEATURES_SQL, BusinessAggregate } from '../src/lib/ml/features';
 
 const prisma = new PrismaClient();
 
 const SEED = 42;
 const TEST_FRACTION = 0.2;
-const MODEL_VERSION = `rf-v1-${new Date().toISOString().slice(0, 10)}`;
+const MODEL_VERSION = `rf-v2-${new Date().toISOString().slice(0, 10)}`;
+
+/**
+ * Precision budget for the stored threshold. Reviewers chase what this label
+ * flags, and the whole complaint was false alarms: on the held-out set a 0.90
+ * target collapses recall to 0.03 (1.2% of rows), which marks nothing useful.
+ * 0.75 keeps roughly 1 false alarm per 4 flagged rows while still flagging ~11%.
+ */
+const TARGET_PRECISION = 0.75;
 
 // deterministic RNG (mulberry32) so the split is reproducible
 function rng(seed: number) {
@@ -62,6 +69,22 @@ function probabilityOfPositive(clf: RandomForestClassifier, X: number[][]): numb
     return (clf as any).predictProbability(X, 1) as number[];
 }
 
+/**
+ * Lowest threshold whose held-out precision reaches `target`. Scanning upward and
+ * keeping the first hit maximises recall subject to the precision budget.
+ */
+function pickThreshold(scores: number[], labels: number[], target: number): number {
+    const sorted = [...scores].sort((a, b) => a - b);
+    let best = 0.5;
+    for (const t of sorted) {
+        let tp = 0, fp = 0;
+        scores.forEach((s, i) => { if (s >= t) { if (labels[i] === 1) tp++; else fp++; } });
+        const precision = tp / Math.max(tp + fp, 1);
+        if (precision >= target) { best = t; break; }
+    }
+    return best;
+}
+
 async function main() {
     const towers = await prisma.tower.findMany({
         select: {
@@ -69,7 +92,10 @@ async function main() {
             businessCount: true, avgBusinessDistance: true, humanLabel: true,
         },
     });
-    const ctx = buildTowerContext(towers);
+    console.log('loading business aggregates...');
+    const business = await prisma.$queryRawUnsafe(BUSINESS_FEATURES_SQL) as BusinessAggregate[];
+    console.log(`business aggregates: ${business.length}`);
+    const ctx = buildTowerContext(towers, business);
     const labeled = towers.filter(t => t.humanLabel === 'tower' || t.humanLabel === 'not_tower');
     console.log(`towers: ${towers.length}, labeled: ${labeled.length}`);
 
@@ -109,7 +135,11 @@ async function main() {
     const probs = probabilityOfPositive(clf, te.X);
     const testAuc = auc(probs, te.y);
 
-    const threshold = 0.5;
+    // Operating point: the lowest threshold that still holds TARGET_PRECISION on the
+    // held-out set, which keeps as much recall as the target allows. A fixed 0.5
+    // flagged 59% of the whole pool as likely_tower against a 39% base rate.
+    const threshold = pickThreshold(probs, te.y, TARGET_PRECISION);
+
     let tp = 0, fp = 0, tn = 0, fn = 0;
     probs.forEach((pr, i) => {
         const pred = pr >= threshold ? 1 : 0;
@@ -121,11 +151,36 @@ async function main() {
     const precision = tp / (tp + fp);
     const recall = tp / (tp + fn);
 
+    // Same comparison at the old fixed 0.5, so the move is measurable in the log.
+    let p05 = 0, r05 = 0, flagged = 0;
+    probs.forEach((pr, i) => {
+        if (pr >= 0.5) {
+            flagged++;
+            if (te.y[i] === 1) p05++;
+        } else if (te.y[i] === 1) r05++;
+    });
+    const recallAt05 = p05 / (p05 + r05);
+    const precisionAt05 = p05 / Math.max(flagged, 1);
+
+    // Max-F1 is reported for context only. It lands near t=0.1, which flags half
+    // the pool, so it is not a usable triage cut.
+    let bestF1 = { t: 0, f1: 0, precision: 0, recall: 0 };
+    for (const t of Array.from(new Set(probs)).sort((a, b) => a - b)) {
+        let btp = 0, bfp = 0, bfn = 0;
+        probs.forEach((pr, i) => { if (pr >= t) { if (te.y[i] === 1) btp++; else bfp++; } else if (te.y[i] === 1) bfn++; });
+        const bprecision = btp / Math.max(btp + bfp, 1), brecall = btp / Math.max(btp + bfn, 1);
+        const bf1 = 2 * bprecision * brecall / Math.max(bprecision + brecall, 1e-9);
+        if (bf1 > bestF1.f1) bestF1 = { t, f1: bf1, precision: bprecision, recall: brecall };
+    }
+
     console.log('\n--- held-out evaluation ---');
     console.log(`test set: ${te.y.length} rows (${te.y.filter(v => v === 1).length} tower / ${te.y.filter(v => v === 0).length} not_tower)`);
     console.log(`AUC:       ${testAuc.toFixed(4)}`);
-    console.log(`precision: ${precision.toFixed(3)}  recall: ${recall.toFixed(3)}  (threshold ${threshold})`);
+    console.log(`precision: ${precision.toFixed(3)}  recall: ${recall.toFixed(3)}  (threshold ${threshold.toFixed(3)}, target precision ${TARGET_PRECISION})`);
     console.log(`confusion: TP=${tp} FP=${fp} TN=${tn} FN=${fn}`);
+    console.log(`flagged share at threshold: ${(100 * (tp + fp) / te.y.length).toFixed(1)}%`);
+    console.log(`for comparison, fixed 0.5: precision ${precisionAt05.toFixed(3)} recall ${recallAt05.toFixed(3)} (flagged ${(100 * flagged / te.y.length).toFixed(1)}%)`);
+    console.log(`max-F1 point: t=${bestF1.t.toFixed(3)} precision ${bestF1.precision.toFixed(3)} recall ${bestF1.recall.toFixed(3)} F1 ${bestF1.f1.toFixed(3)} (reference only)`);
 
     // permutation importance: AUC drop when one feature is shuffled
     console.log('\n--- permutation feature importance (AUC drop) ---');
@@ -151,6 +206,9 @@ async function main() {
             auc: testAuc, precision, recall,
             confusion: { tp, fp, tn, fn },
             trainSize: tr.X.length, testSize: te.X.length,
+            targetPrecision: TARGET_PRECISION,
+            precisionAt05, recallAt05,
+            maxF1: bestF1,
         },
         model: clf.toJSON(),
     }), 'utf8');
