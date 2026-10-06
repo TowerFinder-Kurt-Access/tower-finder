@@ -63,26 +63,28 @@ export default function AdminJobsPage() {
     if (status === 'loading') return <Box sx={{ p: 4, display: 'flex', justifyContent: 'center' }}><CircularProgress /></Box>;
     if (session?.user?.role !== Role.ADMIN) return <Box sx={{ p: 4 }}><Alert severity="error">Access Denied. Admin privileges required.</Alert></Box>;
 
+    // The cron routes are GET and admin-session authenticated.
     const triggerGeoapify = async () => {
         try {
-            const res = await axios.post('/api/cron/process-geoapify');
-            setMessage(res.data.message || 'Geoapify batch triggered');
+            const res = await axios.get('/api/cron/trigger-geoapify');
+            setMessage(res.data.message || 'Geoapify batch queued');
             setMessageType('success');
             loadJobs();
         } catch (e: unknown) { setMessage(e instanceof Error ? e.message : 'Failed'); setMessageType('error'); }
     };
     const triggerNRCan = async () => {
         try {
-            const res = await axios.post('/api/cron/process-nrcan');
-            setMessage(res.data.message || 'NRCan batch triggered');
+            const res = await axios.get('/api/cron/trigger-nrcan');
+            setMessage(res.data.message || 'NRCan batch queued');
             setMessageType('success');
             loadJobs();
         } catch (e: unknown) { setMessage(e instanceof Error ? e.message : 'Failed'); setMessageType('error'); }
     };
+    // Process Next runs the same handler the nightly cron uses, up to 5 jobs.
     const processQueue = async () => {
         try {
-            const res = await axios.post('/api/jobs/process');
-            setMessage(res.data.message || 'Queue processed');
+            const res = await axios.get('/api/cron/process-jobs');
+            setMessage(res.data.message || `Processed ${res.data.processedCount ?? 0} jobs`);
             setMessageType('success');
             loadJobs();
         } catch (e: unknown) { setMessage(e instanceof Error ? e.message : 'Failed'); setMessageType('error'); }
@@ -95,6 +97,12 @@ export default function AdminJobsPage() {
             loadJobs();
         } catch (e: unknown) { setMessage(e instanceof Error ? e.message : 'Failed'); setMessageType('error'); }
     };
+
+    // Derived from the loaded jobs: the nightly schedule itself lives in vercel.json.
+    const lastCompleted = jobs.reduce<string | null>((acc, j) => {
+        if (!j.completedAt) return acc;
+        return !acc || j.completedAt > acc ? j.completedAt : acc;
+    }, null);
 
     const statusChip = (value: string) => {
         const key = value?.toLowerCase();
@@ -162,6 +170,10 @@ export default function AdminJobsPage() {
                     <Box>
                         <Typography sx={{ fontWeight: 800, fontSize: 20, letterSpacing: '-0.6px', lineHeight: 1.1, color: '#0f172a' }}>Background Jobs</Typography>
                         <Typography sx={{ fontSize: 13, color: '#64748b', mt: 0.2 }}>{jobs.length.toLocaleString()} jobs · {counts.failed} failed · {counts.pending} pending</Typography>
+                        <Typography sx={{ fontSize: 11.5, color: lastCompleted ? '#64748b' : '#b45309', mt: 0.4, fontWeight: 600 }}>
+                            Nightly cron 03:00 UTC · 5 jobs per run · last completed{' '}
+                            {lastCompleted ? new Date(lastCompleted).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }) : 'never in the last 100 jobs'}
+                        </Typography>
                     </Box>
                 </Box>
                 <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
