@@ -22,14 +22,18 @@ import BlockIcon from '@mui/icons-material/Block';
 import UndoIcon from '@mui/icons-material/Undo';
 
 // The score is a ranking heuristic, not a tower detector. It never looks at map
-// imagery, so the copy has to say so before anyone treats it as a verdict.
+// imagery, so the copy has to say so before anyone treats it as a verdict. Numbers
+// come from the held-out evaluation in src/lib/ml/model.json (model rf-v2-2026-10-06).
 const AI_SCORE_TOOLTIP = [
     'Heuristic rank, not a tower detection.',
-    'Model rf-v1-2026-06-11 reads nearby business counts, tower spacing, and region.',
+    'Model rf-v2-2026-10-06 reads nearby business counts, tower spacing, and region.',
     'It never looks at map or satellite imagery.',
-    'Held-out precision is 68% and recall is 44%, so it misses more than half of real towers.',
+    'At the flagged cutoff it finds 3 in 4 flagged rows and misses 3 of 4 real towers.',
     'Use it to order your review queue only.',
 ].join(' ');
+
+/** Mirrors the model threshold in src/lib/ml/model.json. Keep the two in step. */
+const AI_SCORE_FLAG_PCT = 58;
 
 // Defined at module level so MUI DataGrid receives a stable slot reference —
 // a new function on every render causes DataGrid to unmount/remount the footer
@@ -136,9 +140,7 @@ export default function TowerTableSimple({
     onPageChange,
     onRowsPerPageChange,
     onViewOnMap,
-    onGetOwner,
     onViewDetails,
-    isOwnerLoading,
     isLoading,
     isExporting,
     filterOptions,
@@ -228,22 +230,10 @@ export default function TowerTableSimple({
     const handleJumpToPage = (e: React.FormEvent) => {
         e.preventDefault();
         const pageNum = parseInt(jumpPage, 10);
-        // Ensure page is within valid range (1 to totalPages)
-        const totalPages = Math.ceil(totalCount / rowsPerPage);
-
+        // "Jump to" intentionally does not clamp: users may move ahead of the pages
+        // fetched so far, and the API resolves the real total.
         if (!isNaN(pageNum) && pageNum >= 1) {
-            // Convert 1-based user input to 0-based API page
-            // If user enters a number larger than max, standard behavior is often to go to last page,
-            // or we can let the API handle it / user beware. Let's clamp it if we know total.
-            // But we might be in server-side pagination where we don't know total easily in all cases?
-            // current totalCount is passed in.
-
-            // Allow jumping beyond current known count if user wants to try, 
-            // but usually we should clamp to totalPages if known. 
-            // However, typical "Jump to" features allow going to any page.
-
-            const targetPage = pageNum - 1;
-            onPageChange(targetPage);
+            onPageChange(pageNum - 1); // 1-based input to 0-based API page
         }
     };
 
@@ -283,13 +273,6 @@ export default function TowerTableSimple({
         }
     };
 
-    const handleGetOwner = () => {
-        if (selectedTower) {
-            onGetOwner(selectedTower);
-            handleMenuClose();
-        }
-    };
-
     const handleOpenBingMaps = () => {
         if (selectedTower) {
             // Open Bing Maps at the tower location with nearby places search
@@ -304,34 +287,6 @@ export default function TowerTableSimple({
             onViewDetails(selectedTower);
             handleMenuClose();
         }
-    };
-
-    const handleFilterModelChange = (filterModel: any) => {
-        // Guard: only propagate when there are actual column-filter items with values.
-        // Without this guard the DataGrid can fire onFilterModelChange spuriously
-        // (e.g. during internal state sync when rows/paginationModel change), which
-        // would unconditionally call onFilterChange → setPage(0) and reset pagination.
-        if (!filterModel.items || filterModel.items.length === 0) return;
-
-        const newFilters: { city?: string; state?: string; county?: string; zip?: string; type?: string; carrier?: string; status?: string; address?: string; search?: string } = { ...filters };
-        let changed = false;
-
-        filterModel.items.forEach((item: any) => {
-            if (item.value) {
-                switch (item.field) {
-                    case 'city': newFilters.city = item.value; changed = true; break;
-                    case 'county': newFilters.county = item.value; changed = true; break;
-                    case 'state': newFilters.state = item.value; changed = true; break;
-                    case 'zip': newFilters.zip = item.value; changed = true; break;
-                    case 'type': newFilters.type = item.value; changed = true; break;
-                    case 'carrier': newFilters.carrier = item.value; changed = true; break;
-                    case 'status': newFilters.status = item.value; changed = true; break;
-                    case 'address': newFilters.address = item.value; changed = true; break;
-                }
-            }
-        });
-
-        if (changed) onFilterChange(newFilters);
     };
 
     // Helper: count how many filter keys have a truthy value
@@ -623,7 +578,7 @@ export default function TowerTableSimple({
                         <Chip
                             label={`${pct}%`}
                             size="small"
-                            color={pct >= 70 ? 'warning' : pct >= 40 ? 'default' : 'default'}
+                            color={pct >= AI_SCORE_FLAG_PCT ? 'warning' : 'default'}
                         />
                     </Tooltip>
                 );
@@ -734,13 +689,13 @@ export default function TowerTableSimple({
             field: 'lat',
             headerName: 'Latitude',
             width: 100,
-            valueGetter: (value: any, row: any) => row.lat?.toFixed(6) || ''
+            valueGetter: (_value: any, row: any) => row.lat?.toFixed(6) || ''
         },
         {
             field: 'lon',
             headerName: 'Longitude',
             width: 100,
-            valueGetter: (value: any, row: any) => row.lon?.toFixed(6) || ''
+            valueGetter: (_value: any, row: any) => row.lon?.toFixed(6) || ''
         },
         {
             field: 'businessCount',
@@ -900,12 +855,9 @@ export default function TowerTableSimple({
                     </ListItemIcon>
                     <ListItemText>Open Satellite View</ListItemText>
                 </MenuItem>
-                {/* <MenuItem onClick={handleGetOwner} disabled={isOwnerLoading}>
-                    <ListItemIcon>
-                        <BusinessIcon fontSize="small" />
-                    </ListItemIcon>
-                    <ListItemText>{isOwnerLoading ? 'Loading Property Owner...' : 'Lookup Property Owner'}</ListItemText>
-                </MenuItem> */}
+                {/* Lookup Property Owner was removed as dead code: the button never had a
+                    consumer. handleLookupOwner in src/app/towers/page.tsx still works and is
+                    reachable from the tower detail page. */}
                 <MenuItem onClick={handleOpenBingMaps}>
                     <ListItemIcon>
                         <TravelExploreIcon fontSize="small" />
