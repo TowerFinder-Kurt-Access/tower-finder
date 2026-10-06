@@ -6,7 +6,10 @@
  * sources are the first real signal in the pipeline.
  *
  *   --source osm        OpenStreetMap via Overpass. Free, no key.
- *   --source opencellid OpenCellID cell positions. Needs OPENCELLID_API_KEY.
+ *   --source opencellid OpenCellID via the per-area API. Needs OPENCELLID_API_KEY and
+ *                       is limited to 1,000 requests/day.
+ *   --csv <path>        OpenCellID country export instead (302.csv.gz = Canada). This
+ *                       is the fast path: one file covers the whole country.
  *
  * Output lands in data/external/<source>.json as { fetchedAt, features: [{lat,lon,kind}] }.
  * Nothing is written to the database here: the point is to measure whether the signal
@@ -185,6 +188,27 @@ async function fetchOsm() {
     console.log(`written to ${file}`);
 }
 
+async function fetchOpenCellIdFromCsv(file: string): Promise<void> {
+    // OpenCellID country export: radio,mcc,net,area,cell,unit,lon,lat,range,samples,...
+    const zlib = await import('zlib');
+    const raw = fs.readFileSync(file);
+    const csv = file.endsWith('.gz') ? zlib.gunzipSync(raw).toString('utf8') : raw.toString('utf8');
+    const out: Feature[] = [];
+    for (const line of csv.split('\n')) {
+        if (!line) continue;
+        const c = line.split(',');
+        const lat = Number(c[7]), lon = Number(c[6]);
+        if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
+        out.push({ lat, lon, kind: `cell:${c[0] ?? '?'}` });
+    }
+    const saved = await save('opencellid', out);
+    const kinds: Record<string, number> = {};
+    for (const f of out) kinds[f.kind] = (kinds[f.kind] || 0) + 1;
+    console.log(`open cellid csv: ${out.length} cells from ${file}`);
+    console.log('radios:', JSON.stringify(Object.fromEntries(Object.entries(kinds).sort((a, b) => b[1] - a[1]).slice(0, 8))));
+    console.log(`written to ${saved}`);
+}
+
 async function fetchOpenCellId() {
     const token = process.env.OPENCELLID_API_KEY;
     if (!token) throw new Error('OPENCELLID_API_KEY is not set');
@@ -246,7 +270,11 @@ async function fetchOpenCellId() {
 
 async function main() {
     const source = arg('--source', 'osm');
-    if (source === 'osm') await fetchOsm();
+    const csv = arg('--csv');
+    if (csv) {
+        if (!fs.existsSync(csv)) throw new Error(`csv not found: ${csv}`);
+        await fetchOpenCellIdFromCsv(csv);
+    } else if (source === 'osm') await fetchOsm();
     else if (source === 'opencellid') await fetchOpenCellId();
     else throw new Error(`unknown source "${source}" (expected osm or opencellid)`);
 }
