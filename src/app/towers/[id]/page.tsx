@@ -155,6 +155,8 @@ interface Tower {
     }[];
 }
 
+type NearbyBusiness = NonNullable<Tower['businessesNearby']>[number];
+
 interface PageProps {
     params: Promise<{ id: string }>;
 }
@@ -349,6 +351,14 @@ export default function TowerDetailPage({ params }: PageProps) {
         return parts.join(', ');
     };
 
+    // `formatted` already leads with the name; a bare name alone would match a branch anywhere.
+    const bizMapsQuery = (biz: NearbyBusiness): string => {
+        const formatted = biz.rawData?.properties?.formatted;
+        if (typeof formatted === 'string' && formatted.length > 0) return formatted;
+        const addr = bizAddress(biz);
+        return addr ? `${biz.name}, ${addr}` : '';
+    };
+
     const handleSelectBizOnMap = (biz: any) => {
         const c = bizCoords(biz);
         if (!c) return;
@@ -357,9 +367,19 @@ export default function TowerDetailPage({ params }: PageProps) {
         document.getElementById('tower-location-map')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     };
 
-    const handleBizSatellite = (biz: any) => {
+    // A text query opens Google's place panel; `t=k` keeps satellite and `ll`/`z` keep the map here.
+    const handleBizSatellite = (biz: NearbyBusiness) => {
         const c = bizCoords(biz);
-        if (c) openExternal(`https://www.google.com/maps/@${c[0]},${c[1]},20z/data=!3m1!1e3`);
+        const query = bizMapsQuery(biz) || (c ? `${c[0]},${c[1]}` : '');
+        if (!query) return;
+
+        const params = [`q=${encodeURIComponent(query)}`, 't=k'];
+        if (c) {
+            // Keep the selected business in the same view.
+            const zoom = biz.distance <= 250 ? 17 : biz.distance <= 600 ? 16 : biz.distance <= 1200 ? 15 : 14;
+            params.push(`ll=${c[0]},${c[1]}`, `z=${zoom}`);
+        }
+        openExternal(`https://www.google.com/maps?${params.join('&')}`);
     };
 
     const BIZ_PAGE_SIZE = 12;
