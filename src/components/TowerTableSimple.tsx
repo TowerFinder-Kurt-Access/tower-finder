@@ -32,8 +32,14 @@ const AI_SCORE_TOOLTIP = [
     'Use it to order your review queue only.',
 ].join(' ');
 
-/** Mirrors the model threshold in src/lib/ml/model.json. Keep the two in step. */
-const AI_SCORE_FLAG_PCT = 58;
+/**
+ * Badge tiers. Green marks the rows the model is most confident about, which is a
+ * usable triage signal: only 972 of 39,309 scored rows reach 70%, so a green badge is
+ * worth opening. Note the ceiling — with 80 trees the finest possible score is 1/80
+ * per vote and no row currently passes 67/80 = 83.8%.
+ */
+const AI_SCORE_GREEN_PCT = 70;
+const AI_SCORE_WARN_PCT = 40;
 
 // Defined at module level so MUI DataGrid receives a stable slot reference —
 // a new function on every render causes DataGrid to unmount/remount the footer
@@ -190,9 +196,14 @@ export default function TowerTableSimple({
     const selectionCount = getSelectionCount();
     const selectionIds = getSelectionIds();
 
-    React.useEffect(() => {
+    // Reset the box when the committed search value changes from outside (filter chips,
+    // back navigation). Adjusting state during render is React's documented pattern for
+    // derived-from-props state; an effect here would double-render on every keystroke.
+    const [syncedSearch, setSyncedSearch] = React.useState(filters.search);
+    if (syncedSearch !== filters.search) {
+        setSyncedSearch(filters.search);
         setLocalSearch(filters.search || '');
-    }, [filters.search]);
+    }
 
     const handleSearchSubmit = (e?: React.FormEvent) => {
         if (e) e.preventDefault();
@@ -578,7 +589,7 @@ export default function TowerTableSimple({
                         <Chip
                             label={`${pct}%`}
                             size="small"
-                            color={pct >= AI_SCORE_FLAG_PCT ? 'warning' : 'default'}
+                            color={pct >= AI_SCORE_GREEN_PCT ? 'success' : pct >= AI_SCORE_WARN_PCT ? 'warning' : 'default'}
                         />
                     </Tooltip>
                 );
