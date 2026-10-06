@@ -91,7 +91,7 @@ async function main() {
         return false;
     };
 
-    const pool = [...areas.values()].filter(a => a.cells >= minCells);
+    const pool = Array.from(areas.values()).filter(a => a.cells >= minCells);
     const missing = pool.filter(a => !towerWithin(a.lat, a.lon))
         .sort((a, b) => b.cells - a.cells);
 

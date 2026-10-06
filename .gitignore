@@ -100,3 +100,5 @@ graphify-out
 
 # Generated external-structure caches, rebuilt by scripts/fetch-external-structures.ts
 data/external/
+data/cell-site-imagery/
+data/missing-cell-sites-*.csv
