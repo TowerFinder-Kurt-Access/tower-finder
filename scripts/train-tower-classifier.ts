@@ -87,6 +87,10 @@ function pickThreshold(scores: number[], labels: number[], target: number): numb
 
 async function main() {
     const towers = await prisma.tower.findMany({
+        // orderBy is required for reproducible metrics: the split below shuffles this
+        // array, and without a stable order any bulk UPDATE can change Postgres's row
+        // order and silently reshuffle the train/test split between runs.
+        orderBy: { id: 'asc' },
         select: {
             id: true, lat: true, lon: true, source: true,
             businessCount: true, avgBusinessDistance: true, humanLabel: true,
