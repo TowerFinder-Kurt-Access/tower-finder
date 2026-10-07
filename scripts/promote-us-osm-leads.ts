@@ -1,10 +1,4 @@
-/**
- * Promotes the unused USA OpenStreetMap telecom leads into tower records. Safe to
- * re-run: never modifies an existing tower, and only its own rows are tagged so
- * revert-us-osm-promotion.ts can undo it.
- *
- * Dry run by default. Pass --write to apply.
- */
+/** Promotes the unused USA OpenStreetMap telecom leads into tower records. */
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
@@ -23,8 +17,6 @@ function haversineM(a: number, b: number, c: number, d: number): number {
 async function main() {
     const write = process.argv.includes('--write');
     const matchRadius = Number(arg('--match-radius', '400'));
-    // OSM does not record lattice vs monopole vs guyed, so promoted rows land in
-    // "Other Structure" rather than guessing "Lattice Tower" at 4,032 masts.
     const typeName = arg('--type', 'Other Structure');
 
     const leads = await prisma.towerLead.findMany({
@@ -102,8 +94,7 @@ async function main() {
         ?? await prisma.towerType.create({ data: { name: typeName } });
     console.log(`tower type used: ${typeRow.name} (id ${typeRow.id})`);
 
-    // Bulk insert: an interactive transaction holding 500 sequential writes times out
-    // against the hosted database (P2028) and rolls the whole batch back.
+    // Bulk insert, not per-row: an interactive transaction times out (P2028) and rolls back.
     const CHUNK = 1000;
     let created = 0;
     for (let i = 0; i < toInsert.length; i += CHUNK) {
@@ -122,8 +113,6 @@ async function main() {
         });
         created += res.count;
 
-        // Link each lead to the tower just created at the identical lat+lon, which is
-        // unique on Tower, so the join is exact.
         const ids = chunk.map(l => l.id);
         await prisma.$executeRawUnsafe(
             `UPDATE "TowerLead" l SET "promotedToTowerId" = t.id, "promotedAt" = NOW()

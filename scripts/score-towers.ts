@@ -1,9 +1,4 @@
-/**
- * Score unreviewed towers (no human label, statusId null or "New") with the model in
- * src/lib/ml/model.json. Manual full pass; the score_towers job batches the same core.
- *
- * Run: npx tsx --env-file=.env scripts/score-towers.ts
- */
+// Score unreviewed towers (no human label, statusId null or "New") with the model in src/lib/ml/model.json.
 import { PrismaClient } from '@prisma/client';
 import {
     loadTowerModel, scoreTowers, staleTowerWhere,
@@ -25,11 +20,7 @@ async function main() {
     const targets = towers.filter(isScorable);
     console.log(`scoring ${targets.length} unreviewed towers, skipping ${towers.length - targets.length}...`);
 
-    // One statement per chunk instead of one round trip per row: the hosted DB
-    // makes per-row updates orders of magnitude slower.
     let written = 0;
-    // The whole population backs the context: nearest-tower and ring-density features
-    // must be measured against every tower, not against this chunk.
     const inputs = { population: towers.map(t => ({ id: t.id, lat: t.lat, lon: t.lon })), business };
     for (let i = 0; i < targets.length; i += CHUNK) {
         const batch = targets.slice(i, i + CHUNK);
@@ -38,9 +29,7 @@ async function main() {
         console.log(`scored ${written}/${targets.length}`);
     }
 
-    // Rows this run skipped (labeled, or an excluded status) can still hold a score
-    // from an older model. Two models put different probabilities on the same 0-1
-    // scale, so sorting the column over a mixed pool is meaningless. Drop them.
+    // Rows this run skipped (labeled, or an excluded status) can still hold a score from an older model.
     const cleared = await prisma.tower.updateMany({
         where: staleTowerWhere(model.version),
         data: { aiTowerScore: null, aiLabel: null, aiClassifiedAt: null, aiModelVersion: null },

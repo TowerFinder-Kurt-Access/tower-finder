@@ -18,9 +18,7 @@ import NotesIcon from '@mui/icons-material/Notes';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
 
-// The score is a ranking heuristic, not a tower detector. It never looks at map
-// imagery, so the copy has to say so before anyone treats it as a verdict. Numbers
-// come from the held-out evaluation in src/lib/ml/model.json (model rf-v2-2026-10-06).
+// The score is a ranking heuristic, not a tower detector.
 const AI_SCORE_TOOLTIP = [
     'Heuristic rank, not a tower detection.',
     'Model rf-v2-2026-10-06 reads nearby business counts, tower spacing, and region.',
@@ -29,13 +27,9 @@ const AI_SCORE_TOOLTIP = [
     'Use it to order your review queue only.',
 ].join(' ');
 
-/** Badge tiers. Only 972 of 39,309 rows reach 70%, and 80 trees cap the score at 83.8%. */
 const AI_SCORE_GREEN_PCT = 70;
 const AI_SCORE_WARN_PCT = 40;
 
-// Defined at module level so MUI DataGrid receives a stable slot reference —
-// a new function on every render causes DataGrid to unmount/remount the footer
-// which can trigger spurious onPaginationModelChange resets.
 interface CustomFooterSlotProps {
     currentPage: number;
     jumpPage: string;
@@ -186,9 +180,7 @@ export default function TowerTableSimple({
     const selectionCount = getSelectionCount();
     const selectionIds = getSelectionIds();
 
-    // Reset the box when the committed search value changes from outside (filter chips,
-    // back navigation). Adjusting state during render is React's documented pattern for
-    // derived-from-props state; an effect here would double-render on every keystroke.
+    // Reset the box when the committed search value changes from outside (filter chips, back navigation).
     const [syncedSearch, setSyncedSearch] = React.useState(filters.search);
     if (syncedSearch !== filters.search) {
         setSyncedSearch(filters.search);
@@ -200,7 +192,7 @@ export default function TowerTableSimple({
         onFilterChange({ ...filters, search: localSearch.trim() || undefined });
     };
 
-    // Default column visibility (lat/lon hidden by default)
+    // Default column visibility (lat/lon hidden by default).
     const defaultVisibility: GridColumnVisibilityModel = {
         lat: false,
         lon: false,
@@ -208,7 +200,7 @@ export default function TowerTableSimple({
         avgBusinessDistance: true,
     };
 
-    // Column visibility with localStorage persistence
+    // Column visibility with localStorage persistence.
     const [columnVisibilityModel, setColumnVisibilityModel] = React.useState<GridColumnVisibilityModel>(() => {
         if (typeof window !== 'undefined') {
             const saved = localStorage.getItem('towersColumnVisibility');
@@ -216,7 +208,7 @@ export default function TowerTableSimple({
                 try {
                     return JSON.parse(saved);
                 } catch (e) {
-                    // ignore
+                    // ignore.
                 }
             }
         }
@@ -231,8 +223,6 @@ export default function TowerTableSimple({
     const handleJumpToPage = (e: React.FormEvent) => {
         e.preventDefault();
         const pageNum = parseInt(jumpPage, 10);
-        // "Jump to" intentionally does not clamp: users may move ahead of the pages
-        // fetched so far, and the API resolves the real total.
         if (!isNaN(pageNum) && pageNum >= 1) {
             onPageChange(pageNum - 1); // 1-based input to 0-based API page
         }
@@ -267,7 +257,7 @@ export default function TowerTableSimple({
 
     const handleOpenSatelliteView = () => {
         if (selectedTower) {
-            // Open Google Maps in satellite view at high zoom centered on exact coordinates
+            // Open Google Maps in satellite view at high zoom centered on exact coordinates.
             const satelliteUrl = `https://www.google.com/maps/@${selectedTower.lat},${selectedTower.lon},20z/data=!3m1!1e3`;
             window.open(satelliteUrl, '_blank', 'noopener,noreferrer');
             handleMenuClose();
@@ -276,7 +266,7 @@ export default function TowerTableSimple({
 
     const handleOpenBingMaps = () => {
         if (selectedTower) {
-            // Open Bing Maps at the tower location with nearby places search
+            // Open Bing Maps at the tower location with nearby places search.
             const bingMapsUrl = `https://www.bing.com/maps?cp=${selectedTower.lat}~${selectedTower.lon}&lvl=17&style=r`;
             window.open(bingMapsUrl, '_blank', 'noopener,noreferrer');
             handleMenuClose();
@@ -290,12 +280,12 @@ export default function TowerTableSimple({
         }
     };
 
-    // Helper: count how many filter keys have a truthy value
+    // Helper: count how many filter keys have a truthy value.
     const activeFilterCount = Object.values(filters).filter(v => v && v.length > 0).length;
 
     const handleExternalFilterChange = (field: string, values: string[]) => {
         const newFilters = { ...filters, [field]: values.join(',') };
-        // Remove keys with empty value
+        // Remove keys with empty value.
         if (!values.length) delete (newFilters as any)[field];
         onFilterChange(newFilters);
     };
@@ -306,7 +296,7 @@ export default function TowerTableSimple({
         handleExternalFilterChange(field, updated);
     };
 
-    // Collect all active filter chips for display
+    // Collect all active filter chips for display.
     const activeChips: { field: string; label: string; value: string }[] = [];
     const fieldLabels: Record<string, string> = {
         city: 'City', state: country === 'USA' ? 'State' : 'Province',
@@ -713,13 +703,10 @@ export default function TowerTableSimple({
         },
     ];
 
-    // Sorting runs server-side; only fields the API can order by are sortable
+    // Sorting runs server-side; only fields the API can order by are sortable.
     const SERVER_SORTABLE = new Set(['id', 'businessCount', 'avgBusinessDistance', 'aiTowerScore', 'hasOwnerName']);
     const sortableColumns = columns.map(c => ({ ...c, sortable: SERVER_SORTABLE.has(c.field) }));
 
-    // Stable references for controlled DataGrid props — creating new objects/arrays on
-    // every render causes MUI DataGrid v8 to fire onSortModelChange / onPaginationModelChange
-    // spuriously, which calls setPage(0) and resets the user back to the first page.
     const sortModelArray = React.useMemo(
         () => sortModel ? [{ field: sortModel.field, sort: sortModel.order }] : [],
         [sortModel]
@@ -745,7 +732,7 @@ export default function TowerTableSimple({
                     const newSort = (model.length === 0 || !model[0].sort)
                         ? null
                         : { field: model[0].field, order: model[0].sort as 'asc' | 'desc' };
-                    // Guard: skip if sort hasn't actually changed (prevents spurious setPage(0))
+                    // Guard: skip if sort hasn't actually changed (prevents spurious setPage(0)).
                     if (newSort?.field === sortModel?.field && newSort?.order === sortModel?.order) return;
                     onSortChange(newSort);
                 }}
@@ -763,7 +750,7 @@ export default function TowerTableSimple({
                 rowSelectionModel={selectionModel}
                 onRowSelectionModelChange={handleSelectionChange}
                 processRowUpdate={(newRow, oldRow) => {
-                    // Find which field changed
+                    // Find which field changed.
                     const editableFields = ['type', 'carrier', 'status'];
                     for (const field of editableFields) {
                         if (newRow[field] !== oldRow[field] && onCellEdit) {

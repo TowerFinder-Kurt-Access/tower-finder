@@ -1,11 +1,4 @@
-/**
- * Reports held-out AUC, precision/recall, confusion matrix, and permutation
- * feature importance. Also picks the operating threshold from the held-out PR
- * curve, so `aiLabel` means "worth a look" instead of "top half of the pool".
- * Writes src/lib/ml/model.json.
- *
- * Run: npx tsx --env-file=.env scripts/train-tower-classifier.ts
- */
+/** Reports held-out AUC, precision/recall, confusion matrix, and permutation feature importance. */
 import { PrismaClient } from '@prisma/client';
 import { RandomForestClassifier } from 'ml-random-forest';
 import * as fs from 'fs';
@@ -18,13 +11,10 @@ const SEED = 42;
 const TEST_FRACTION = 0.2;
 const MODEL_VERSION = `rf-v2-${new Date().toISOString().slice(0, 10)}`;
 
-/**
- * Precision budget for the stored threshold. A 0.90 target collapses recall to 0.03 on
- * the held-out set and marks nothing useful; 0.75 keeps roughly 1 false alarm per 4.
- */
+/** Precision budget for the stored threshold. */
 const TARGET_PRECISION = 0.75;
 
-// deterministic RNG (mulberry32) so the split is reproducible
+// deterministic RNG (mulberry32) so the split is reproducible.
 function rng(seed: number) {
     let a = seed;
     return () => {
@@ -44,7 +34,6 @@ function shuffled<T>(arr: T[], rand: () => number): T[] {
     return a;
 }
 
-/** Rank-based AUC (probability a random positive scores above a random negative). */
 function auc(scores: number[], labels: number[]): number {
     const pairs = scores.map((s, i) => ({ s, y: labels[i] })).sort((a, b) => a.s - b.s);
     let rank = 1, sumPosRanks = 0, nPos = 0, nNeg = 0;
@@ -61,13 +50,11 @@ function auc(scores: number[], labels: number[]): number {
     return nPos === 0 || nNeg === 0 ? NaN : (sumPosRanks - nPos * (nPos + 1) / 2) / (nPos * nNeg);
 }
 
-// ml-random-forest's predictProbability(toPredict, label) = fraction of trees
-// voting for `label`
+// ml-random-forest's predictProbability(toPredict, label) = fraction of trees voting for `label`.
 function probabilityOfPositive(clf: RandomForestClassifier, X: number[][]): number[] {
     return (clf as any).predictProbability(X, 1) as number[];
 }
 
-/** Lowest threshold holding `target` precision, which maximises recall within budget. */
 function pickThreshold(scores: number[], labels: number[], target: number): number {
     const sorted = [...scores].sort((a, b) => a - b);
     let best = 0.5;
@@ -82,8 +69,6 @@ function pickThreshold(scores: number[], labels: number[], target: number): numb
 
 async function main() {
     const towers = await prisma.tower.findMany({
-        // orderBy is required: the split shuffles this array, and without a stable order any
-        // bulk UPDATE silently reshuffles the train/test split between runs.
         orderBy: { id: 'asc' },
         select: {
             id: true, lat: true, lon: true, source: true,
@@ -119,8 +104,6 @@ async function main() {
     const te = toXY(test);
 
     console.log(`training random forest on ${tr.X.length} rows (${FEATURE_NAMES.length} features)...`);
-    // Kept deliberately light: ml-random-forest's pure-JS CART is slow on
-    // continuous features, and this script is part of the routine retrain loop.
     const clf = new RandomForestClassifier({
         seed: SEED,
         nEstimators: 80,
@@ -133,9 +116,6 @@ async function main() {
     const probs = probabilityOfPositive(clf, te.X);
     const testAuc = auc(probs, te.y);
 
-    // Operating point: the lowest threshold that still holds TARGET_PRECISION on the
-    // held-out set, which keeps as much recall as the target allows. A fixed 0.5
-    // flagged 59% of the whole pool as likely_tower against a 39% base rate.
     const threshold = pickThreshold(probs, te.y, TARGET_PRECISION);
 
     let tp = 0, fp = 0, tn = 0, fn = 0;
@@ -160,8 +140,7 @@ async function main() {
     const recallAt05 = p05 / (p05 + r05);
     const precisionAt05 = p05 / Math.max(flagged, 1);
 
-    // Max-F1 is reported for context only. It lands near t=0.1, which flags half
-    // the pool, so it is not a usable triage cut.
+    // Max-F1 is reported for context only.
     let bestF1 = { t: 0, f1: 0, precision: 0, recall: 0 };
     for (const t of Array.from(new Set(probs)).sort((a, b) => a - b)) {
         let btp = 0, bfp = 0, bfn = 0;
@@ -180,7 +159,7 @@ async function main() {
     console.log(`for comparison, fixed 0.5: precision ${precisionAt05.toFixed(3)} recall ${recallAt05.toFixed(3)} (flagged ${(100 * flagged / te.y.length).toFixed(1)}%)`);
     console.log(`max-F1 point: t=${bestF1.t.toFixed(3)} precision ${bestF1.precision.toFixed(3)} recall ${bestF1.recall.toFixed(3)} F1 ${bestF1.f1.toFixed(3)} (reference only)`);
 
-    // permutation importance: AUC drop when one feature is shuffled
+    // permutation importance: AUC drop when one feature is shuffled.
     console.log('\n--- permutation feature importance (AUC drop) ---');
     const importance: { name: string; drop: number }[] = [];
     for (let f = 0; f < FEATURE_NAMES.length; f++) {

@@ -1,19 +1,11 @@
-/**
- * Feature extraction shared by training and scoring. FEATURE_NAMES is the source of
- * truth for vector order and is serialized with the model.
- *
- * Never a feature (review outcome, not signal): statusId, typeId, notes, legacyStatus,
- * humanLabel.
- */
+/** Feature extraction shared by training and scoring. */
 import { latLngToCell, gridDisk } from 'h3-js';
 
 const H3_RES = 8; // ~461 m hex edge
 const MAX_RING = 4; // nearest-neighbor search horizon (~3.5 km)
 const NEAREST_CAP_M = 5000;
-/** Sentinel for business features on towers that have no BusinessNearby rows. */
 const BIZ_UNMEASURED = 99;
 
-/** Tower source files double as a coarse region indicator. */
 const SOURCE_BUCKETS = [
     'BC', 'Alberta', 'Saskatchewan', 'Manitoba', 'Ontario', 'Quebec',
     'East Coast', 'NorthWest', 'markslist',
@@ -29,9 +21,7 @@ export const FEATURE_NAMES: string[] = [
     'lon',
     ...SOURCE_BUCKETS.map(s => `src_${s}`),
     'src_other',
-    // Business aggregates read straight from BusinessNearby. Tower.businessCount is
-    // capped at 20 by the places job, and 26,972 of 45,452 scored rows sit exactly on
-    // that cap, so the saturated copy cannot rank them. These are uncapped.
+    // Business aggregates read straight from BusinessNearby.
     'bizCount',
     'bizWithin150',
     'bizWithin400',
@@ -39,18 +29,15 @@ export const FEATURE_NAMES: string[] = [
     'bizCategoryKinds',
 ];
 
-/** One grouped row per tower, straight from BUSINESS_FEATURES_SQL. */
 export interface BusinessAggregate {
     towerId: number;
     n: number;
     n150: number;
     n400: number;
     minM: number;
-    /** Distinct top-level geoapify categories nearby, a proxy for site diversity. */
     cats: number;
 }
 
-/** One grouped scan over BusinessNearby, shared so train and score cannot drift. */
 export const BUSINESS_FEATURES_SQL = `
     SELECT "towerId"::int AS "towerId",
            count(*)::int AS n,
@@ -61,7 +48,6 @@ export const BUSINESS_FEATURES_SQL = `
     FROM "BusinessNearby"
     GROUP BY "towerId"`;
 
-/** Business features read from BUSINESS_FEATURES_SQL; $1 is bound, never spliced. */
 export const BUSINESS_FEATURES_FOR_IDS_SQL = `
     SELECT "towerId"::int AS "towerId",
            count(*)::int AS n,
@@ -96,11 +82,7 @@ function haversineM(lat1: number, lon1: number, lat2: number, lon2: number) {
     return 2 * R * Math.asin(Math.sqrt(a));
 }
 
-/**
- * Spatial index over the full tower population. Density features are computed
- * against ALL towers (any status) — presence in the scrape, not review outcome,
- * so they are equally defined for labeled and unlabeled rows.
- */
+/** Spatial index over the full tower population. */
 export function buildTowerContext(
     towers: { id: number; lat: number; lon: number }[],
     business: BusinessAggregate[] = []
@@ -149,17 +131,12 @@ function sourceBucket(source: string): string {
     return 'other';
 }
 
-/**
- * Returns the numeric feature vector in FEATURE_NAMES order.
- * Continuous values are quantized — coarser than the signal we need, and it
- * keeps the pure-JS CART trainer fast (split candidates scale with unique values).
- */
+/** Returns the numeric feature vector in FEATURE_NAMES order. */
 export function towerToFeatures(tower: FeatureTower, ctx: TowerContext): number[] {
     const nearest = nearestOtherTowerM(ctx, tower.lat, tower.lon, tower.id);
     const bucket = sourceBucket(tower.source);
     const biz = ctx.business.get(tower.id);
-    // A tower with no BusinessNearby rows is unmeasured, not empty. The sentinel
-    // keeps it out of the "isolated, therefore suspicious" range.
+    // A tower with no BusinessNearby rows is unmeasured, not empty.
     const n = biz ? Math.min(biz.n, 60) : BIZ_UNMEASURED;
     const n150 = biz ? Math.min(biz.n150, 6) : BIZ_UNMEASURED;
     const n400 = biz ? Math.min(biz.n400, 20) : BIZ_UNMEASURED;

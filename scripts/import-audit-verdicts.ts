@@ -1,10 +1,4 @@
-/**
- * Loads a filled audit sheet back as humanLabel with labelSource 'audit'. That source
- * is protected from backfill-tower-labels.ts, which otherwise recomputes mined labels
- * on every run and would overwrite each verdict.
- *
- * Dry run by default. Pass --write to update the database.
- */
+/** Loads a filled audit sheet back as humanLabel with labelSource 'audit'. */
 import { PrismaClient } from '@prisma/client';
 import * as fs from 'fs';
 
@@ -62,7 +56,7 @@ async function main() {
         return;
     }
 
-    // Measured accuracy by score band. This is the number nobody has had until now.
+    // Measured accuracy by score band.
     const bandOf = (s: number) => (s >= 80 ? '80-100' : s >= 70 ? '70-80' : s >= 57.5 ? '57.5-70' : 'below flag');
     const bands = new Map<string, { tp: number; n: number }>();
     for (const v of verdicts) {

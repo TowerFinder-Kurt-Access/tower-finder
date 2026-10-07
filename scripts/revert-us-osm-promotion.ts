@@ -1,9 +1,4 @@
-/**
- * Undoes promote-us-osm-leads.ts. Touches only rows carrying that script's exact source
- * tag, and releases only leads pointing at a tower being deleted.
- *
- * Dry run by default. Pass --write to apply.
- */
+/** Undoes promote-us-osm-leads.ts. */
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
@@ -52,8 +47,6 @@ async function main() {
         console.log(`  deleted ${deleted}/${towers.length}`);
     }
 
-    // Clear the score columns too, so the surviving pool is not left claiming rows the
-    // scorer already processed under a model that has now moved on.
     await prisma.towerLead.updateMany({
         where: { promotedToTowerId: { in: ids } },
         data: { promotedToTowerId: null, promotedAt: null },

@@ -1,13 +1,4 @@
-/**
- * Builds the hand-check sheet that produces real labels. Defaults to the 80%+ tier,
- * which is both the most reliable and the most acted-on, sorted highest score first so a
- * reviewer who runs out of time has covered the most valuable rows.
- *
- * Fill verdict (tower | not_tower | unsure) and wrong_reason, then load with
- * scripts/import-audit-verdicts.ts.
- *
- * Run: npx tsx --env-file=.env scripts/export-score-audit.ts [--focus all] [--limit N]
- */
+/** Builds the hand-check sheet that produces real labels. */
 import { PrismaClient } from '@prisma/client';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -19,7 +10,6 @@ function arg(name: string, fallback: string): string {
     return i > -1 && process.argv[i + 1] ? process.argv[i + 1] : fallback;
 }
 
-/** Held-out precision per band, rf-v2-2026-10-06. Small samples: a hint, not a promise. */
 const BAND_PRECISION: { min: number; precision: number | null; n: number }[] = [
     { min: 0.80, precision: 0.90, n: 10 },
     { min: 0.70, precision: 0.87, n: 60 },
@@ -32,7 +22,6 @@ const expectedPrecision = (s: number): string => {
     return hit?.precision ? `${Math.round(hit.precision * 100)}% (measured on only ${hit.n} rows)` : 'below the flagged range';
 };
 
-/** Even spread across every band, for measuring the whole score rather than the top. */
 const BANDS: { label: string; min: number; max: number }[] = [
     { label: '0.00-0.20', min: 0, max: 0.2 },
     { label: '0.20-0.40', min: 0.2, max: 0.4 },

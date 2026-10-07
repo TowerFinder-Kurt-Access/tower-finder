@@ -1,16 +1,4 @@
-/**
- * Backfill Tower.humanLabel from the review signals confirmed by the Phase 0
- * audit (docs/phase0-label-audit.md):
- *   not_tower — status "No GSV" (9) OR a note containing "no cell" / "no tower"
- *               / "not a tower"
- *   tower     — status in {3,5,10,11,12,13,14,15,17}
- * Towers with a positive status AND a negative note are conflicted: skipped.
- *
- * Idempotent: recomputes labels from scratch each run (only touches rows whose
- * label would change), so it can be re-run as reviewers add notes/statuses.
- *
- * Run: npx tsx --env-file=.env scripts/backfill-tower-labels.ts
- */
+// Backfill Tower.humanLabel from the review signals confirmed by the Phase 0 audit (docs/phase0-label-audit.md): not_tower — status "No GSV" (9) OR a note containing "no cell" / "no tower" / "not a tower" tower — status in {3,5,10,11,12,13,14,15,17} Towers with a positive status AND a negative note are conflicted: skipped.
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();

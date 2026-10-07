@@ -5,10 +5,8 @@ import {
     TOWER_SELECT, isScorable,
 } from '@/lib/ml/score';
 
-/** Rows per run. Keeps each job inside the serverless timeout while converging. */
 const BATCH_SIZE = 5000;
 
-/** Self-schedules the next batch while any row carries a stale model version. */
 export async function scoreTowerBatch(params: { batchSize?: number }): Promise<unknown> {
     const batchSize = params.batchSize || BATCH_SIZE;
     const model = loadTowerModel();
@@ -43,7 +41,6 @@ export async function scoreTowerBatch(params: { batchSize?: number }): Promise<u
     };
 }
 
-/** One-shot full pass for a manual run outside the job queue. */
 export async function scoreAllTowers(): Promise<unknown> {
     const model = loadTowerModel();
     const where = staleTowerWhere(model.version);

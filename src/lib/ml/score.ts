@@ -1,4 +1,3 @@
-/** Scoring core shared by the manual script and the score_towers cron job. */
 import { RandomForestClassifier } from 'ml-random-forest';
 import { Prisma } from '@prisma/client';
 import * as fs from 'fs';
@@ -8,7 +7,6 @@ import {
     BUSINESS_FEATURES_SQL, BUSINESS_FEATURES_FOR_IDS_SQL, BusinessAggregate,
 } from './features';
 
-/** Methods, not properties: bivariance lets both the plain and extended Prisma clients fit. */
 export interface ScoreDb {
     tower: {
         findMany(args: unknown): Promise<unknown[]>;
@@ -75,14 +73,12 @@ export function loadTowerModel(): TowerModel {
     };
 }
 
-/** Statuses the scorer deliberately ignores: already reviewed, or not a verdict at all. */
 export const NEW_STATUS_ID = 1;
 
 export function isScorable(t: { humanLabel: string | null; statusId: number | null }): boolean {
     return t.humanLabel === null && (t.statusId === null || t.statusId === NEW_STATUS_ID);
 }
 
-/** Towers this model version has not processed yet: new rows, plus stale scores. */
 export function staleTowerWhere(version: string) {
     return { aiModelVersion: { not: version } };
 }
@@ -92,20 +88,18 @@ export interface ScoreBatchResult {
     cleared: number;
 }
 
-/** Aggregates for the whole table, for callers doing a single full pass. */
 export async function allBusinessAggregates(db: ScoreDb): Promise<BusinessAggregate[]> {
     // SAFETY: the query is the constant above; the row shape is fixed by its SELECT list.
     return db.$queryRawUnsafe(BUSINESS_FEATURES_SQL) as unknown as BusinessAggregate[];
 }
 
-/** Business aggregates for one batch only. */
 export async function businessAggregatesFor(db: ScoreDb, ids: number[]): Promise<BusinessAggregate[]> {
     // SAFETY: $1 is bound by Prisma, so no id reaches the SQL string.
     return db.$queryRawUnsafe(BUSINESS_FEATURES_FOR_IDS_SQL, ids) as unknown as BusinessAggregate[];
 }
 
 export interface ScoreInputs {
-    /** EVERY tower: density features measured against the batch itself shift every score. */
+    // Every tower, not just the batch: density features shift if scoped to the batch.
     population: PopulationTower[];
     business: BusinessAggregate[];
 }
@@ -115,7 +109,6 @@ export async function loadScoreInputs(db: ScoreDb, batchIds: number[]): Promise<
     return { population, business: await businessAggregatesFor(db, batchIds) };
 }
 
-/** Non-scorable rows get cleared: an older model's probability is on a different scale. */
 export async function scoreTowers(
     db: ScoreDb,
     towers: ScorableTower[],
@@ -129,13 +122,11 @@ export async function scoreTowers(
     if (scorable.length) {
         const ctx = buildTowerContext(inputs.population, inputs.business);
         const X = scorable.map(t => towerToFeatures(t, ctx));
-        // SAFETY: ml-random-forest ships no type for predictProbability. Its documented
-        // contract is the fraction of trees voting for the label index passed second.
+        // SAFETY: ml-random-forest ships no type for predictProbability.
         const probs = (model.clf as unknown as {
             predictProbability(x: number[][], label: number): number[];
         }).predictProbability(X, 1);
-        // Batched VALUES update: one statement per batch instead of one round trip per
-        // row. Every id and score is bound as a parameter via Prisma.join, never spliced.
+        // Batched VALUES update: one statement per batch instead of one round trip per row.
         const rows = scorable.map((t, j) => Prisma.sql`(${t.id}::int, ${Number(probs[j])}::float8)`);
         await db.$executeRaw(Prisma.sql`
             UPDATE "Tower" AS t SET
