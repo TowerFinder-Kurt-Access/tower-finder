@@ -548,32 +548,42 @@ export async function GET(request: Request) {
 
             // Global search filter
             if (search) {
-                const searchTerms = search.split(/\s+/).filter(Boolean);
+                const trimmed = search.trim();
+                // Pasted address: one ILIKE on Parcel.address. Per-term across all 16 columns times out the connection pool (P1017).
+                const isAddressQuery = trimmed.includes(',') || /\b[a-z]\d[a-z]\s+\d[a-z]\d\b/i.test(trimmed);
 
-                // For each term, it must match at least one field (AND of ORs)
-                searchTerms.forEach(term => {
-                    const searchTermStr = term;
+                if (isAddressQuery) {
                     andConditions.push({
-                        OR: [
-                            { parcel: { address: { contains: searchTermStr, mode: 'insensitive' } } },
-                            { parcel: { cityRaw: { contains: searchTermStr, mode: 'insensitive' } } },
-                            { parcel: { city: { name: { contains: searchTermStr, mode: 'insensitive' } } } },
-                            { parcel: { countyRaw: { contains: searchTermStr, mode: 'insensitive' } } },
-                            { parcel: { countyNormalized: { name: { contains: searchTermStr, mode: 'insensitive' } } } },
-                            { parcel: { stateRaw: { contains: searchTermStr, mode: 'insensitive' } } },
-                            { parcel: { provinceRaw: { contains: searchTermStr, mode: 'insensitive' } } },
-                            { parcel: { province: { name: { contains: searchTermStr, mode: 'insensitive' } } } },
-                            { parcel: { postalCode: { contains: searchTermStr, mode: 'insensitive' } } },
-                            { parcel: { zip: { contains: searchTermStr, mode: 'insensitive' } } },
-                            { parcel: { owner: { name: { contains: searchTermStr, mode: 'insensitive' } } } },
-                            { legacyStatus: { contains: searchTermStr, mode: 'insensitive' } },
-                            { status: { name: { contains: searchTermStr, mode: 'insensitive' } } },
-                            { type: { name: { contains: searchTermStr, mode: 'insensitive' } } },
-                            { carrier: { name: { contains: searchTermStr, mode: 'insensitive' } } },
-                            { notes: { some: { content: { contains: searchTermStr, mode: 'insensitive' } } } }
-                        ]
+                        parcel: { address: { contains: trimmed, mode: 'insensitive' } }
                     });
-                });
+                } else {
+                    const searchTerms = trimmed.split(/\s+/).filter(Boolean);
+
+                    // For each term, it must match at least one field (AND of ORs)
+                    searchTerms.forEach(term => {
+                        const searchTermStr = term;
+                        andConditions.push({
+                            OR: [
+                                { parcel: { address: { contains: searchTermStr, mode: 'insensitive' } } },
+                                { parcel: { cityRaw: { contains: searchTermStr, mode: 'insensitive' } } },
+                                { parcel: { city: { name: { contains: searchTermStr, mode: 'insensitive' } } } },
+                                { parcel: { countyRaw: { contains: searchTermStr, mode: 'insensitive' } } },
+                                { parcel: { countyNormalized: { name: { contains: searchTermStr, mode: 'insensitive' } } } },
+                                { parcel: { stateRaw: { contains: searchTermStr, mode: 'insensitive' } } },
+                                { parcel: { provinceRaw: { contains: searchTermStr, mode: 'insensitive' } } },
+                                { parcel: { province: { name: { contains: searchTermStr, mode: 'insensitive' } } } },
+                                { parcel: { postalCode: { contains: searchTermStr, mode: 'insensitive' } } },
+                                { parcel: { zip: { contains: searchTermStr, mode: 'insensitive' } } },
+                                { parcel: { owner: { name: { contains: searchTermStr, mode: 'insensitive' } } } },
+                                { legacyStatus: { contains: searchTermStr, mode: 'insensitive' } },
+                                { status: { name: { contains: searchTermStr, mode: 'insensitive' } } },
+                                { type: { name: { contains: searchTermStr, mode: 'insensitive' } } },
+                                { carrier: { name: { contains: searchTermStr, mode: 'insensitive' } } },
+                                { notes: { some: { content: { contains: searchTermStr, mode: 'insensitive' } } } }
+                            ]
+                        });
+                    });
+                }
             }
 
             // Combine all conditions with AND
