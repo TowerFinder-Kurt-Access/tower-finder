@@ -29,12 +29,7 @@ const AI_SCORE_TOOLTIP = [
     'Use it to order your review queue only.',
 ].join(' ');
 
-/**
- * Badge tiers. Green marks the rows the model is most confident about, which is a
- * usable triage signal: only 972 of 39,309 scored rows reach 70%, so a green badge is
- * worth opening. Note the ceiling — with 80 trees the finest possible score is 1/80
- * per vote and no row currently passes 67/80 = 83.8%.
- */
+/** Badge tiers. Only 972 of 39,309 rows reach 70%, and 80 trees cap the score at 83.8%. */
 const AI_SCORE_GREEN_PCT = 70;
 const AI_SCORE_WARN_PCT = 40;
 

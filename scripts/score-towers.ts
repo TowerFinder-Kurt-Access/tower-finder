@@ -1,14 +1,6 @@
 /**
- * Score unreviewed towers with the trained classifier (src/lib/ml/model.json,
- * produced by scripts/train-tower-classifier.ts).
- *
- * Targets towers with no human label and no review status (statusId null or
- * "New") — already-reviewed ambiguous statuses (Duplicate, Not Interested, …)
- * are left unscored on purpose. Re-runnable: rescoring overwrites previous
- * scores, so run it again after each retrain.
- *
- * This is the manual full-pass path. The same logic runs in batches from the
- * score_towers job handler; both call src/lib/ml/score.ts so they cannot drift.
+ * Score unreviewed towers (no human label, statusId null or "New") with the model in
+ * src/lib/ml/model.json. Manual full pass; the score_towers job batches the same core.
  *
  * Run: npx tsx --env-file=.env scripts/score-towers.ts
  */

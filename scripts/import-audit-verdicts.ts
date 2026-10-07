@@ -1,19 +1,9 @@
 /**
- * Loads hand-check verdicts from a filled audit sheet back into the database as real
- * labels, so the next backfill and retrain uses facts instead of mined guesses.
+ * Loads a filled audit sheet back as humanLabel with labelSource 'audit'. That source
+ * is protected from backfill-tower-labels.ts, which otherwise recomputes mined labels
+ * on every run and would overwrite each verdict.
  *
- * Writes humanLabel + labelSource 'audit' + labeledAt. That label source is preserved:
- * scripts/backfill-tower-labels.ts recomputes mined labels from status and notes on every
- * run, so without a protected source an audit verdict would be overwritten on the next run.
- *
- * Safe to re-run. Only rows whose verdict actually changed are written, and the summary
- * prints measured precision per score band, which is the real accuracy number.
- *
- * Dry run by default. Pass --write to actually update the database.
- *
- * Run:
- *   npx tsx --env-file=.env scripts/import-audit-verdicts.ts "data/score-audit-top-2026-10-06.csv"
- *   npx tsx --env-file=.env scripts/import-audit-verdicts.ts "<path>" --write
+ * Dry run by default. Pass --write to update the database.
  */
 import { PrismaClient } from '@prisma/client';
 import * as fs from 'fs';

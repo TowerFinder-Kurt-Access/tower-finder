@@ -1,14 +1,9 @@
 /**
- * Feature extraction for the tower classifier.
+ * Feature extraction shared by training and scoring. FEATURE_NAMES is the source of
+ * truth for vector order and is serialized with the model.
  *
- * Used by both training (scripts/train-tower-classifier.ts) and scoring
- * (scripts/score-towers.ts) so the two can never drift: FEATURE_NAMES is the
- * single source of truth for vector order and is serialized with the model.
- *
- * Leakage rules — these fields encode the *outcome* of human review and must
- * never be features: statusId, typeId (96% of unreviewed towers sit at the
- * default "Other Structure"; reviewed ones were re-typed by hand), note
- * counts/content, legacyStatus, humanLabel.
+ * Never a feature (review outcome, not signal): statusId, typeId, notes, legacyStatus,
+ * humanLabel.
  */
 import { latLngToCell, gridDisk } from 'h3-js';
 
@@ -55,10 +50,7 @@ export interface BusinessAggregate {
     cats: number;
 }
 
-/**
- * Shared by train and score so the business features cannot drift between them.
- * One grouped scan over BusinessNearby, returning only towers that have places.
- */
+/** One grouped scan over BusinessNearby, shared so train and score cannot drift. */
 export const BUSINESS_FEATURES_SQL = `
     SELECT "towerId"::int AS "towerId",
            count(*)::int AS n,
@@ -69,10 +61,7 @@ export const BUSINESS_FEATURES_SQL = `
     FROM "BusinessNearby"
     GROUP BY "towerId"`;
 
-/**
- * Same aggregates for one batch. $1 is the tower id array, passed as a query
- * parameter so no value is ever concatenated into SQL.
- */
+/** Business features read from BUSINESS_FEATURES_SQL; $1 is bound, never spliced. */
 export const BUSINESS_FEATURES_FOR_IDS_SQL = `
     SELECT "towerId"::int AS "towerId",
            count(*)::int AS n,

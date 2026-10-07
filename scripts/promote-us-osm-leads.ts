@@ -1,24 +1,9 @@
 /**
- * Turns the 5,382 unused USA OpenStreetMap telecom leads into real tower records.
- *
- * Those leads were fetched years ago and never promoted. They are already in the
- * database, already verified by OpenStreetMap, and cost nothing to use. It is the only
- * real USA tower coverage we have: the tower table holds just 86 USA records, all from a
- * legacy markslist import.
- *
- * Creates one Tower per lead, matched to an existing tower within 400 m so we do not
- * double up. Duplicate coordinates are rejected because Tower has a unique lat+lon index,
- * so a source row is skipped when it lands on an existing record. Copying the lead's
- * source and sourceId onto the tower makes every promotion reversible.
- *
- * Existing rows are never modified, so this is safe to re-run: a lead already promoted is
- * skipped, and a lead matching an existing tower is recorded as matched, never inserted.
+ * Promotes the unused USA OpenStreetMap telecom leads into tower records. Safe to
+ * re-run: never modifies an existing tower, and only its own rows are tagged so
+ * revert-us-osm-promotion.ts can undo it.
  *
  * Dry run by default. Pass --write to apply.
- *
- * Run:
- *   npx tsx --env-file=.env scripts/promote-us-osm-leads.ts
- *   npx tsx --env-file=.env scripts/promote-us-osm-leads.ts --write
  */
 import { PrismaClient } from '@prisma/client';
 
@@ -38,9 +23,8 @@ function haversineM(a: number, b: number, c: number, d: number): number {
 async function main() {
     const write = process.argv.includes('--write');
     const matchRadius = Number(arg('--match-radius', '400'));
-    // OSM does not record whether a structure is lattice, monopole or guyed. Guessing
-    // "Lattice Tower" would mislabel the 4,032 masts, so promoted rows land in
-    // "Other Structure", which is already the default bucket for unreviewed towers.
+    // OSM does not record lattice vs monopole vs guyed, so promoted rows land in
+    // "Other Structure" rather than guessing "Lattice Tower" at 4,032 masts.
     const typeName = arg('--type', 'Other Structure');
 
     const leads = await prisma.towerLead.findMany({
@@ -118,9 +102,8 @@ async function main() {
         ?? await prisma.towerType.create({ data: { name: typeName } });
     console.log(`tower type used: ${typeRow.name} (id ${typeRow.id})`);
 
-    // Bulk insert, not one create per lead. An interactive transaction holding 500
-    // sequential writes times out against the hosted database (P2028) and rolls the
-    // whole batch back, so this uses set-based inserts that complete in seconds.
+    // Bulk insert: an interactive transaction holding 500 sequential writes times out
+    // against the hosted database (P2028) and rolls the whole batch back.
     const CHUNK = 1000;
     let created = 0;
     for (let i = 0; i < toInsert.length; i += CHUNK) {

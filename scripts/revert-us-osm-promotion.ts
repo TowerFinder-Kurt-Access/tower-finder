@@ -1,18 +1,8 @@
 /**
- * Undoes scripts/promote-us-osm-leads.ts.
- *
- * Deletes only the towers created by that script, identified by the exact source tag it
- * wrote, and releases the leads it claimed. Nothing else in the tower table is touched,
- * so this cannot damage the 51,522 pre-existing records.
- *
- * A lead is only released if it points at a tower that is about to be deleted, so leads
- * promoted before this session are left alone.
+ * Undoes promote-us-osm-leads.ts. Touches only rows carrying that script's exact source
+ * tag, and releases only leads pointing at a tower being deleted.
  *
  * Dry run by default. Pass --write to apply.
- *
- * Run:
- *   npx tsx --env-file=.env scripts/revert-us-osm-promotion.ts
- *   npx tsx --env-file=.env scripts/revert-us-osm-promotion.ts --write
  */
 import { PrismaClient } from '@prisma/client';
 

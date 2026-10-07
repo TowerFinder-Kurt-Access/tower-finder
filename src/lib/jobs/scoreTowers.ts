@@ -8,14 +8,7 @@ import {
 /** Rows per run. Keeps each job inside the serverless timeout while converging. */
 const BATCH_SIZE = 5000;
 
-/**
- * Scores unreviewed towers with src/lib/ml/model.json, in batches.
- *
- * Self-scheduling: while any row still carries a stale model version, the handler
- * enqueues the next batch. The daily /api/cron/process-jobs run therefore keeps the
- * pool current without a hand-run. Already-reviewed rows are never scored, and rows
- * this version has not seen have any older score cleared instead of left in place.
- */
+/** Self-schedules the next batch while any row carries a stale model version. */
 export async function scoreTowerBatch(params: { batchSize?: number }): Promise<unknown> {
     const batchSize = params.batchSize || BATCH_SIZE;
     const model = loadTowerModel();

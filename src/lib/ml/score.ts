@@ -1,7 +1,4 @@
-/**
- * Scoring core shared by scripts/score-towers.ts and the score_towers cron job.
- * One implementation so the manual run and the scheduled run can never disagree.
- */
+/** Scoring core shared by the manual script and the score_towers cron job. */
 import { RandomForestClassifier } from 'ml-random-forest';
 import { Prisma } from '@prisma/client';
 import * as fs from 'fs';
@@ -11,11 +8,7 @@ import {
     BUSINESS_FEATURES_SQL, BUSINESS_FEATURES_FOR_IDS_SQL, BusinessAggregate,
 } from './features';
 
-/**
- * The slice of Prisma this module needs, so callers can pass their own client.
- * Declared as methods on purpose: TS checks method parameters bivariantly, so both
- * the plain PrismaClient used by scripts and the accelerate-extended app client fit.
- */
+/** Methods, not properties: bivariance lets both the plain and extended Prisma clients fit. */
 export interface ScoreDb {
     tower: {
         findMany(args: unknown): Promise<unknown[]>;
@@ -112,13 +105,8 @@ export async function businessAggregatesFor(db: ScoreDb, ids: number[]): Promise
 }
 
 export interface ScoreInputs {
-    /**
-     * EVERY tower with coordinates, not just the batch. logNearestTowerM and
-     * towersWithin1Ring are measured against this population, so scoring a batch
-     * against itself silently produces different scores than a full pass.
-     */
+    /** EVERY tower: density features measured against the batch itself shift every score. */
     population: PopulationTower[];
-    /** Business aggregates for the towers being scored. */
     business: BusinessAggregate[];
 }
 
@@ -127,11 +115,7 @@ export async function loadScoreInputs(db: ScoreDb, batchIds: number[]): Promise<
     return { population, business: await businessAggregatesFor(db, batchIds) };
 }
 
-/**
- * Scores one batch of towers. Rows that fail isScorable get their score cleared rather
- * than kept: an older model's probability is not comparable with this one's, so leaving
- * it in place would mix two scales in the same sortable column.
- */
+/** Non-scorable rows get cleared: an older model's probability is on a different scale. */
 export async function scoreTowers(
     db: ScoreDb,
     towers: ScorableTower[],

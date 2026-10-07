@@ -19,10 +19,8 @@ const TEST_FRACTION = 0.2;
 const MODEL_VERSION = `rf-v2-${new Date().toISOString().slice(0, 10)}`;
 
 /**
- * Precision budget for the stored threshold. Reviewers chase what this label
- * flags, and the whole complaint was false alarms: on the held-out set a 0.90
- * target collapses recall to 0.03 (1.2% of rows), which marks nothing useful.
- * 0.75 keeps roughly 1 false alarm per 4 flagged rows while still flagging ~11%.
+ * Precision budget for the stored threshold. A 0.90 target collapses recall to 0.03 on
+ * the held-out set and marks nothing useful; 0.75 keeps roughly 1 false alarm per 4.
  */
 const TARGET_PRECISION = 0.75;
 
@@ -69,10 +67,7 @@ function probabilityOfPositive(clf: RandomForestClassifier, X: number[][]): numb
     return (clf as any).predictProbability(X, 1) as number[];
 }
 
-/**
- * Lowest threshold whose held-out precision reaches `target`. Scanning upward and
- * keeping the first hit maximises recall subject to the precision budget.
- */
+/** Lowest threshold holding `target` precision, which maximises recall within budget. */
 function pickThreshold(scores: number[], labels: number[], target: number): number {
     const sorted = [...scores].sort((a, b) => a - b);
     let best = 0.5;
@@ -87,9 +82,8 @@ function pickThreshold(scores: number[], labels: number[], target: number): numb
 
 async function main() {
     const towers = await prisma.tower.findMany({
-        // orderBy is required for reproducible metrics: the split below shuffles this
-        // array, and without a stable order any bulk UPDATE can change Postgres's row
-        // order and silently reshuffle the train/test split between runs.
+        // orderBy is required: the split shuffles this array, and without a stable order any
+        // bulk UPDATE silently reshuffles the train/test split between runs.
         orderBy: { id: 'asc' },
         select: {
             id: true, lat: true, lon: true, source: true,

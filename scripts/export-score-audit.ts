@@ -1,28 +1,12 @@
 /**
- * Builds the hand-check sheet that produces REAL labels for the tower classifier.
+ * Builds the hand-check sheet that produces real labels. Defaults to the 80%+ tier,
+ * which is both the most reliable and the most acted-on, sorted highest score first so a
+ * reviewer who runs out of time has covered the most valuable rows.
  *
- * Every metric the model reports is measured against labels mined from review status,
- * which are guesses. This sheet is the only way to replace those guesses with facts.
+ * Fill verdict (tower | not_tower | unsure) and wrong_reason, then load with
+ * scripts/import-audit-verdicts.ts.
  *
- * Default focus is the TOP tier, not an even spread: the rows scoring 80%+ are the ones
- * coworkers act on, they are the most reliable rows we produce, and they are also where
- * a wrong call costs a wasted property-owner investigation. Measured precision there is
- * about 90%, which means roughly 1 in 10 is still not a tower.
- *
- * Rows come out sorted highest score first, so a reviewer who runs out of time has still
- * covered the most valuable rows.
- *
- * Fill in:
- *   verdict      tower | not_tower | unsure
- *   wrong_reason only when verdict is not_tower: what was actually there
- *
- * Then load the results with scripts/import-audit-verdicts.ts, which writes them as
- * humanLabel with labelSource 'audit', so the next backfill and retrain uses them.
- *
- * Run:
- *   npx tsx --env-file=.env scripts/export-score-audit.ts                # top tier
- *   npx tsx --env-file=.env scripts/export-score-audit.ts --focus all    # even spread
- *   npx tsx --env-file=.env scripts/export-score-audit.ts --limit 150
+ * Run: npx tsx --env-file=.env scripts/export-score-audit.ts [--focus all] [--limit N]
  */
 import { PrismaClient } from '@prisma/client';
 import * as fs from 'fs';
@@ -35,11 +19,7 @@ function arg(name: string, fallback: string): string {
     return i > -1 && process.argv[i + 1] ? process.argv[i + 1] : fallback;
 }
 
-/**
- * Held-out precision per band, from the 914-row evaluation of rf-v2-2026-10-06. Small
- * samples, so treat as a hint rather than a promise. Shown to the reviewer so a high
- * score is not mistaken for a guarantee.
- */
+/** Held-out precision per band, rf-v2-2026-10-06. Small samples: a hint, not a promise. */
 const BAND_PRECISION: { min: number; precision: number | null; n: number }[] = [
     { min: 0.80, precision: 0.90, n: 10 },
     { min: 0.70, precision: 0.87, n: 60 },
