@@ -2,7 +2,7 @@ import { prisma } from '@/lib/prisma';
 import { enqueueJob } from '@/lib/job-queue';
 import {
     loadTowerModel, scoreTowers, staleTowerWhere, loadScoreInputs, allBusinessAggregates,
-    TOWER_SELECT, isScorable,
+    TOWER_SELECT,
 } from '@/lib/ml/score';
 
 const BATCH_SIZE = 5000;
@@ -36,7 +36,6 @@ export async function scoreTowerBatch(params: { batchSize?: number }): Promise<u
         scored,
         cleared,
         remaining,
-        skippedInBatch: towers.filter(t => !isScorable(t)).length,
         version: model.version,
     };
 }

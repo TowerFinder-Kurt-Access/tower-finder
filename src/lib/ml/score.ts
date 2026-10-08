@@ -75,10 +75,10 @@ export function loadTowerModel(): TowerModel {
     };
 }
 
-export const NEW_STATUS_ID = 1;
-
-export function isScorable(t: { humanLabel: string | null; statusId: number | null }): boolean {
-    return t.humanLabel === null && (t.statusId === null || t.statusId === NEW_STATUS_ID);
+// Every row gets a score, labeled or not: the column is a ranking helper,
+// and reviewers compare the number against their own verdict.
+export function isScorable(_t: { humanLabel: string | null; statusId: number | null }): boolean {
+    return true;
 }
 
 export function staleTowerWhere(version: string) {
@@ -124,38 +124,23 @@ export async function scoreTowers(
     model: TowerModel,
     inputs: ScoreInputs
 ): Promise<ScoreBatchResult> {
-    const scorable = towers.filter(isScorable);
-    const skipped = towers.filter(t => !isScorable(t));
-    let scored = 0;
-
-    if (scorable.length) {
-        const ctx = buildTowerContext(inputs.population, inputs.business, inputs.registry);
-        const X = scorable.map(t => towerToFeatures(t, ctx));
-        // SAFETY: ml-random-forest ships no type for predictProbability.
-        const probs = (model.clf as unknown as {
-            predictProbability(x: number[][], label: number): number[];
-        }).predictProbability(X, 1);
-        // Batched VALUES update: one statement per batch instead of one round trip per row.
-        const rows = scorable.map((t, j) => Prisma.sql`(${t.id}::int, ${Number(probs[j])}::float8)`);
-        await db.$executeRaw(Prisma.sql`
-            UPDATE "Tower" AS t SET
-                "aiTowerScore" = v.score,
-                "aiLabel" = CASE WHEN v.score >= ${model.threshold} THEN 'likely_tower' ELSE 'likely_not_tower' END,
-                "aiClassifiedAt" = NOW(),
-                "aiModelVersion" = ${model.version}
-            FROM (VALUES ${Prisma.join(rows)}) AS v(id, score)
-            WHERE t.id = v.id
-        `);
-        scored = scorable.length;
-    }
-
-    let cleared = 0;
-    if (skipped.length) {
-        const res = await db.tower.updateMany({
-            where: { id: { in: skipped.map(t => t.id) } },
-            data: { aiTowerScore: null, aiLabel: null, aiClassifiedAt: null, aiModelVersion: null },
-        });
-        cleared = res.count;
-    }
-    return { scored, cleared };
+    if (towers.length === 0) return { scored: 0, cleared: 0 };
+    const ctx = buildTowerContext(inputs.population, inputs.business, inputs.registry);
+    const X = towers.map(t => towerToFeatures(t, ctx));
+    // SAFETY: ml-random-forest ships no type for predictProbability.
+    const probs = (model.clf as unknown as {
+        predictProbability(x: number[][], label: number): number[];
+    }).predictProbability(X, 1);
+    // Batched VALUES update: one statement per batch instead of one round trip per row.
+    const rows = towers.map((t, j) => Prisma.sql`(${t.id}::int, ${Number(probs[j])}::float8)`);
+    await db.$executeRaw(Prisma.sql`
+        UPDATE "Tower" AS t SET
+            "aiTowerScore" = v.score,
+            "aiLabel" = CASE WHEN v.score >= ${model.threshold} THEN 'likely_tower' ELSE 'likely_not_tower' END,
+            "aiClassifiedAt" = NOW(),
+            "aiModelVersion" = ${model.version}
+        FROM (VALUES ${Prisma.join(rows)}) AS v(id, score)
+        WHERE t.id = v.id
+    `);
+    return { scored: towers.length, cleared: 0 };
 }

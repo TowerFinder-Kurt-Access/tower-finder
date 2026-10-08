@@ -560,11 +560,6 @@ export default function TowerTableSimple({
             renderCell: (params: GridRenderCellParams) => {
                 const score = params.row.aiTowerScore;
                 if (score === null || score === undefined) {
-                    // Labeled rows are deliberately unscored: a human already
-                    // gave the verdict, so there is nothing to rank.
-                    const verdict = params.row.humanLabel === 'tower' ? 'Verified tower'
-                        : params.row.humanLabel === 'not_tower' ? 'Verified not tower' : null;
-                    if (verdict) return <Chip label={verdict} size="small" color="info" />;
                     return <Typography variant="body2" color="text.secondary">–</Typography>;
                 }
                 const pct = Math.round(score * 100);

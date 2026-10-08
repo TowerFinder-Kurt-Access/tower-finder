@@ -1,8 +1,8 @@
 // Score unreviewed towers (no human label, statusId null or "New") with the model in src/lib/ml/model.json.
 import { PrismaClient } from '@prisma/client';
 import {
-    loadTowerModel, scoreTowers, staleTowerWhere,
-    allBusinessAggregates, TOWER_SELECT, isScorable,
+    loadTowerModel, scoreTowers,
+    allBusinessAggregates, TOWER_SELECT,
 } from '../src/lib/ml/score';
 import { pinnedMapUrl } from '../src/lib/google-maps';
 
@@ -18,24 +18,17 @@ async function main() {
     const business = await allBusinessAggregates(prisma);
     console.log(`towers: ${towers.length}, business aggregates: ${business.length}`);
 
-    const targets = towers.filter(isScorable);
-    console.log(`scoring ${targets.length} unreviewed towers, skipping ${towers.length - targets.length}...`);
+    // Every row is scored, labeled or not: the column is a ranking helper.
+    console.log(`scoring ${towers.length} towers...`);
 
     let written = 0;
     const inputs = { population: towers.map(t => ({ id: t.id, lat: t.lat, lon: t.lon })), business };
-    for (let i = 0; i < targets.length; i += CHUNK) {
-        const batch = targets.slice(i, i + CHUNK);
+    for (let i = 0; i < towers.length; i += CHUNK) {
+        const batch = towers.slice(i, i + CHUNK);
         await scoreTowers(prisma as never, batch, model, inputs);
         written += batch.length;
-        console.log(`scored ${written}/${targets.length}`);
+        console.log(`scored ${written}/${towers.length}`);
     }
-
-    // Rows this run skipped (labeled, or an excluded status) can still hold a score from an older model.
-    const cleared = await prisma.tower.updateMany({
-        where: staleTowerWhere(model.version),
-        data: { aiTowerScore: null, aiLabel: null, aiClassifiedAt: null, aiModelVersion: null },
-    });
-    console.log(`cleared ${cleared.count} stale scores from older model versions`);
 
     const dist = await prisma.tower.groupBy({
         by: ['aiLabel'],
