@@ -17,6 +17,7 @@ import InfoIcon from '@mui/icons-material/Info';
 import NotesIcon from '@mui/icons-material/Notes';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
+import { pinnedMapUrl } from '@/lib/google-maps';
 
 // Defined at module level so MUI DataGrid receives a stable slot reference —
 // a new function on every render causes DataGrid to unmount/remount the footer
@@ -253,17 +254,15 @@ export default function TowerTableSimple({
 
     const handleOpenGoogleMaps = () => {
         if (selectedTower) {
-            const googleMapsUrl = `https://www.google.com/maps?q=${selectedTower.lat},${selectedTower.lon}`;
-            window.open(googleMapsUrl, '_blank', 'noopener,noreferrer');
+            window.open(pinnedMapUrl(selectedTower.lat, selectedTower.lon), '_blank', 'noopener,noreferrer');
             handleMenuClose();
         }
     };
 
     const handleOpenSatelliteView = () => {
         if (selectedTower) {
-            // Open Google Maps in satellite view at high zoom centered on exact coordinates
-            const satelliteUrl = `https://www.google.com/maps/@${selectedTower.lat},${selectedTower.lon},20z/data=!3m1!1e3`;
-            window.open(satelliteUrl, '_blank', 'noopener,noreferrer');
+            // A pin at the exact coordinates keeps the tower findable when the view widens.
+            window.open(pinnedMapUrl(selectedTower.lat, selectedTower.lon, { satellite: true, zoom: 20 }), '_blank', 'noopener,noreferrer');
             handleMenuClose();
         }
     };

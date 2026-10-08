@@ -14,6 +14,7 @@ import { RandomForestClassifier } from 'ml-random-forest';
 import * as fs from 'fs';
 import * as path from 'path';
 import { buildTowerContext, towerToFeatures, FEATURE_NAMES, FeatureTower } from '../src/lib/ml/features';
+import { pinnedMapUrl } from '../src/lib/google-maps';
 
 const prisma = new PrismaClient();
 
@@ -88,10 +89,11 @@ async function main() {
         take: 5,
         select: { id: true, aiTowerScore: true, lat: true, lon: true, businessCount: true },
     });
+    const satelliteUrl = (t: { lat: number; lon: number }) => pinnedMapUrl(t.lat, t.lon, { satellite: true, zoom: 20 });
     console.log('\ntop 5 (spot-check on satellite):');
-    top.forEach(t => console.log(`  #${t.id} score=${t.aiTowerScore?.toFixed(3)} businesses=${t.businessCount} https://www.google.com/maps/@${t.lat},${t.lon},120m/data=!3m1!1e3`));
+    top.forEach(t => console.log(`  #${t.id} score=${t.aiTowerScore?.toFixed(3)} businesses=${t.businessCount} ${satelliteUrl(t)}`));
     console.log('bottom 5:');
-    bottom.forEach(t => console.log(`  #${t.id} score=${t.aiTowerScore?.toFixed(3)} businesses=${t.businessCount} https://www.google.com/maps/@${t.lat},${t.lon},120m/data=!3m1!1e3`));
+    bottom.forEach(t => console.log(`  #${t.id} score=${t.aiTowerScore?.toFixed(3)} businesses=${t.businessCount} ${satelliteUrl(t)}`));
 }
 
 main()

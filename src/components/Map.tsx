@@ -7,6 +7,7 @@ import 'leaflet/dist/leaflet.css';
 import { useEffect, useRef, useCallback } from 'react';
 import { Typography } from '@mui/material';
 import type { LatLngExpression } from 'leaflet';
+import { pinnedMapUrl } from '@/lib/google-maps';
 
 // Component to handle map center updates
 function MapUpdater({ center, zoom, bounds }: { center: LatLngExpression, zoom: number, bounds?: LatLngExpression[] }) {
@@ -385,7 +386,7 @@ export default function Map({
                                     {lead.country && <><strong>Location:</strong> {lead.city}, {lead.country}<br /></>}
                                     <br />
                                     <a
-                                        href={`https://www.google.com/maps/@${lead.lat},${lead.lon},18z/data=!3m1!1e1`}
+                                        href={pinnedMapUrl(lead.lat, lead.lon, { satellite: true, zoom: 18 })}
                                         target="_blank"
                                         rel="noopener noreferrer"
                                         style={{

@@ -20,6 +20,7 @@ import AddOwnerDialog from '@/components/AddOwnerDialog';
 
 import { STATIC_LOCATIONS, ABBR_TO_PROVINCE } from '@/lib/locations';
 import { useCountry } from '@/lib/country-context';
+import { pinnedMapUrl } from '@/lib/google-maps';
 
 interface LeadSearch {
     id: number;
@@ -325,7 +326,7 @@ function TowerLeadsContent() {
                             <IconButton
                                 size="small"
                                 color="primary"
-                                href={`https://www.google.com/maps/@${lead.lat},${lead.lon},18z/data=!3m1!1e1`}
+                                href={pinnedMapUrl(lead.lat, lead.lon, { satellite: true, zoom: 18 })}
                                 target="_blank"
                             >
                                 <SatelliteAltIcon fontSize="small" />

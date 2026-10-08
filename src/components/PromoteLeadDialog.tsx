@@ -4,6 +4,7 @@ import {
     Button, TextField, Typography, Box, Link, CircularProgress, Alert
 } from '@mui/material';
 import axios from 'axios';
+import { pinnedMapUrl } from '@/lib/google-maps';
 
 interface PromoteLeadDialogProps {
     open: boolean;
@@ -70,7 +71,7 @@ export default function PromoteLeadDialog({ open, lead, onClose, onSuccess }: Pr
                     <Button
                         variant="outlined"
                         fullWidth
-                        href={`https://www.google.com/maps/@${lead.lat},${lead.lon},18z/data=!3m1!1e1`}
+                        href={pinnedMapUrl(lead.lat, lead.lon, { satellite: true, zoom: 18 })}
                         target="_blank"
                         rel="noopener noreferrer"
                         startIcon={<span>🛰️</span>}
