@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma';
-import { LoginEventType } from '@prisma/client';
+import { LoginEventType, Prisma } from '@prisma/client';
 import { LOCKOUT_WINDOW_MS, MAX_FAILED_ATTEMPTS } from '@/lib/security-policy';
 
 export { LOCKOUT_WINDOW_MS, MAX_FAILED_ATTEMPTS, PASSWORD_MAX_AGE_DAYS, passwordAgeDays } from '@/lib/security-policy';
@@ -43,7 +43,8 @@ export function recordLoginEvent(event: LoginEventInput) {
             type: event.type,
             ip: event.ip ?? null,
             userAgent: event.userAgent ?? null,
-            metadata: event.metadata ?? undefined,
+            // SAFETY: callers build these objects as plain JSON literals (see recordLoginEvent callers).
+            metadata: (event.metadata ?? undefined) as Prisma.InputJsonValue | undefined,
         },
     });
 }
