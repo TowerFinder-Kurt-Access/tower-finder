@@ -563,11 +563,10 @@ export default function TowerTableSimple({
                     return <Typography variant="body2" color="text.secondary">–</Typography>;
                 }
                 const pct = Math.round(score * 100);
-                const tier = pct >= AI_SCORE_GREEN_PCT ? 'High' : pct >= AI_SCORE_WARN_PCT ? 'Review' : 'Low';
                 return (
                     <Tooltip title={AI_SCORE_TOOLTIP} placement="top" componentsProps={{ tooltip: { sx: { maxWidth: 320 } } }}>
                         <Chip
-                            label={`${tier} ${pct}%`}
+                            label={`${pct}%`}
                             size="small"
                             color={pct >= AI_SCORE_GREEN_PCT ? 'success' : pct >= AI_SCORE_WARN_PCT ? 'warning' : 'default'}
                         />
