@@ -6,6 +6,8 @@ import {
     buildTowerContext, towerToFeatures, FEATURE_NAMES,
     BUSINESS_FEATURES_SQL, BUSINESS_FEATURES_FOR_IDS_SQL, BusinessAggregate,
 } from './features';
+import { loadRegistryStructures, buildRegistryIndex } from './registry';
+import type { RegistryIndex } from './registry';
 
 export interface ScoreDb {
     tower: {
@@ -102,11 +104,18 @@ export interface ScoreInputs {
     // Every tower, not just the batch: density features shift if scoped to the batch.
     population: PopulationTower[];
     business: BusinessAggregate[];
+    registry?: RegistryIndex;
 }
 
 export async function loadScoreInputs(db: ScoreDb, batchIds: number[]): Promise<ScoreInputs> {
     const population = await db.tower.findMany({ select: { id: true, lat: true, lon: true } }) as PopulationTower[];
-    return { population, business: await businessAggregatesFor(db, batchIds) };
+    // Registry evidence comes from the file cache, never the database.
+    const structures = loadRegistryStructures();
+    return {
+        population,
+        business: await businessAggregatesFor(db, batchIds),
+        registry: structures.length > 0 ? buildRegistryIndex(structures) : undefined,
+    };
 }
 
 export async function scoreTowers(
@@ -120,7 +129,7 @@ export async function scoreTowers(
     let scored = 0;
 
     if (scorable.length) {
-        const ctx = buildTowerContext(inputs.population, inputs.business);
+        const ctx = buildTowerContext(inputs.population, inputs.business, inputs.registry);
         const X = scorable.map(t => towerToFeatures(t, ctx));
         // SAFETY: ml-random-forest ships no type for predictProbability.
         const probs = (model.clf as unknown as {

@@ -1,5 +1,7 @@
 /** Feature extraction shared by training and scoring. */
 import { latLngToCell, gridDisk } from 'h3-js';
+import { registryEvidenceFor, REG_UNMEASURED } from './registry';
+import type { RegistryIndex } from './registry';
 
 const H3_RES = 8; // ~461 m hex edge
 const MAX_RING = 4; // nearest-neighbor search horizon (~3.5 km)
@@ -27,6 +29,11 @@ export const FEATURE_NAMES: string[] = [
     'bizWithin400',
     'logNearestBusinessM',
     'bizCategoryKinds',
+    // Registry structures read from the file cache in data/registry-cache/.
+    'regWithin150',
+    'regWithin400',
+    'logNearestRegistryM',
+    'registryHeightM',
 ];
 
 export interface BusinessAggregate {
@@ -71,6 +78,7 @@ export interface FeatureTower {
 export interface TowerContext {
     cells: Map<string, { id: number; lat: number; lon: number }[]>;
     business: Map<number, BusinessAggregate>;
+    registry?: RegistryIndex;
 }
 
 function haversineM(lat1: number, lon1: number, lat2: number, lon2: number) {
@@ -85,7 +93,8 @@ function haversineM(lat1: number, lon1: number, lat2: number, lon2: number) {
 /** Spatial index over the full tower population. */
 export function buildTowerContext(
     towers: { id: number; lat: number; lon: number }[],
-    business: BusinessAggregate[] = []
+    business: BusinessAggregate[] = [],
+    registry?: RegistryIndex
 ): TowerContext {
     const cells = new Map<string, { id: number; lat: number; lon: number }[]>();
     for (const t of towers) {
@@ -94,7 +103,7 @@ export function buildTowerContext(
         list.push(t);
         cells.set(cell, list);
     }
-    return { cells, business: new Map(business.map(b => [b.towerId, b])) };
+    return { cells, business: new Map(business.map(b => [b.towerId, b])), registry };
 }
 
 function nearestOtherTowerM(ctx: TowerContext, lat: number, lon: number, selfId: number): number {
@@ -142,6 +151,9 @@ export function towerToFeatures(tower: FeatureTower, ctx: TowerContext): number[
     const n400 = biz ? Math.min(biz.n400, 20) : BIZ_UNMEASURED;
     const nearestBiz = biz ? biz.minM : NEAREST_CAP_M;
     const cats = biz ? Math.min(biz.cats, 8) : BIZ_UNMEASURED;
+    // Registry evidence, same sentinel convention: no cache rows in range is
+    // unmeasured, not proof of absence.
+    const reg = ctx.registry ? registryEvidenceFor(ctx.registry, tower.lat, tower.lon) : null;
     return [
         tower.businessCount ?? 0,
         tower.avgBusinessDistance !== null ? 1 : 0,
@@ -157,5 +169,9 @@ export function towerToFeatures(tower: FeatureTower, ctx: TowerContext): number[
         n400,
         Math.round(Math.log1p(nearestBiz) * 10) / 10,
         cats,
+        reg && reg.measured ? reg.within150 : REG_UNMEASURED,
+        reg && reg.measured ? reg.within400 : REG_UNMEASURED,
+        reg && reg.measured ? Math.round(Math.log1p(reg.nearestM) * 10) / 10 : Math.round(Math.log1p(NEAREST_CAP_M) * 10) / 10,
+        reg?.heightM ?? -1,
     ];
 }
