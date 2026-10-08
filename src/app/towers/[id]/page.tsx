@@ -62,6 +62,7 @@ import CancelIcon from '@mui/icons-material/Cancel';
 import NotesPanel from '@/components/NotesPanel';
 import AddOwnerDialog from '@/components/AddOwnerDialog';
 import { getRadiusTiers } from '@/lib/nearby-business';
+import { pinnedMapUrl, towerToPlaceUrl } from '@/lib/google-maps';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
 
 // Dynamically import Map to avoid SSR issues with Leaflet
@@ -324,13 +325,13 @@ export default function TowerDetailPage({ params }: PageProps) {
 
     const handleOpenGoogleMaps = () => {
         if (tower) {
-            openExternal(`https://www.google.com/maps?q=${tower.lat},${tower.lon}`);
+            openExternal(pinnedMapUrl(tower.lat, tower.lon));
         }
     };
 
     const handleOpenSatelliteView = () => {
         if (tower) {
-            openExternal(`https://www.google.com/maps/@${tower.lat},${tower.lon},20z/data=!3m1!1e3`);
+            openExternal(pinnedMapUrl(tower.lat, tower.lon, { satellite: true, zoom: 20 }));
         }
     };
 
@@ -368,19 +369,14 @@ export default function TowerDetailPage({ params }: PageProps) {
         document.getElementById('tower-location-map')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     };
 
-    // A text query opens Google's place panel; `t=k` keeps satellite and `ll`/`z` keep the map here.
+    // The tower is the origin so both pins stay in view, including when the
+    // user zooms out to look around.
     const handleBizSatellite = (biz: NearbyBusiness) => {
+        if (!tower) return;
         const c = bizCoords(biz);
         const query = bizMapsQuery(biz) || (c ? `${c[0]},${c[1]}` : '');
         if (!query) return;
-
-        const params = [`q=${encodeURIComponent(query)}`, 't=k'];
-        if (c) {
-            // Keep the selected business in the same view.
-            const zoom = biz.distance <= 250 ? 17 : biz.distance <= 600 ? 16 : biz.distance <= 1200 ? 15 : 14;
-            params.push(`ll=${c[0]},${c[1]}`, `z=${zoom}`);
-        }
-        openExternal(`https://www.google.com/maps?${params.join('&')}`);
+        openExternal(towerToPlaceUrl(tower.lat, tower.lon, query));
     };
 
     const BIZ_PAGE_SIZE = 12;

@@ -4,6 +4,7 @@ import {
     loadTowerModel, scoreTowers, staleTowerWhere,
     allBusinessAggregates, TOWER_SELECT, isScorable,
 } from '../src/lib/ml/score';
+import { pinnedMapUrl } from '../src/lib/google-maps';
 
 const prisma = new PrismaClient();
 
@@ -44,6 +45,7 @@ async function main() {
     console.log('\n--- scoring summary ---');
     dist.forEach(d => console.log(`${d.aiLabel}: ${d._count._all}`));
 
+    const satelliteUrl = (t: { lat: number; lon: number }) => pinnedMapUrl(t.lat, t.lon, { satellite: true, zoom: 20 });
     const spot = async (order: 'desc' | 'asc', label: string) => {
         const rows = await prisma.tower.findMany({
             where: { aiModelVersion: model.version },
@@ -52,7 +54,7 @@ async function main() {
             select: { id: true, aiTowerScore: true, lat: true, lon: true, businessCount: true },
         });
         console.log(label);
-        rows.forEach(t => console.log(`  #${t.id} score=${t.aiTowerScore?.toFixed(3)} businesses=${t.businessCount} https://www.google.com/maps/@${t.lat},${t.lon},120m/data=!3m1!1e3`));
+        rows.forEach(t => console.log(`  #${t.id} score=${t.aiTowerScore?.toFixed(3)} businesses=${t.businessCount} ${satelliteUrl(t)}`));
     };
     console.log('\ntop 5 (spot-check on satellite):');
     await spot('desc', '');
