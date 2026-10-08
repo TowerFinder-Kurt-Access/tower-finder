@@ -1,4 +1,4 @@
-// Score unreviewed towers (no human label, statusId null or "New") with the model in src/lib/ml/model.json.
+// Score every tower in src/lib/ml/model.json, labeled or not: the AI Score column is a ranking helper for the review queue.
 import { PrismaClient } from '@prisma/client';
 import {
     loadTowerModel, scoreTowers,
@@ -17,10 +17,8 @@ async function main() {
     const towers = await prisma.tower.findMany({ select: TOWER_SELECT });
     const business = await allBusinessAggregates(prisma);
     console.log(`towers: ${towers.length}, business aggregates: ${business.length}`);
-
     // Every row is scored, labeled or not: the column is a ranking helper.
     console.log(`scoring ${towers.length} towers...`);
-
     let written = 0;
     const inputs = { population: towers.map(t => ({ id: t.id, lat: t.lat, lon: t.lon })), business };
     for (let i = 0; i < towers.length; i += CHUNK) {

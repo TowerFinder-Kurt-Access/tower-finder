@@ -8,26 +8,22 @@ const MAX_RING = 4; // nearest-neighbor search horizon (~3.5 km)
 const NEAREST_CAP_M = 5000;
 const BIZ_UNMEASURED = 99;
 
-const SOURCE_BUCKETS = [
-    'BC', 'Alberta', 'Saskatchewan', 'Manitoba', 'Ontario', 'Quebec',
-    'East Coast', 'NorthWest', 'markslist',
-] as const;
-
+// Region features are deliberately absent. Labels come from region-correlated
+// sources (Canadian review spreadsheets, and US OpenStreetMap tags when those
+// are in use), so any location column lets the forest infer the label instead
+// of measuring the tower. All other features are honest: none of them separates
+// the labeled set on its own (single-feature AUC 0.40-0.67).
 export const FEATURE_NAMES: string[] = [
     'businessCount',
     'hasAvgBusinessDistance',
     'avgBusinessDistance',
     'logNearestTowerM',
     'towersWithin1Ring',
-    'lat',
-    'lon',
-    ...SOURCE_BUCKETS.map(s => `src_${s}`),
-    'src_other',
+    'logNearestBusinessM',
     // Business aggregates read straight from BusinessNearby.
     'bizCount',
     'bizWithin150',
     'bizWithin400',
-    'logNearestBusinessM',
     'bizCategoryKinds',
     // Registry structures read from the file cache in data/registry-cache/.
     'regWithin150',
@@ -133,17 +129,9 @@ function towersInOneRing(ctx: TowerContext, lat: number, lon: number, selfId: nu
     return count;
 }
 
-function sourceBucket(source: string): string {
-    for (const b of SOURCE_BUCKETS) {
-        if (source.includes(b)) return b;
-    }
-    return 'other';
-}
-
 /** Returns the numeric feature vector in FEATURE_NAMES order. */
 export function towerToFeatures(tower: FeatureTower, ctx: TowerContext): number[] {
     const nearest = nearestOtherTowerM(ctx, tower.lat, tower.lon, tower.id);
-    const bucket = sourceBucket(tower.source);
     const biz = ctx.business.get(tower.id);
     // A tower with no BusinessNearby rows is unmeasured, not empty.
     const n = biz ? Math.min(biz.n, 60) : BIZ_UNMEASURED;
@@ -160,15 +148,13 @@ export function towerToFeatures(tower: FeatureTower, ctx: TowerContext): number[
         Math.round((tower.avgBusinessDistance ?? 0) / 10) * 10,
         Math.round(Math.log1p(nearest) * 10) / 10,
         towersInOneRing(ctx, tower.lat, tower.lon, tower.id),
-        Math.round(tower.lat * 20) / 20, // ~5 km grid — region signal, not address
-        Math.round(tower.lon * 20) / 20,
-        ...SOURCE_BUCKETS.map(s => (bucket === s ? 1 : 0)),
-        bucket === 'other' ? 1 : 0,
         n,
         n150,
         n400,
         Math.round(Math.log1p(nearestBiz) * 10) / 10,
         cats,
+        // Registry evidence. A row with no registry cell in range is
+        // unmeasured, not isolated: distinct sentinels, never zero.
         reg && reg.measured ? reg.within150 : REG_UNMEASURED,
         reg && reg.measured ? reg.within400 : REG_UNMEASURED,
         reg && reg.measured ? Math.round(Math.log1p(reg.nearestM) * 10) / 10 : Math.round(Math.log1p(NEAREST_CAP_M) * 10) / 10,

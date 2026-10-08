@@ -10,7 +10,7 @@ const prisma = new PrismaClient();
 
 const SEED = 42;
 const TEST_FRACTION = 0.2;
-const MODEL_VERSION = `rf-v3-${new Date().toISOString().slice(0, 10)}`;
+const MODEL_VERSION = `rf-v2-${new Date().toISOString().slice(0, 10)}`;
 
 /** Precision budget for the stored threshold. */
 const TARGET_PRECISION = 0.75;
@@ -56,14 +56,19 @@ function probabilityOfPositive(clf: RandomForestClassifier, X: number[][]): numb
     return (clf as any).predictProbability(X, 1) as number[];
 }
 
+// Threshold selection: the lowest score whose precision still meets the
+// target, scanning upward. The test set drives a tight precision band, so the
+// calibration point is where flagged volume first reaches the target. Flipping
+// this to a high-end scan returns a near-perfect 0-5 row set and collapses
+// recall, which is the wrong trade for a review queue.
 function pickThreshold(scores: number[], labels: number[], target: number): number {
-    const sorted = [...scores].sort((a, b) => a - b);
     let best = 0.5;
-    for (const t of sorted) {
+    for (const t of [...new Set(scores)].sort((a, b) => a - b)) {
         let tp = 0, fp = 0;
         scores.forEach((s, i) => { if (s >= t) { if (labels[i] === 1) tp++; else fp++; } });
         const precision = tp / Math.max(tp + fp, 1);
-        if (precision >= target) { best = t; break; }
+        best = t;
+        if (precision >= target) return t;
     }
     return best;
 }
@@ -143,6 +148,10 @@ async function main() {
     const structures = loadRegistryStructures();
     const registry = structures.length > 0 ? buildRegistryIndex(structures) : undefined;
     console.log(`registry structures: ${structures.length}`);
+    // Density features over the full population: nearest-tower distance is a
+    // property of the live tower map, not of the labeled sample. Restricting
+    // the context to labeled rows changes the feature distribution between
+    // training and scoring.
     const ctx = buildTowerContext(towers, business, registry);
     const labeled = towers.filter(t => t.humanLabel === 'tower' || t.humanLabel === 'not_tower');
     console.log(`towers: ${towers.length}, labeled: ${labeled.length}`);

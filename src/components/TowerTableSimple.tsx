@@ -22,9 +22,9 @@ import { pinnedMapUrl } from '@/lib/google-maps';
 // The score is a ranking heuristic, not a tower detector.
 const AI_SCORE_TOOLTIP = [
     'Heuristic rank, not a tower detection.',
-    'Model rf-v2-2026-10-09 reads registry structures, nearby business counts, tower spacing, and region.',
+    'Model rf-v2 reads registry structures, nearby business counts, and tower spacing.',
     'It never looks at map or satellite imagery.',
-    'At the flagged cutoff precision is 0.75 and recall is 0.32.',
+    'Region is deliberately not used, so scores do not shift with the location filter.',
     'Use it to order your review queue only.',
 ].join(' ');
 

@@ -38,9 +38,25 @@ function csvCell(v: unknown): string {
 async function main() {
     const focus = arg('--focus', 'top');
     const limit = Number(arg('--limit', focus === 'top' ? '400' : '40'));
+    // Restrict the sample to one region: USA or Canada. Empty means both.
+    const region = arg('--region', '').toUpperCase();
+
+    const regionWhere: Record<string, unknown> = { aiTowerScore: { not: null } };
+    if (region === 'USA') {
+        // Parcel country or a US-coordinate row with no parcel, matching the API.
+        regionWhere.OR = [
+            { parcel: { country: { equals: 'USA', mode: 'insensitive' } } },
+            { parcel: { is: null }, lat: { gte: 24, lte: 50 }, lon: { gte: -126, lte: -66 } },
+        ];
+    } else if (region === 'CANADA') {
+        regionWhere.parcel = { country: { equals: 'Canada', mode: 'insensitive' } };
+    } else if (region) {
+        console.error(`unknown --region '${region}'. Use USA, Canada, or omit.`);
+        process.exit(1);
+    }
 
     const towers = await prisma.tower.findMany({
-        where: { aiTowerScore: { not: null } },
+        where: regionWhere,
         orderBy: { id: 'asc' },
         select: {
             id: true, lat: true, lon: true, aiTowerScore: true, humanLabel: true,
@@ -97,13 +113,14 @@ async function main() {
 
     const outDir = path.join(process.cwd(), 'data');
     fs.mkdirSync(outDir, { recursive: true });
-    const suffix = focus === 'top' ? 'top' : 'spread';
+    const suffix = `${focus}${region ? `-${region.toLowerCase()}` : ''}`;
     const outPath = path.join(outDir, `score-audit-${suffix}-${new Date().toISOString().slice(0, 10)}.csv`);
     fs.writeFileSync(outPath, `${rows.join('\n')}\n`, 'utf8');
 
     const green = picked.filter(t => (t.aiTowerScore ?? 0) >= 0.70).length;
     console.log(`\n${picked.length} rows written to ${outPath}`);
     console.log(`  ${green} are in the 70%+ "green" tier your coworkers act on`);
+    console.log(region ? `  region filter: ${region}` : '  region filter: none (both)');
     console.log('sorted highest score first: run out of time and the top rows are already covered');
     console.log('fill verdict with tower / not_tower / unsure, then load with:');
     console.log(`  npx tsx --env-file=.env scripts/import-audit-verdicts.ts "${outPath}"`);

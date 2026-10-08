@@ -73,7 +73,7 @@ async function main() {
     console.log(`tower:      ${counts.tower}`);
     console.log(`not_tower:  ${counts.not_tower}`);
     console.log(`conflicted: ${counts.conflicted} (skipped)`);
-    console.log(`unlabeled:  ${counts.unlabeled}`);
+    console.log(`unlabeled: ${counts.unlabeled}`);
     console.log(`rows written this run: ${counts.updated}`);
 }
 
