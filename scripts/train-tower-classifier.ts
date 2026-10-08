@@ -4,12 +4,13 @@ import { RandomForestClassifier } from 'ml-random-forest';
 import * as fs from 'fs';
 import * as path from 'path';
 import { buildTowerContext, towerToFeatures, FEATURE_NAMES, FeatureTower, BUSINESS_FEATURES_SQL, BusinessAggregate } from '../src/lib/ml/features';
+import { loadRegistryStructures, buildRegistryIndex } from '../src/lib/ml/registry';
 
 const prisma = new PrismaClient();
 
 const SEED = 42;
 const TEST_FRACTION = 0.2;
-const MODEL_VERSION = `rf-v2-${new Date().toISOString().slice(0, 10)}`;
+const MODEL_VERSION = `rf-v3-${new Date().toISOString().slice(0, 10)}`;
 
 /** Precision budget for the stored threshold. */
 const TARGET_PRECISION = 0.75;
@@ -67,18 +68,82 @@ function pickThreshold(scores: number[], labels: number[], target: number): numb
     return best;
 }
 
+const GROUPED = process.argv.includes('--grouped');
+const BORDER_PURGE_M = 5000;
+
+function groupKey(t: { parcel?: { provinceRaw?: string | null; stateRaw?: string | null; country?: string | null } | null; lat: number }): string {
+    // Province/state buckets keep whole regions in one split. The country
+    // prefix separates colliding codes (California vs Canada). Towers carry
+    // no region column, so fall back to a ~110 km latitude band for US rows.
+    const c = (t.parcel?.country ?? '').trim().toUpperCase();
+    const p = (t.parcel?.provinceRaw ?? '').trim() || (t.parcel?.stateRaw ?? '').trim();
+    if (p) return `${c || '?'}:${p.toLowerCase()}`;
+    return `lat:${Math.floor(t.lat)}`;
+}
+
+function haversineSplitM(a: { lat: number; lon: number }, b: { lat: number; lon: number }): number {
+    const R = 6371000;
+    const dLat = (b.lat - a.lat) * Math.PI / 180;
+    const dLon = (b.lon - a.lon) * Math.PI / 180;
+    const s = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * Math.PI / 180) * Math.cos(b.lat * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
+    return 2 * R * Math.asin(Math.sqrt(s));
+}
+
+function groupedSplit<T extends { lat: number; lon: number; humanLabel: string | null }>(labeled: T[], rand: () => number) {
+    const groups = new Map<string, T[]>();
+    for (const t of labeled) {
+        const k = groupKey(t);
+        const list = groups.get(k) ?? [];
+        list.push(t);
+        groups.set(k, list);
+    }
+    // Stratified group assignment: deal whole groups largest-first into the
+    // split furthest below its target share (test 0.2, validation 0.2, train
+    // 0.6), so every region lands in every split in proportion. Tiny
+    // all-positive US state groups stay whole and spread across splits.
+    const ordered = Array.from(groups.entries()).sort((a, b) => b[1].length - a[1].length);
+    const buckets: T[][] = [[], [], []];
+    const totals = [0, 0, 0];
+    const targets = [0.6, 0.2, 0.2];
+    const total = labeled.length;
+    for (const [, rows] of ordered) {
+        let bi = 0;
+        let worst = -Infinity;
+        for (let i = 0; i < 3; i++) {
+            const deficit = targets[i] - totals[i] / total;
+            if (deficit > worst) {
+                worst = deficit;
+                bi = i;
+            }
+        }
+        buckets[bi].push(...rows);
+        totals[bi] += rows.length;
+    }
+    // buckets[1] is validation, buckets[2] is test.
+    const test = buckets[2];
+    const validation = buckets[1];
+    // Purge the border strip: nearest-tower features cross group boundaries.
+    const train = buckets[0].filter((t) => !test.some((u) => haversineSplitM(t, u) <= BORDER_PURGE_M));
+    return { train: shuffled(train, rand), validation: shuffled(validation, rand), test: shuffled(test, rand) };
+}
+
 async function main() {
     const towers = await prisma.tower.findMany({
         orderBy: { id: 'asc' },
         select: {
             id: true, lat: true, lon: true, source: true,
             businessCount: true, avgBusinessDistance: true, humanLabel: true,
+            parcel: { select: { provinceRaw: true, stateRaw: true, country: true } },
         },
     });
     console.log('loading business aggregates...');
     const business = await prisma.$queryRawUnsafe(BUSINESS_FEATURES_SQL) as BusinessAggregate[];
     console.log(`business aggregates: ${business.length}`);
-    const ctx = buildTowerContext(towers, business);
+    console.log('loading registry structures...');
+    const structures = loadRegistryStructures();
+    const registry = structures.length > 0 ? buildRegistryIndex(structures) : undefined;
+    console.log(`registry structures: ${structures.length}`);
+    const ctx = buildTowerContext(towers, business, registry);
     const labeled = towers.filter(t => t.humanLabel === 'tower' || t.humanLabel === 'not_tower');
     console.log(`towers: ${towers.length}, labeled: ${labeled.length}`);
 
@@ -87,6 +152,9 @@ async function main() {
     const neg = shuffled(labeled.filter(t => t.humanLabel === 'not_tower'), rand);
     console.log(`class balance: tower=${pos.length}, not_tower=${neg.length}`);
 
+    // Grouped split (Part C gate): whole province/state groups go to exactly
+    // one of train/validation/test, so region features cannot memorize. The
+    // default random split stays for the v2-style number.
     const split = <T>(arr: T[]) => {
         const nTest = Math.round(arr.length * TEST_FRACTION);
         return { test: arr.slice(0, nTest), train: arr.slice(nTest) };
@@ -94,6 +162,11 @@ async function main() {
     const p = split(pos), n = split(neg);
     const train = shuffled([...p.train, ...n.train], rand);
     const test = [...p.test, ...n.test];
+    let grouped: { train: typeof labeled; validation: typeof labeled; test: typeof labeled } | null = null;
+    if (GROUPED) {
+        grouped = groupedSplit(labeled, rand);
+        console.log(`grouped split: train=${grouped.train.length} validation=${grouped.validation.length} test=${grouped.test.length}`);
+    }
 
     const toXY = (rows: typeof labeled) => ({
         X: rows.map(t => towerToFeatures(t as FeatureTower, ctx)),
@@ -172,6 +245,41 @@ async function main() {
     importance.sort((a, b) => b.drop - a.drop);
     for (const { name, drop } of importance) {
         console.log(`${name.padEnd(26)} ${drop >= 0 ? '+' : ''}${drop.toFixed(4)}`);
+    }
+
+    // Grouped gate (Part C): the labeled rows are re-split by region, each
+    // ablation trains on the grouped train set, picks its own threshold on
+    // validation, and reports once on the fixed test set. Report only.
+    if (grouped) {
+        const gTr = toXY(grouped.train);
+        const gVal = toXY(grouped.validation);
+        const gTe = toXY(grouped.test);
+        const sub = (rows: number[][], cols: number[]) => rows.map((r) => cols.map((c) => r[c]));
+        const regionCols = FEATURE_NAMES.map((n, i) => (n === 'lat' || n === 'lon' || n.startsWith('src_') ? i : -1)).filter((i) => i >= 0);
+        const bizNames = ['bizCount', 'bizWithin150', 'bizWithin400', 'logNearestBusinessM', 'bizCategoryKinds'];
+        const bizCols = FEATURE_NAMES.map((n, i) => (regionCols.includes(i) || bizNames.includes(n) ? i : -1)).filter((i) => i >= 0);
+        const allCols = FEATURE_NAMES.map((_, i) => i);
+        const runAblation = (name: string, cols: number[]) => {
+            const gClf = new RandomForestClassifier({
+                seed: SEED, nEstimators: 80, maxFeatures: 0.5,
+                treeOptions: { maxDepth: 8, minNumSamples: 10 }, useSampleBagging: true,
+            });
+            gClf.train(sub(gTr.X, cols), gTr.y);
+            // Own threshold from validation: cutoffs do not transfer across
+            // feature sets.
+            const t = pickThreshold(probabilityOfPositive(gClf, sub(gVal.X, cols)), gVal.y, TARGET_PRECISION);
+            const probs = probabilityOfPositive(gClf, sub(gTe.X, cols));
+            let gtp = 0, gfp = 0, gfn = 0;
+            probs.forEach((pr, i) => {
+                if (pr >= t) { if (gTe.y[i] === 1) gtp++; else gfp++; }
+                else if (gTe.y[i] === 1) gfn++;
+            });
+            console.log(`\n--- grouped gate: ${name} ---`);
+            console.log(`AUC ${auc(probs, gTe.y).toFixed(4)}  precision ${(gtp / Math.max(gtp + gfp, 1)).toFixed(3)}  recall ${(gtp / Math.max(gtp + gfn, 1)).toFixed(3)}  (threshold ${t.toFixed(3)} from validation)`);
+        };
+        runAblation('region only', regionCols);
+        runAblation('region + business', bizCols);
+        runAblation('region + business + registry', allCols);
     }
 
     const outPath = path.join(process.cwd(), 'src', 'lib', 'ml', 'model.json');
