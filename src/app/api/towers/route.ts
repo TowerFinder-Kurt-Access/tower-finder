@@ -59,10 +59,20 @@ interface FacetFilters {
     type: string[]; carrier: string[]; status: string[];
 }
 
+// USA matches parcel country OR the US bounding box: most US-located rows
+// (including promoted OSM leads) have coordinates but no parcel row.
+const USA_BBOX = { minLat: 24, maxLat: 50, minLon: -126, maxLon: -66 };
+function countryCond(country: string | null): Prisma.Sql | null {
+    if (!country) return null;
+    if (country.toLowerCase() !== 'usa') return Prisma.sql`t."id" IN (SELECT p."towerId" FROM "Parcel" p WHERE p.country = ${country})`;
+    return Prisma.sql`(t."id" IN (SELECT p."towerId" FROM "Parcel" p WHERE p.country = ${country}) OR (t.lat >= ${USA_BBOX.minLat} AND t.lat <= ${USA_BBOX.maxLat} AND t.lon >= ${USA_BBOX.minLon} AND t.lon <= ${USA_BBOX.maxLon}))`;
+}
+
 // AND-conditions for every active filter except `exclude` (so a facet never constrains itself).
 function facetConds(f: FacetFilters, exclude: keyof FacetFilters | null): Prisma.Sql[] {
     const c: Prisma.Sql[] = [];
-    if (f.country) c.push(Prisma.sql`p.country = ${f.country}`);
+    const cc = countryCond(f.country);
+    if (cc) c.push(cc);
     if (exclude !== 'city' && f.city.length) c.push(cityCond(f.city));
     if (exclude !== 'state' && f.state.length) c.push(stateCond(f.state));
     if (exclude !== 'county' && f.county.length) c.push(countyCond(f.county));
@@ -358,13 +368,25 @@ export async function GET(request: Request) {
             // Build an array of conditions to AND together
             const andConditions: Prisma.TowerWhereInput[] = [];
 
-            // Country filter
+            // Country filter (USA also matches the bounding box, see countryCond).
             if (country) {
-                andConditions.push({
-                    parcel: {
-                        country: { equals: country, mode: 'insensitive' }
-                    }
-                });
+                if (country.toLowerCase() === 'usa') {
+                    andConditions.push({
+                        OR: [
+                            { parcel: { country: { equals: country, mode: 'insensitive' } } },
+                            {
+                                lat: { gte: USA_BBOX.minLat, lte: USA_BBOX.maxLat },
+                                lon: { gte: USA_BBOX.minLon, lte: USA_BBOX.maxLon },
+                            },
+                        ],
+                    });
+                } else {
+                    andConditions.push({
+                        parcel: {
+                            country: { equals: country, mode: 'insensitive' }
+                        }
+                    });
+                }
             }
 
             // State filter - match on province-related fields only
