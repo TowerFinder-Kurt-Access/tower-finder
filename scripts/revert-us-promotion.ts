@@ -1,4 +1,4 @@
-/** Undoes promote-us-osm-leads.ts. */
+/** Undoes promote-us-leads.ts. */
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();

@@ -1,4 +1,4 @@
-/** Promotes the unused USA OpenStreetMap telecom leads into tower records. */
+/** Promotes unused USA leads from any source into tower records. */
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
@@ -21,10 +21,8 @@ async function main() {
 
     const leads = await prisma.towerLead.findMany({
         where: {
-            source: 'OpenStreetMap',
             country: 'USA',
             promotedToTowerId: null,
-            tags: { path: ['tower:type'], equals: 'communication' },
         },
         select: {
             id: true, lat: true, lon: true, type: true, sourceId: true,
@@ -85,7 +83,7 @@ async function main() {
 
     if (!write) {
         console.log('\ndry run. add --write to apply.');
-        console.log('  npx tsx --env-file=.env scripts/promote-us-osm-leads.ts --write');
+        console.log('  npx tsx --env-file=.env scripts/promote-us-leads.ts --write');
         return;
     }
 
