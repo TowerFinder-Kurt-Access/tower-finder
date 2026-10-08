@@ -15,7 +15,7 @@
     "@mui/icons-material": "^7.3.11",
     "@mui/material": "^7.3.11",
     "@mui/material-nextjs": "^7.3.10",
-    "@mui/x-data-grid": "^8.29.2",
+    "@mui/x-data-grid": "8.29.2",
     "@prisma/client": "^6.19.3",
     "@prisma/extension-accelerate": "^3.0.1",
     "@sentry/nextjs": "^10.40.0",
