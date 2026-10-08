@@ -22,14 +22,14 @@ import { pinnedMapUrl } from '@/lib/google-maps';
 // The score is a ranking heuristic, not a tower detector.
 const AI_SCORE_TOOLTIP = [
     'Heuristic rank, not a tower detection.',
-    'Model rf-v2-2026-10-06 reads nearby business counts, tower spacing, and region.',
+    'Model rf-v3-2026-10-08 reads registry structures, nearby business counts, tower spacing, and region.',
     'It never looks at map or satellite imagery.',
-    'At the flagged cutoff it finds 3 in 4 flagged rows and misses 3 of 4 real towers.',
+    'At the flagged cutoff precision is 0.75 and recall is 0.32.',
     'Use it to order your review queue only.',
 ].join(' ');
 
 const AI_SCORE_GREEN_PCT = 70;
-const AI_SCORE_WARN_PCT = 40;
+const AI_SCORE_WARN_PCT = 55;
 
 interface CustomFooterSlotProps {
     currentPage: number;
@@ -546,7 +546,7 @@ export default function TowerTableSimple({
         {
             field: 'aiTowerScore',
             headerName: 'AI Score',
-            width: 120,
+            width: 140,
             type: 'number',
             renderHeader: () => (
                 <Tooltip
@@ -563,10 +563,11 @@ export default function TowerTableSimple({
                     return <Typography variant="body2" color="text.secondary">–</Typography>;
                 }
                 const pct = Math.round(score * 100);
+                const tier = pct >= AI_SCORE_GREEN_PCT ? 'High' : pct >= AI_SCORE_WARN_PCT ? 'Review' : 'Low';
                 return (
                     <Tooltip title={AI_SCORE_TOOLTIP} placement="top" componentsProps={{ tooltip: { sx: { maxWidth: 320 } } }}>
                         <Chip
-                            label={`${pct}%`}
+                            label={`${tier} ${pct}%`}
                             size="small"
                             color={pct >= AI_SCORE_GREEN_PCT ? 'success' : pct >= AI_SCORE_WARN_PCT ? 'warning' : 'default'}
                         />
