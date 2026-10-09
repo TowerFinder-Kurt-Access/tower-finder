@@ -22,14 +22,20 @@ import { pinnedMapUrl } from '@/lib/google-maps';
 // The score is a ranking heuristic, not a tower detector.
 const AI_SCORE_TOOLTIP = [
     'Heuristic rank, not a tower detection.',
-    'Model rf-v2 reads registry structures, nearby business counts, and tower spacing.',
+    'Model rf-v2 reads business density, tower spacing, and the FCC registry.',
     'It never looks at map or satellite imagery.',
-    'Region is deliberately not used, so scores do not shift with the location filter.',
+    'Region is not an input, so the score does not shift with the location filter.',
+    'The scale is calibrated to the flag cutoff, so high scores sit near the top of the queue, not near 100%.',
     'Use it to order your review queue only.',
 ].join(' ');
 
-const AI_SCORE_GREEN_PCT = 70;
-const AI_SCORE_WARN_PCT = 55;
+// Band cutoffs follow the calibrated flag threshold, not an aspirational
+// percentage. The model's honest output tops out near 36%, so a 70% green band
+// would render every row grey and hide the rows that verify as real towers.
+// Keep this in step with model.json's threshold.
+const AI_SCORE_FLAG_PCT = 34;
+const AI_SCORE_GREEN_PCT = AI_SCORE_FLAG_PCT;
+const AI_SCORE_WARN_PCT = 25;
 
 interface CustomFooterSlotProps {
     currentPage: number;
