@@ -18,6 +18,7 @@ import NotesIcon from '@mui/icons-material/Notes';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import { pinnedMapUrl } from '@/lib/google-maps';
+import { calibratedPercent } from '@/lib/ml/calibration';
 
 // The score is a ranking heuristic, not a tower detector.
 const AI_SCORE_TOOLTIP = [
@@ -25,17 +26,16 @@ const AI_SCORE_TOOLTIP = [
     'Model rf-v2 reads business density, tower spacing, and the FCC registry.',
     'It never looks at map or satellite imagery.',
     'Region is not an input, so the score does not shift with the location filter.',
-    'The scale is calibrated to the flag cutoff, so high scores sit near the top of the queue, not near 100%.',
+    'The percent is the measured tower rate for this score range, not the raw model vote share.',
+    'Measured on Canadian review labels, so treat it as an upper bound in other regions.',
     'Use it to order your review queue only.',
 ].join(' ');
 
-// Band cutoffs follow the calibrated flag threshold, not an aspirational
-// percentage. The model's honest output tops out near 36%, so a 70% green band
-// would render every row grey and hide the rows that verify as real towers.
-// Keep this in step with model.json's threshold.
-const AI_SCORE_FLAG_PCT = 34;
-const AI_SCORE_GREEN_PCT = AI_SCORE_FLAG_PCT;
-const AI_SCORE_WARN_PCT = 25;
+// Bands follow the calibrated display scale, where the measured tower rate for
+// the flag range is 83%. The old 70/55 cutoffs predated calibration and would
+// have made every row amber despite being the most reliable band.
+const AI_SCORE_GREEN_PCT = 70;
+const AI_SCORE_WARN_PCT = 35;
 
 interface CustomFooterSlotProps {
     currentPage: number;
@@ -568,9 +568,13 @@ export default function TowerTableSimple({
                 if (score === null || score === undefined) {
                     return <Typography variant="body2" color="text.secondary">–</Typography>;
                 }
-                const pct = Math.round(score * 100);
+                const raw = score as number;
+                // Display the measured tower rate for the band, not the raw vote
+                // share: 0.36 is 180 of 500 trees, while the same band verifies
+                // as a tower 83% of the time.
+                const pct = calibratedPercent(raw);
                 return (
-                    <Tooltip title={AI_SCORE_TOOLTIP} placement="top" componentsProps={{ tooltip: { sx: { maxWidth: 320 } } }}>
+                    <Tooltip title={`${AI_SCORE_TOOLTIP} Verified at ${pct}% for this score range.`} placement="top" componentsProps={{ tooltip: { sx: { maxWidth: 320 } } }}>
                         <Chip
                             label={`${pct}%`}
                             size="small"
