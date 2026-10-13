@@ -100,3 +100,8 @@ graphify-out
 
 # Generated audit sheets, rebuilt by scripts/export-score-audit.ts
 data/*.csv
+
+# Registry lookup cache (60 MB) — public FCC data, rebuild with:
+#   npx tsx scripts/fetch-registry-cache.ts
+#   npx tsx scripts/import-registry-cache.ts --write
+/data/registry-cache/
