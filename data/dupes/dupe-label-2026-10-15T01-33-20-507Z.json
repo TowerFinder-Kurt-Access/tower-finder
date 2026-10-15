@@ -1,0 +1,3368 @@
+{
+  "createdAt": "2026-10-15T01:33:20.507Z",
+  "action": "label-duplicate-towers",
+  "label": {
+    "id": 16,
+    "name": "Duplicate Tower"
+  },
+  "provinces": [
+    "ON",
+    "AB"
+  ],
+  "maxSeparationM": 50,
+  "rule": "tower with statusId null sharing a Parcel address with another tower in the same province",
+  "rows": [
+    {
+      "id": 10895,
+      "province": "AB",
+      "address": "1012, 16 avenue nw, mount pleasant, calgary, alberta, t2m 0k5, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 12124,
+      "province": "AB",
+      "address": "265 avenue w, foothills county, alberta, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 14409,
+      "province": "AB",
+      "address": "265 avenue w, foothills county, alberta, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 13490,
+      "province": "AB",
+      "address": "athabasca county, alberta, t0a 3m0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 12283,
+      "province": "AB",
+      "address": "highway 12, federal, fleet, county of paintearth, alberta, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 15687,
+      "province": "AB",
+      "address": "highway 12, federal, fleet, county of paintearth, alberta, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 11045,
+      "province": "AB",
+      "address": "highway 859, smoky lake county, alberta, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 14299,
+      "province": "AB",
+      "address": "highway 859, smoky lake county, alberta, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 12210,
+      "province": "AB",
+      "address": "meskanaw road, rocky view county, alberta, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 13198,
+      "province": "AB",
+      "address": "meskanaw road, rocky view county, alberta, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 11920,
+      "province": "AB",
+      "address": "municipal district of lesser slave river, alberta, t0g 1g0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 13165,
+      "province": "AB",
+      "address": "municipal district of lesser slave river, alberta, t0g 1g0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 13964,
+      "province": "AB",
+      "address": "range road 204, municipal district of smoky river, alberta, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 14699,
+      "province": "AB",
+      "address": "range road 204, municipal district of smoky river, alberta, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 12647,
+      "province": "AB",
+      "address": "range road 251, westlock county, alberta, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 15753,
+      "province": "AB",
+      "address": "range road 251, westlock county, alberta, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 14989,
+      "province": "AB",
+      "address": "tower avenue, county of northern lights, alberta, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 12237,
+      "province": "AB",
+      "address": "township road 120, cypress county, alberta, t1b 1j3, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 14051,
+      "province": "AB",
+      "address": "township road 120, cypress county, alberta, t1b 1j3, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 13509,
+      "province": "AB",
+      "address": "township road 534, pinedale, yellowhead county, alberta, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 13856,
+      "province": "AB",
+      "address": "township road 534, pinedale, yellowhead county, alberta, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 13447,
+      "province": "AB",
+      "address": "township road 694a, lac la biche county, alberta, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 15664,
+      "province": "AB",
+      "address": "township road 694a, lac la biche county, alberta, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 21218,
+      "province": "ON",
+      "address": "100, university avenue, wellington place, spadina—fort york, toronto, golden horseshoe, ontario, m5j 1v6, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 25999,
+      "province": "ON",
+      "address": "100, university avenue, wellington place, spadina—fort york, toronto, golden horseshoe, ontario, m5j 1v6, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 27025,
+      "province": "ON",
+      "address": "1001, william street, thunder bay, thunder bay district, northwestern ontario, ontario, p7b 5n3, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 30203,
+      "province": "ON",
+      "address": "1001, william street, thunder bay, thunder bay district, northwestern ontario, ontario, p7b 5n3, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 22372,
+      "province": "ON",
+      "address": "1024, bear lake road, algonquin highlands, haliburton county, central ontario, ontario, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 28112,
+      "province": "ON",
+      "address": "1024, bear lake road, algonquin highlands, haliburton county, central ontario, ontario, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 21805,
+      "province": "ON",
+      "address": "1033, windy point sideroad, lanark highlands, lanark county, eastern ontario, ontario, k0a 3l0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 23361,
+      "province": "ON",
+      "address": "1033, windy point sideroad, lanark highlands, lanark county, eastern ontario, ontario, k0a 3l0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 28934,
+      "province": "ON",
+      "address": "1048, south kinloss avenue, huron-kinloss, bruce county, ontario, n0g 0b0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 30197,
+      "province": "ON",
+      "address": "1048, south kinloss avenue, huron-kinloss, bruce county, ontario, n0g 0b0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 25678,
+      "province": "ON",
+      "address": "107, wellington street, fort william, thunder bay, thunder bay district, northwestern ontario, ontario, p7c 6a8, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 29316,
+      "province": "ON",
+      "address": "107, wellington street, fort william, thunder bay, thunder bay district, northwestern ontario, ontario, p7c 6a8, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 21546,
+      "province": "ON",
+      "address": "1093, rutherford road, vaughan, york region, golden horseshoe, ontario, l4j 0e2, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 21264,
+      "province": "ON",
+      "address": "10th street west, georgian bluffs, grey county, southwestern ontario, ontario, n4k 5s1, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 26249,
+      "province": "ON",
+      "address": "10th street west, georgian bluffs, grey county, southwestern ontario, ontario, n4k 5s1, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 24533,
+      "province": "ON",
+      "address": "117, churchill drive west, thunder bay, thunder bay district, northwestern ontario, ontario, p7c 1v5, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 25660,
+      "province": "ON",
+      "address": "117, churchill drive west, thunder bay, thunder bay district, northwestern ontario, ontario, p7c 1v5, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 23365,
+      "province": "ON",
+      "address": "1174, asphodel 2nd line, asphodel-norwood, peterborough county, central ontario, ontario, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 30075,
+      "province": "ON",
+      "address": "1174, asphodel 2nd line, asphodel-norwood, peterborough county, central ontario, ontario, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 25653,
+      "province": "ON",
+      "address": "1335, crawford avenue, thunder bay, thunder bay district, northwestern ontario, ontario, p7e 3s7, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 29306,
+      "province": "ON",
+      "address": "1335, crawford avenue, thunder bay, thunder bay district, northwestern ontario, ontario, p7e 3s7, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 22119,
+      "province": "ON",
+      "address": "1432, county road 11, prince edward county, central ontario, ontario, k0k 1p0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 31254,
+      "province": "ON",
+      "address": "1432, county road 11, prince edward county, central ontario, ontario, k0k 1p0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 23701,
+      "province": "ON",
+      "address": "147, fanshaw street, thunder bay, thunder bay district, northwestern ontario, ontario, p7c 4r6, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 33168,
+      "province": "ON",
+      "address": "147, fanshaw street, thunder bay, thunder bay district, northwestern ontario, ontario, p7c 4r6, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 27032,
+      "province": "ON",
+      "address": "148, may street north, fort william, thunder bay, thunder bay district, northwestern ontario, ontario, p7c 3x7, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 30377,
+      "province": "ON",
+      "address": "148, may street north, fort william, thunder bay, thunder bay district, northwestern ontario, ontario, p7c 3x7, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 28318,
+      "province": "ON",
+      "address": "15, loon lake road, gravenhurst, district municipality of muskoka, muskoka district, central ontario, ontario, p1p 1z9, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 30328,
+      "province": "ON",
+      "address": "15, loon lake road, gravenhurst, district municipality of muskoka, muskoka district, central ontario, ontario, p1p 1z9, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 30238,
+      "province": "ON",
+      "address": "1510, airport road, kenora, kenora district, northwestern ontario, ontario, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 31747,
+      "province": "ON",
+      "address": "1510, airport road, kenora, kenora district, northwestern ontario, ontario, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 23849,
+      "province": "ON",
+      "address": "1600, steeles avenue west, york university heights, york centre, north york, vaughan, york region, golden horseshoe, ontario, l4k 4m2, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 23977,
+      "province": "ON",
+      "address": "1600, steeles avenue west, york university heights, york centre, north york, vaughan, york region, golden horseshoe, ontario, l4k 4m2, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 25676,
+      "province": "ON",
+      "address": "1627, paquette road, thunder bay, thunder bay district, northwestern ontario, ontario, p7g 1h8, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 32808,
+      "province": "ON",
+      "address": "1627, paquette road, thunder bay, thunder bay district, northwestern ontario, ontario, p7g 1h8, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 25878,
+      "province": "ON",
+      "address": "169, centre street, deseronto, hastings county, central ontario, ontario, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 27697,
+      "province": "ON",
+      "address": "169, centre street, deseronto, hastings county, central ontario, ontario, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 29290,
+      "province": "ON",
+      "address": "1690, ahmic lake road, magnetawan, parry sound district, central ontario, ontario, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 29518,
+      "province": "ON",
+      "address": "1690, ahmic lake road, magnetawan, parry sound district, central ontario, ontario, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 27232,
+      "province": "ON",
+      "address": "17, henderson avenue, kapuskasing, cochrane district, northeastern ontario, ontario, p5n 1b3, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 32053,
+      "province": "ON",
+      "address": "17, henderson avenue, kapuskasing, cochrane district, northeastern ontario, ontario, p5n 1b3, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 26265,
+      "province": "ON",
+      "address": "1729, moodie street east, fort william, thunder bay, thunder bay district, northwestern ontario, ontario, p7e 1t9, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 30876,
+      "province": "ON",
+      "address": "1729, moodie street east, fort william, thunder bay, thunder bay district, northwestern ontario, ontario, p7e 1t9, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 25447,
+      "province": "ON",
+      "address": "19, wellesley street east, church-wellesley, toronto centre, toronto, golden horseshoe, ontario, m4y 0c8, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 33393,
+      "province": "ON",
+      "address": "19, wellesley street east, church-wellesley, toronto centre, toronto, golden horseshoe, ontario, m4y 0c8, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 23725,
+      "province": "ON",
+      "address": "2024, mountain road, thunder bay, thunder bay district, northwestern ontario, ontario, p7j 1c8, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 28402,
+      "province": "ON",
+      "address": "2024, mountain road, thunder bay, thunder bay district, northwestern ontario, ontario, p7j 1c8, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 24170,
+      "province": "ON",
+      "address": "220, ramsey drive, dunnville, haldimand county, ontario, n1a 1g6, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 34523,
+      "province": "ON",
+      "address": "220, ramsey drive, dunnville, haldimand county, ontario, n1a 1g6, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 23109,
+      "province": "ON",
+      "address": "232, main street, cobden, whitewater region, renfrew county, eastern ontario, ontario, k0j 1k0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 33805,
+      "province": "ON",
+      "address": "232, main street, cobden, whitewater region, renfrew county, eastern ontario, ontario, k0j 1k0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 26055,
+      "province": "ON",
+      "address": "2375, the collegeway, erin mills, mississauga, peel region, golden horseshoe, ontario, l7l 3a2, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 25262,
+      "province": "ON",
+      "address": "260, quarry road, pembroke, eastern ontario, ontario, k8a 2k5, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 27200,
+      "province": "ON",
+      "address": "260, quarry road, pembroke, eastern ontario, ontario, k8a 2k5, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 24572,
+      "province": "ON",
+      "address": "2696, muskoka road 169, muskoka lakes township, district municipality of muskoka, muskoka district, central ontario, ontario, p1p 1r2, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 25091,
+      "province": "ON",
+      "address": "2696, muskoka road 169, muskoka lakes township, district municipality of muskoka, muskoka district, central ontario, ontario, p1p 1r2, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 31754,
+      "province": "ON",
+      "address": "275, madeline street, thunder bay, thunder bay district, northwestern ontario, ontario, p7a 3s4, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 34135,
+      "province": "ON",
+      "address": "275, madeline street, thunder bay, thunder bay district, northwestern ontario, ontario, p7a 3s4, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 28568,
+      "province": "ON",
+      "address": "2837, isabella street east, thunder bay, thunder bay district, northwestern ontario, ontario, p7e 2c5, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 31496,
+      "province": "ON",
+      "address": "2837, isabella street east, thunder bay, thunder bay district, northwestern ontario, ontario, p7e 2c5, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 29430,
+      "province": "ON",
+      "address": "29, mennonite road, sioux lookout, kenora district, northwestern ontario, ontario, p8t 0a7, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 31352,
+      "province": "ON",
+      "address": "29, mennonite road, sioux lookout, kenora district, northwestern ontario, ontario, p8t 0a7, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 26094,
+      "province": "ON",
+      "address": "3020, 9th avenue east, owen sound, grey county, ontario, n4k 6x6, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 28878,
+      "province": "ON",
+      "address": "3020, 9th avenue east, owen sound, grey county, ontario, n4k 6x6, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 28751,
+      "province": "ON",
+      "address": "320, wardrope avenue, thunder bay, thunder bay district, northwestern ontario, ontario, p7a 7y4, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 31875,
+      "province": "ON",
+      "address": "320, wardrope avenue, thunder bay, thunder bay district, northwestern ontario, ontario, p7a 7y4, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 22202,
+      "province": "ON",
+      "address": "3313, county road 45, alexandria, north glengarry, stormont, dundas and glengarry counties, eastern ontario, ontario, k0c 1a0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 32909,
+      "province": "ON",
+      "address": "3313, county road 45, alexandria, north glengarry, stormont, dundas and glengarry counties, eastern ontario, ontario, k0c 1a0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 22681,
+      "province": "ON",
+      "address": "394, william street, niagara-on-the-lake, niagara region, golden horseshoe, ontario, l0s 1j0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 30321,
+      "province": "ON",
+      "address": "394, william street, niagara-on-the-lake, niagara region, golden horseshoe, ontario, l0s 1j0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 21554,
+      "province": "ON",
+      "address": "395, brock street east, thunder bay, thunder bay district, northwestern ontario, ontario, p7e 4r9, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 27035,
+      "province": "ON",
+      "address": "395, brock street east, thunder bay, thunder bay district, northwestern ontario, ontario, p7e 4r9, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 30717,
+      "province": "ON",
+      "address": "425 bloor street east, 425, bloor street east, north st.james town, toronto centre, toronto, golden horseshoe, ontario, m4x 1w4, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 30914,
+      "province": "ON",
+      "address": "425 bloor street east, 425, bloor street east, north st.james town, toronto centre, toronto, golden horseshoe, ontario, m4x 1w4, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 23726,
+      "province": "ON",
+      "address": "4273, garden avenue, thunder bay, thunder bay district, northwestern ontario, ontario, p7k 1a7, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 29115,
+      "province": "ON",
+      "address": "4273, garden avenue, thunder bay, thunder bay district, northwestern ontario, ontario, p7k 1a7, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 27890,
+      "province": "ON",
+      "address": "438, yonge street, yonge-bay corridor, university—rosedale, toronto, golden horseshoe, ontario, m4y 1x4, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 30161,
+      "province": "ON",
+      "address": "438, yonge street, yonge-bay corridor, university—rosedale, toronto, golden horseshoe, ontario, m4y 1x4, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 21293,
+      "province": "ON",
+      "address": "441, maryville lake road, south bruce peninsula, bruce county, southwestern ontario, ontario, n0h 2g0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 29517,
+      "province": "ON",
+      "address": "441, maryville lake road, south bruce peninsula, bruce county, southwestern ontario, ontario, n0h 2g0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 32003,
+      "province": "ON",
+      "address": "450, laurenson lane, kenora, kenora district, northwestern ontario, ontario, p9n 4w1, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 32661,
+      "province": "ON",
+      "address": "450, laurenson lane, kenora, kenora district, northwestern ontario, ontario, p9n 4w1, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 23420,
+      "province": "ON",
+      "address": "483, crooked bay road, georgian bay township, district municipality of muskoka, muskoka district, central ontario, ontario, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 26710,
+      "province": "ON",
+      "address": "4867, highway 551, central manitoulin, manitoulin district, northeastern ontario, ontario, p0p 1t0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 29530,
+      "province": "ON",
+      "address": "4867, highway 551, central manitoulin, manitoulin district, northeastern ontario, ontario, p0p 1t0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 20817,
+      "province": "ON",
+      "address": "5000, steeles avenue east, markham, york region, golden horseshoe, ontario, m1v 5k1, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 30293,
+      "province": "ON",
+      "address": "5000, steeles avenue east, markham, york region, golden horseshoe, ontario, m1v 5k1, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 29065,
+      "province": "ON",
+      "address": "526, court street north, thunder bay, thunder bay district, northwestern ontario, ontario, p7a 2j6, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 21187,
+      "province": "ON",
+      "address": "5567, line 84, listowel, north perth, perth county, ontario, n4w 3g9, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 24012,
+      "province": "ON",
+      "address": "5567, line 84, listowel, north perth, perth county, ontario, n4w 3g9, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 31050,
+      "province": "ON",
+      "address": "559, dunlop street, thunder bay, thunder bay district, northwestern ontario, ontario, p7b 4a3, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 25401,
+      "province": "ON",
+      "address": "562, fourth line, alnwick/haldimand, northumberland county, central ontario, ontario, k0k 2x0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 26316,
+      "province": "ON",
+      "address": "562, fourth line, alnwick/haldimand, northumberland county, central ontario, ontario, k0k 2x0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 26012,
+      "province": "ON",
+      "address": "615, boundary road, alfred and plantagenet, prescott and russell counties, eastern ontario, ontario, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 30919,
+      "province": "ON",
+      "address": "615, boundary road, alfred and plantagenet, prescott and russell counties, eastern ontario, ontario, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 31210,
+      "province": "ON",
+      "address": "626, edward street north, thunder bay, thunder bay district, northwestern ontario, ontario, p7c 4r6, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 34082,
+      "province": "ON",
+      "address": "626, edward street north, thunder bay, thunder bay district, northwestern ontario, ontario, p7c 4r6, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 28755,
+      "province": "ON",
+      "address": "67, hill street north, port arthur, thunder bay, thunder bay district, northwestern ontario, ontario, p7a 3s5, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 31262,
+      "province": "ON",
+      "address": "67, hill street north, port arthur, thunder bay, thunder bay district, northwestern ontario, ontario, p7a 3s5, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 28148,
+      "province": "ON",
+      "address": "67, notre dame street east, noëlville, french river, sudbury district, northeastern ontario, ontario, p0m 2n0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 33537,
+      "province": "ON",
+      "address": "67, notre dame street east, noëlville, french river, sudbury district, northeastern ontario, ontario, p0m 2n0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 31157,
+      "province": "ON",
+      "address": "705, hardisty street north, fort william, thunder bay, thunder bay district, northwestern ontario, ontario, p7c 3j4, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 32501,
+      "province": "ON",
+      "address": "705, hardisty street north, fort william, thunder bay, thunder bay district, northwestern ontario, ontario, p7c 3j4, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 24629,
+      "province": "ON",
+      "address": "7065, twiss road, milton, halton region, golden horseshoe, ontario, l7p 0b4, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 27233,
+      "province": "ON",
+      "address": "7065, twiss road, milton, halton region, golden horseshoe, ontario, l7p 0b4, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 22427,
+      "province": "ON",
+      "address": "7256, airport road, ridgewood, malton, mississauga, peel region, golden horseshoe, ontario, l4t 0a4, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 24751,
+      "province": "ON",
+      "address": "7th line, minto, wellington county, ontario, n0g 1z0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 30539,
+      "province": "ON",
+      "address": "7th line, minto, wellington county, ontario, n0g 1z0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 22654,
+      "province": "ON",
+      "address": "84, clubhouse road, norfolk county, ontario, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 23554,
+      "province": "ON",
+      "address": "84, clubhouse road, norfolk county, ontario, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 24527,
+      "province": "ON",
+      "address": "850, chippenham drive, mississauga, peel region, golden horseshoe, ontario, l5h 2k4, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 28054,
+      "province": "ON",
+      "address": "850, chippenham drive, mississauga, peel region, golden horseshoe, ontario, l5h 2k4, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 24558,
+      "province": "ON",
+      "address": "862, highway 9, mildmay, south bruce, bruce county, ontario, n0g 2j0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 22007,
+      "province": "ON",
+      "address": "950, dupont street, dovercourt village, davenport, toronto, golden horseshoe, ontario, m6h 2b5, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 27460,
+      "province": "ON",
+      "address": "950, dupont street, dovercourt village, davenport, toronto, golden horseshoe, ontario, m6h 2b5, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 21025,
+      "province": "ON",
+      "address": "alexander graham bell parkway, brantford, ontario, n3r 2n5, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 34243,
+      "province": "ON",
+      "address": "alexander graham bell parkway, brantford, ontario, n3r 2n5, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 21168,
+      "province": "ON",
+      "address": "baseline, west grey, grey county, ontario, n0g 1r0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 24004,
+      "province": "ON",
+      "address": "baseline, west grey, grey county, ontario, n0g 1r0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 27871,
+      "province": "ON",
+      "address": "bathurst station bus loop, annex, university—rosedale, toronto, golden horseshoe, ontario, m5s 1y3, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 31811,
+      "province": "ON",
+      "address": "bathurst station bus loop, annex, university—rosedale, toronto, golden horseshoe, ontario, m5s 1y3, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 20954,
+      "province": "ON",
+      "address": "bay lake road, l'amable, bancroft, hastings county, central ontario, ontario, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 30668,
+      "province": "ON",
+      "address": "bay lake road, l'amable, bancroft, hastings county, central ontario, ontario, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 20774,
+      "province": "ON",
+      "address": "beacroft road, kawartha lakes, central ontario, ontario, k0m 2c0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 24026,
+      "province": "ON",
+      "address": "beacroft road, kawartha lakes, central ontario, ontario, k0m 2c0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 22884,
+      "province": "ON",
+      "address": "beechwood line, huron east, huron county, ontario, n0k 1e0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 25871,
+      "province": "ON",
+      "address": "beechwood line, huron east, huron county, ontario, n0k 1e0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 22837,
+      "province": "ON",
+      "address": "bell canada toronto-asquith toroon02cg3 toroon02ds4 toroon02ds5 toroon02ds6, 15, asquith avenue, rosedale-moore park, university—rosedale, toronto, golden horseshoe, ontario, m4w 1j7, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 30402,
+      "province": "ON",
+      "address": "bell canada toronto-asquith toroon02cg3 toroon02ds4 toroon02ds5 toroon02ds6, 15, asquith avenue, rosedale-moore park, university—rosedale, toronto, golden horseshoe, ontario, m4w 1j7, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 26768,
+      "province": "ON",
+      "address": "bike share toronto, lansdowne avenue, wallace emerson, davenport, toronto, golden horseshoe, ontario, m6h 3y9, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 31868,
+      "province": "ON",
+      "address": "bike share toronto, lansdowne avenue, wallace emerson, davenport, toronto, golden horseshoe, ontario, m6h 3y9, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 21977,
+      "province": "ON",
+      "address": "bloor street west, annex, university—rosedale, toronto, golden horseshoe, ontario, m5s 1x1, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 35366,
+      "province": "ON",
+      "address": "bloor street west, annex, university—rosedale, toronto, golden horseshoe, ontario, m5s 1x1, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 28229,
+      "province": "ON",
+      "address": "brent road, head, clara and maria, renfrew county, eastern ontario, ontario, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 33135,
+      "province": "ON",
+      "address": "brent road, head, clara and maria, renfrew county, eastern ontario, ontario, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 34190,
+      "province": "ON",
+      "address": "brent road, head, clara and maria, renfrew county, eastern ontario, ontario, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 31656,
+      "province": "ON",
+      "address": "bruce road 14, south bruce peninsula, bruce county, southwestern ontario, ontario, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 32730,
+      "province": "ON",
+      "address": "bruce road 14, south bruce peninsula, bruce county, southwestern ontario, ontario, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 22000,
+      "province": "ON",
+      "address": "bruce road 3, saugeen shores, bruce county, ontario, n0h 2c6, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 25909,
+      "province": "ON",
+      "address": "bruce road 3, saugeen shores, bruce county, ontario, n0h 2c6, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 23096,
+      "province": "ON",
+      "address": "calabogie road, greater madawaska, renfrew county, eastern ontario, ontario, k0j 1g0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 25905,
+      "province": "ON",
+      "address": "calabogie road, greater madawaska, renfrew county, eastern ontario, ontario, k0j 1g0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 21621,
+      "province": "ON",
+      "address": "camel lake road, muskoka lakes township, district municipality of muskoka, muskoka district, central ontario, ontario, p1l 1x4, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 34475,
+      "province": "ON",
+      "address": "camel lake road, muskoka lakes township, district municipality of muskoka, muskoka district, central ontario, ontario, p1l 1x4, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 29080,
+      "province": "ON",
+      "address": "camp river road, unorganized rainy river, rainy river district, northwestern ontario, ontario, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 33912,
+      "province": "ON",
+      "address": "camp river road, unorganized rainy river, rainy river district, northwestern ontario, ontario, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 21167,
+      "province": "ON",
+      "address": "centre street, downtown chatham, chatham, chatham-kent, ontario, n7m 2g6, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 29997,
+      "province": "ON",
+      "address": "centre street, downtown chatham, chatham, chatham-kent, ontario, n7m 2g6, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 22672,
+      "province": "ON",
+      "address": "chesey fire department, 1st avenue n, chesley, arran–elderslie, bruce county, southwestern ontario, ontario, n0g 1l0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 25882,
+      "province": "ON",
+      "address": "chesey fire department, 1st avenue n, chesley, arran–elderslie, bruce county, southwestern ontario, ontario, n0g 1l0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 29803,
+      "province": "ON",
+      "address": "christie, 5, christie street, annex, university—rosedale, toronto, golden horseshoe, ontario, m6e 4a1, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 31312,
+      "province": "ON",
+      "address": "christie, 5, christie street, annex, university—rosedale, toronto, golden horseshoe, ontario, m6e 4a1, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 22613,
+      "province": "ON",
+      "address": "colborne street east, brant county, ontario, n3t 5l4, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 23807,
+      "province": "ON",
+      "address": "colborne street east, brant county, ontario, n3t 5l4, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 23037,
+      "province": "ON",
+      "address": "concession 2 road, chatsworth, grey county, ontario, n0h 2v0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 28132,
+      "province": "ON",
+      "address": "concession 2 road, chatsworth, grey county, ontario, n0h 2v0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 25883,
+      "province": "ON",
+      "address": "concession 8 road, grey highlands, grey county, ontario, n0c 1e0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 28215,
+      "province": "ON",
+      "address": "concession 8 road, grey highlands, grey county, ontario, n0c 1e0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 26241,
+      "province": "ON",
+      "address": "concession 8 road, south bruce, bruce county, ontario, n0g 2s0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 32525,
+      "province": "ON",
+      "address": "concession 8 road, south bruce, bruce county, ontario, n0g 2s0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 25237,
+      "province": "ON",
+      "address": "concession road 9 west, trent hills, northumberland county, central ontario, ontario, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 22089,
+      "province": "ON",
+      "address": "coniston hydro road, coniston, greater sudbury, sudbury district, northeastern ontario, ontario, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 30090,
+      "province": "ON",
+      "address": "coniston hydro road, coniston, greater sudbury, sudbury district, northeastern ontario, ontario, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 22049,
+      "province": "ON",
+      "address": "countryside drive, brampton, caledon, peel region, golden horseshoe, ontario, l6p 4e7, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 26774,
+      "province": "ON",
+      "address": "countryside drive, brampton, caledon, peel region, golden horseshoe, ontario, l6p 4e7, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 26816,
+      "province": "ON",
+      "address": "county road 35, prince edward county, central ontario, ontario, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 24965,
+      "province": "ON",
+      "address": "county road 620, north kawartha, peterborough county, central ontario, ontario, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 31444,
+      "province": "ON",
+      "address": "county road 620, north kawartha, peterborough county, central ontario, ontario, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 28917,
+      "province": "ON",
+      "address": "danier, 1, bass pro mills drive, vaughan, york region, golden horseshoe, ontario, l4k 5w4, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 35116,
+      "province": "ON",
+      "address": "danier, 1, bass pro mills drive, vaughan, york region, golden horseshoe, ontario, l4k 5w4, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 21086,
+      "province": "ON",
+      "address": "delta hotels, 50, east valhalla drive, brown's corners, markham, york region, golden horseshoe, ontario, l3r 0j4, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 26389,
+      "province": "ON",
+      "address": "delta hotels, 50, east valhalla drive, brown's corners, markham, york region, golden horseshoe, ontario, l3r 0j4, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 22756,
+      "province": "ON",
+      "address": "doe lake road, gravenhurst, district municipality of muskoka, muskoka district, central ontario, ontario, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 24032,
+      "province": "ON",
+      "address": "doe lake road, gravenhurst, district municipality of muskoka, muskoka district, central ontario, ontario, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 23686,
+      "province": "ON",
+      "address": "dorion municipal offices, dorion loop road, dorion township, thunder bay district, northwestern ontario, ontario, p0t 1k0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 24039,
+      "province": "ON",
+      "address": "dorion municipal offices, dorion loop road, dorion township, thunder bay district, northwestern ontario, ontario, p0t 1k0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 24919,
+      "province": "ON",
+      "address": "dudley road, muskoka lakes township, district municipality of muskoka, muskoka district, central ontario, ontario, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 30541,
+      "province": "ON",
+      "address": "dudley road, muskoka lakes township, district municipality of muskoka, muskoka district, central ontario, ontario, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 21340,
+      "province": "ON",
+      "address": "duff avenue, amherstburg, essex county, ontario, n9v 2x3, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 23415,
+      "province": "ON",
+      "address": "duff avenue, amherstburg, essex county, ontario, n9v 2x3, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 27356,
+      "province": "ON",
+      "address": "dundas west concourse level, west bend, high park north, parkdale—high park, toronto, golden horseshoe, ontario, m6p, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 32419,
+      "province": "ON",
+      "address": "dundas west concourse level, west bend, high park north, parkdale—high park, toronto, golden horseshoe, ontario, m6p, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 25298,
+      "province": "ON",
+      "address": "escarpment run, the blue mountains, grey county, ontario, n0h 2e0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 32524,
+      "province": "ON",
+      "address": "escarpment run, the blue mountains, grey county, ontario, n0h 2e0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 22113,
+      "province": "ON",
+      "address": "falkenburg road, huntsville, district municipality of muskoka, muskoka district, central ontario, ontario, p0b 1m0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 29515,
+      "province": "ON",
+      "address": "falkenburg road, huntsville, district municipality of muskoka, muskoka district, central ontario, ontario, p0b 1m0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 23968,
+      "province": "ON",
+      "address": "financial drive, mississauga, peel region, golden horseshoe, ontario, l5n 7l2, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 33317,
+      "province": "ON",
+      "address": "financial drive, mississauga, peel region, golden horseshoe, ontario, l5n 7l2, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 22898,
+      "province": "ON",
+      "address": "fire route 300, mckellar township, parry sound district, central ontario, ontario, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 24021,
+      "province": "ON",
+      "address": "fire route 300, mckellar township, parry sound district, central ontario, ontario, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 30100,
+      "province": "ON",
+      "address": "g2g, milverton, perth east, perth county, ontario, n0k 1m0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 31351,
+      "province": "ON",
+      "address": "g2g, milverton, perth east, perth county, ontario, n0k 1m0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 22888,
+      "province": "ON",
+      "address": "gibson street, parry sound, parry sound district, central ontario, ontario, p2a 1b4, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 33809,
+      "province": "ON",
+      "address": "gibson street, parry sound, parry sound district, central ontario, ontario, p2a 1b4, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 21878,
+      "province": "ON",
+      "address": "goldthorpe road, kirkland lake gold inc., kirkland lake, timiskaming district, northeastern ontario, ontario, p2n 2e8, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 33807,
+      "province": "ON",
+      "address": "goldthorpe road, kirkland lake gold inc., kirkland lake, timiskaming district, northeastern ontario, ontario, p2n 2e8, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 23691,
+      "province": "ON",
+      "address": "grandview road, thunder bay, thunder bay district, northwestern ontario, ontario, p7k 1a7, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 32389,
+      "province": "ON",
+      "address": "grandview road, thunder bay, thunder bay district, northwestern ontario, ontario, p7k 1a7, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 23999,
+      "province": "ON",
+      "address": "greenlane road east, champlain, prescott and russell counties, eastern ontario, ontario, k6a 3s5, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 24565,
+      "province": "ON",
+      "address": "greenlane road east, champlain, prescott and russell counties, eastern ontario, ontario, k6a 3s5, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 26474,
+      "province": "ON",
+      "address": "grey road 109, southgate, grey county, ontario, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 27175,
+      "province": "ON",
+      "address": "grey road 109, southgate, grey county, ontario, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 26510,
+      "province": "ON",
+      "address": "grey road 25, west grey, grey county, ontario, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 27191,
+      "province": "ON",
+      "address": "grey road 25, west grey, grey county, ontario, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 22313,
+      "province": "ON",
+      "address": "hemlock point road, muskoka lakes township, district municipality of muskoka, muskoka district, central ontario, ontario, p0b 1g0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 30923,
+      "province": "ON",
+      "address": "hemlock point road, muskoka lakes township, district municipality of muskoka, muskoka district, central ontario, ontario, p0b 1g0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 21855,
+      "province": "ON",
+      "address": "hickory crescent, milton, halton region, golden horseshoe, ontario, l9t 2x5, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 22286,
+      "province": "ON",
+      "address": "hickory crescent, milton, halton region, golden horseshoe, ontario, l9t 2x5, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 27976,
+      "province": "ON",
+      "address": "highway 101, unorganized north algoma, algoma district, northeastern ontario, ontario, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 28894,
+      "province": "ON",
+      "address": "highway 101, unorganized north algoma, algoma district, northeastern ontario, ontario, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 27013,
+      "province": "ON",
+      "address": "highway 105, perrault falls, unorganized kenora district, kenora district, northwestern ontario, ontario, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 31131,
+      "province": "ON",
+      "address": "highway 105, perrault falls, unorganized kenora district, kenora district, northwestern ontario, ontario, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 22634,
+      "province": "ON",
+      "address": "highway 11, gravenhurst, district municipality of muskoka, muskoka district, central ontario, ontario, p0e 1t0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 24000,
+      "province": "ON",
+      "address": "highway 11, gravenhurst, district municipality of muskoka, muskoka district, central ontario, ontario, p0e 1t0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 22069,
+      "province": "ON",
+      "address": "highway 118, gravenhurst, district municipality of muskoka, muskoka district, central ontario, ontario, p1l 1z6, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 28130,
+      "province": "ON",
+      "address": "highway 118, gravenhurst, district municipality of muskoka, muskoka district, central ontario, ontario, p1l 1z6, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 27018,
+      "province": "ON",
+      "address": "highway 17 east, kenora, kenora district, northwestern ontario, ontario, p9n 0a1, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 30930,
+      "province": "ON",
+      "address": "highway 17 east, kenora, kenora district, northwestern ontario, ontario, p9n 0a1, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 24235,
+      "province": "ON",
+      "address": "highway 17, north bay, nipissing district, northeastern ontario, ontario, p1b 8g4, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 33939,
+      "province": "ON",
+      "address": "highway 17, north bay, nipissing district, northeastern ontario, ontario, p1b 8g4, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 23464,
+      "province": "ON",
+      "address": "highway 35, dorset, district municipality of muskoka, muskoka district, central ontario, ontario, p0a 1e0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 24514,
+      "province": "ON",
+      "address": "highway 35, dorset, district municipality of muskoka, muskoka district, central ontario, ontario, p0a 1e0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 22729,
+      "province": "ON",
+      "address": "highway 35, dorset, lake of bays township, district municipality of muskoka, muskoka district, central ontario, ontario, p0a 1e0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 25872,
+      "province": "ON",
+      "address": "highway 35, dorset, lake of bays township, district municipality of muskoka, muskoka district, central ontario, ontario, p0a 1e0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 23362,
+      "province": "ON",
+      "address": "highway 401, augusta, leeds and grenville counties, eastern ontario, ontario, k0e 1t0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 32908,
+      "province": "ON",
+      "address": "highway 401, augusta, leeds and grenville counties, eastern ontario, ontario, k0e 1t0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 23421,
+      "province": "ON",
+      "address": "highway 401, augusta, prescott, eastern ontario, ontario, k0e 1t0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 32052,
+      "province": "ON",
+      "address": "highway 401, augusta, prescott, eastern ontario, ontario, k0e 1t0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 25177,
+      "province": "ON",
+      "address": "highway 401, leeds and the thousand islands, leeds and grenville counties, eastern ontario, ontario, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 26209,
+      "province": "ON",
+      "address": "highway 401, leeds and the thousand islands, leeds and grenville counties, eastern ontario, ontario, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 31144,
+      "province": "ON",
+      "address": "highway 401, leeds and the thousand islands, leeds and grenville counties, eastern ontario, ontario, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 25405,
+      "province": "ON",
+      "address": "highway 401, mallorytown, front of yonge, leeds and grenville counties, eastern ontario, ontario, k0e 1r0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 27189,
+      "province": "ON",
+      "address": "highway 401, mallorytown, front of yonge, leeds and grenville counties, eastern ontario, ontario, k0e 1r0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 25277,
+      "province": "ON",
+      "address": "highway 417, east hawkesbury, prescott and russell counties, eastern ontario, ontario, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 34139,
+      "province": "ON",
+      "address": "highway 417, east hawkesbury, prescott and russell counties, eastern ontario, ontario, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 23214,
+      "province": "ON",
+      "address": "highway 417, pine grove, mcnab/braeside, renfrew county, eastern ontario, ontario, k0a 1g0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 33069,
+      "province": "ON",
+      "address": "highway 417, pine grove, mcnab/braeside, renfrew county, eastern ontario, ontario, k0a 1g0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 32006,
+      "province": "ON",
+      "address": "highway 502, unorganized kenora district, kenora district, northwestern ontario, ontario, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 33470,
+      "province": "ON",
+      "address": "highway 502, unorganized kenora district, kenora district, northwestern ontario, ontario, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 23391,
+      "province": "ON",
+      "address": "highway 54 haldimand, haldimand county, ontario, n0a 1r0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 25889,
+      "province": "ON",
+      "address": "highway 54 haldimand, haldimand county, ontario, n0a 1r0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 27469,
+      "province": "ON",
+      "address": "highway 60, golden lake, north algona wilberforce, renfrew county, eastern ontario, ontario, k0j 1t0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 28885,
+      "province": "ON",
+      "address": "highway 60, golden lake, north algona wilberforce, renfrew county, eastern ontario, ontario, k0j 1t0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 29061,
+      "province": "ON",
+      "address": "highway 69, the archipelago township, parry sound district, central ontario, ontario, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 33472,
+      "province": "ON",
+      "address": "highway 69, the archipelago township, parry sound district, central ontario, ontario, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 22115,
+      "province": "ON",
+      "address": "highway 804, ear falls township, kenora district, northwestern ontario, ontario, p0v 1t0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 29529,
+      "province": "ON",
+      "address": "highway 804, ear falls township, kenora district, northwestern ontario, ontario, p0v 1t0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 24427,
+      "province": "ON",
+      "address": "howland drive, huntsville, district municipality of muskoka, muskoka district, central ontario, ontario, p1h 2p9, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 34076,
+      "province": "ON",
+      "address": "howland drive, huntsville, district municipality of muskoka, muskoka district, central ontario, ontario, p1h 2p9, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 21739,
+      "province": "ON",
+      "address": "humberline place, 10, humberline drive, west humber-clairville, etobicoke north, etobicoke, toronto, golden horseshoe, ontario, m9w 7h3, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 23797,
+      "province": "ON",
+      "address": "humberline place, 10, humberline drive, west humber-clairville, etobicoke north, etobicoke, toronto, golden horseshoe, ontario, m9w 7h3, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 25061,
+      "province": "ON",
+      "address": "industrial park drive, fenelon falls, kawartha lakes, central ontario, ontario, k0m 1n0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 25886,
+      "province": "ON",
+      "address": "industrial park drive, fenelon falls, kawartha lakes, central ontario, ontario, k0m 1n0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 24036,
+      "province": "ON",
+      "address": "industrial park road, hastings county, central ontario, ontario, k0k 3a0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 26404,
+      "province": "ON",
+      "address": "industrial park road, hastings county, central ontario, ontario, k0k 3a0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 28745,
+      "province": "ON",
+      "address": "john street, ear falls township, kenora district, northwestern ontario, ontario, p0v 1t0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 34559,
+      "province": "ON",
+      "address": "john street, ear falls township, kenora district, northwestern ontario, ontario, p0v 1t0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 22548,
+      "province": "ON",
+      "address": "kelwood lane, colborne, cramahe, northumberland county, central ontario, ontario, k0k 1s0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 25873,
+      "province": "ON",
+      "address": "kelwood lane, colborne, cramahe, northumberland county, central ontario, ontario, k0k 1s0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 25031,
+      "province": "ON",
+      "address": "king george road, tranquility, brantford, ontario, n3r 5l8, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 25385,
+      "province": "ON",
+      "address": "king george road, tranquility, brantford, ontario, n3r 5l8, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 23713,
+      "province": "ON",
+      "address": "king george's park drive, oliver paipoonge, thunder bay district, northwestern ontario, ontario, p7c 5n5, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 32534,
+      "province": "ON",
+      "address": "king george's park drive, oliver paipoonge, thunder bay district, northwestern ontario, ontario, p7c 5n5, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 20960,
+      "province": "ON",
+      "address": "king street north, wagner's corner, woolwich, region of waterloo, southwestern ontario, ontario, n2l 4g8, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 21525,
+      "province": "ON",
+      "address": "king street north, wagner's corner, woolwich, region of waterloo, southwestern ontario, ontario, n2l 4g8, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 27341,
+      "province": "ON",
+      "address": "kraft road, south glengarry, stormont, dundas and glengarry counties, eastern ontario, ontario, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 27510,
+      "province": "ON",
+      "address": "kraft road, south glengarry, stormont, dundas and glengarry counties, eastern ontario, ontario, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 29994,
+      "province": "ON",
+      "address": "lakeshore drive, shuniah, thunder bay district, northwestern ontario, ontario, p7a 0l4, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 29990,
+      "province": "ON",
+      "address": "lcbo, ontario street, marathon, thunder bay district, northwestern ontario, ontario, p0t 2e0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 34574,
+      "province": "ON",
+      "address": "lcbo, ontario street, marathon, thunder bay district, northwestern ontario, ontario, p0t 2e0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 23687,
+      "province": "ON",
+      "address": "lemay road, caramat, unorganized thunder bay district, thunder bay district, northwestern ontario, ontario, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 30929,
+      "province": "ON",
+      "address": "lemay road, caramat, unorganized thunder bay district, thunder bay district, northwestern ontario, ontario, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 27602,
+      "province": "ON",
+      "address": "letko, brosseau & associates, 145, king street west, financial district, spadina—fort york, toronto, golden horseshoe, ontario, m5h 1j9, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 31869,
+      "province": "ON",
+      "address": "letko, brosseau & associates, 145, king street west, financial district, spadina—fort york, toronto, golden horseshoe, ontario, m5h 1j9, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 24035,
+      "province": "ON",
+      "address": "lindsay road, dresden, chatham-kent, ontario, n0p 1m0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 31026,
+      "province": "ON",
+      "address": "lindsay road, dresden, chatham-kent, ontario, n0p 1m0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 22197,
+      "province": "ON",
+      "address": "little britain road, kawartha lakes, central ontario, ontario, k9v 0j8, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 27194,
+      "province": "ON",
+      "address": "little britain road, kawartha lakes, central ontario, ontario, k9v 0j8, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 21216,
+      "province": "ON",
+      "address": "london road, central huron, huron county, ontario, n0m 1h0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 24001,
+      "province": "ON",
+      "address": "london road, central huron, huron county, ontario, n0m 1h0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 27972,
+      "province": "ON",
+      "address": "longbow lake road, unorganized kenora district, kenora district, northwestern ontario, ontario, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 33125,
+      "province": "ON",
+      "address": "longbow lake road, unorganized kenora district, kenora district, northwestern ontario, ontario, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 29121,
+      "province": "ON",
+      "address": "loonway road, greater sudbury, sudbury district, northeastern ontario, ontario, p0m 1h0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 36335,
+      "province": "ON",
+      "address": "loonway road, greater sudbury, sudbury district, northeastern ontario, ontario, p0m 1h0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 24795,
+      "province": "ON",
+      "address": "macnaughton court, bracebridge, district municipality of muskoka, muskoka district, central ontario, ontario, p1l 1n5, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 33534,
+      "province": "ON",
+      "address": "macnaughton court, bracebridge, district municipality of muskoka, muskoka district, central ontario, ontario, p1l 1n5, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 23381,
+      "province": "ON",
+      "address": "maple grove road, cambridge, region of waterloo, ontario, n3c 2v3, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 27824,
+      "province": "ON",
+      "address": "maple grove road, cambridge, region of waterloo, ontario, n3c 2v3, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 22517,
+      "province": "ON",
+      "address": "mary street west, lindsay, kawartha lakes, central ontario, ontario, k9v 2m5, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 25789,
+      "province": "ON",
+      "address": "mary street west, lindsay, kawartha lakes, central ontario, ontario, k9v 2m5, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 22870,
+      "province": "ON",
+      "address": "may road, prince edward county, central ontario, ontario, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 25898,
+      "province": "ON",
+      "address": "may road, prince edward county, central ontario, ontario, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 21501,
+      "province": "ON",
+      "address": "mcdougall road, mcdougall township, parry sound district, central ontario, ontario, p2a 2l7, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 23440,
+      "province": "ON",
+      "address": "mcdougall road, mcdougall township, parry sound district, central ontario, ontario, p2a 2l7, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 25900,
+      "province": "ON",
+      "address": "mill road, muskoka lakes township, district municipality of muskoka, muskoka district, central ontario, ontario, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 30108,
+      "province": "ON",
+      "address": "mill road, muskoka lakes township, district municipality of muskoka, muskoka district, central ontario, ontario, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 22127,
+      "province": "ON",
+      "address": "millennium trail, wellington, prince edward county, central ontario, ontario, k0k 3l0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 25903,
+      "province": "ON",
+      "address": "millennium trail, wellington, prince edward county, central ontario, ontario, k0k 3l0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 30749,
+      "province": "ON",
+      "address": "mississagi lighthouse road, unorganized west manitoulin, manitoulin district, northeastern ontario, ontario, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 31953,
+      "province": "ON",
+      "address": "mississagi lighthouse road, unorganized west manitoulin, manitoulin district, northeastern ontario, ontario, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 26212,
+      "province": "ON",
+      "address": "moto park road, chatsworth, grey county, ontario, n0h 2v0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 30163,
+      "province": "ON",
+      "address": "moto park road, chatsworth, grey county, ontario, n0h 2v0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 21249,
+      "province": "ON",
+      "address": "mountain lake drive, georgian bluffs, grey county, ontario, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 30532,
+      "province": "ON",
+      "address": "mountain lake drive, georgian bluffs, grey county, ontario, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 25560,
+      "province": "ON",
+      "address": "muskoka cresent road, bracebridge, district municipality of muskoka, muskoka district, central ontario, ontario, p1l 1w8, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 34152,
+      "province": "ON",
+      "address": "muskoka cresent road, bracebridge, district municipality of muskoka, muskoka district, central ontario, ontario, p1l 1w8, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 23133,
+      "province": "ON",
+      "address": "muskoka road 10, huntsville, district municipality of muskoka, muskoka district, central ontario, ontario, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 28120,
+      "province": "ON",
+      "address": "muskoka road 10, huntsville, district municipality of muskoka, muskoka district, central ontario, ontario, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 26258,
+      "province": "ON",
+      "address": "muskoka road 169, gravenhurst, district municipality of muskoka, muskoka district, central ontario, ontario, p1p 1r2, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 28114,
+      "province": "ON",
+      "address": "muskoka road 169, gravenhurst, district municipality of muskoka, muskoka district, central ontario, ontario, p1p 1r2, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 22679,
+      "province": "ON",
+      "address": "narrows road, gravenhurst, district municipality of muskoka, muskoka district, central ontario, ontario, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 28879,
+      "province": "ON",
+      "address": "narrows road, gravenhurst, district municipality of muskoka, muskoka district, central ontario, ontario, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 27038,
+      "province": "ON",
+      "address": "nissan, 12th avenue, thunder bay, thunder bay district, northwestern ontario, ontario, p7b 3z9, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 28326,
+      "province": "ON",
+      "address": "nissan, 12th avenue, thunder bay, thunder bay district, northwestern ontario, ontario, p7b 3z9, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 22087,
+      "province": "ON",
+      "address": "oak ridges drive, alnwick/haldimand, northumberland county, central ontario, ontario, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 27185,
+      "province": "ON",
+      "address": "oak ridges drive, alnwick/haldimand, northumberland county, central ontario, ontario, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 25892,
+      "province": "ON",
+      "address": "oakfield drive, seguin township, parry sound district, central ontario, ontario, p0c 1j0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 26025,
+      "province": "ON",
+      "address": "oakfield drive, seguin township, parry sound district, central ontario, ontario, p0c 1j0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 22995,
+      "province": "ON",
+      "address": "old river road, leeds and the thousand islands, leeds and grenville counties, eastern ontario, ontario, k0e 1v0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 32529,
+      "province": "ON",
+      "address": "old river road, leeds and the thousand islands, leeds and grenville counties, eastern ontario, ontario, k0e 1v0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 20905,
+      "province": "ON",
+      "address": "ossington station, ossington bus terminal, dovercourt village, davenport, toronto, golden horseshoe, ontario, m6h 1l1, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 27305,
+      "province": "ON",
+      "address": "ossington station, ossington bus terminal, dovercourt village, davenport, toronto, golden horseshoe, ontario, m6h 1l1, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 21761,
+      "province": "ON",
+      "address": "outlook manor, 55, outlook avenue, rockcliffe-smythe, york south—weston, york, toronto, golden horseshoe, ontario, m6n, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 28061,
+      "province": "ON",
+      "address": "outlook manor, 55, outlook avenue, rockcliffe-smythe, york south—weston, york, toronto, golden horseshoe, ontario, m6n, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 22609,
+      "province": "ON",
+      "address": "oxford road 8, east zorra-tavistock, oxford county, southwestern ontario, ontario, n0j 1l0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 26893,
+      "province": "ON",
+      "address": "oxford road 8, east zorra-tavistock, oxford county, southwestern ontario, ontario, n0j 1l0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 29986,
+      "province": "ON",
+      "address": "pawgwasheeng  / pays plat, thunder bay district, northwestern ontario, ontario, p0t 3c0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 36363,
+      "province": "ON",
+      "address": "pawgwasheeng  / pays plat, thunder bay district, northwestern ontario, ontario, p0t 3c0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 20953,
+      "province": "ON",
+      "address": "pickering sideline 24, pickering, durham region, golden horseshoe, ontario, l0h 1j0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 30405,
+      "province": "ON",
+      "address": "pickering sideline 24, pickering, durham region, golden horseshoe, ontario, l0h 1j0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 23332,
+      "province": "ON",
+      "address": "pioneer drive, thunder bay, thunder bay district, northwestern ontario, ontario, p7g 1j2, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 30875,
+      "province": "ON",
+      "address": "pioneer drive, thunder bay, thunder bay district, northwestern ontario, ontario, p7g 1j2, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 21205,
+      "province": "ON",
+      "address": "pioneer line, chatham, chatham-kent, ontario, n7l 0e8, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 28106,
+      "province": "ON",
+      "address": "pioneer line, chatham, chatham-kent, ontario, n7l 0e8, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 27178,
+      "province": "ON",
+      "address": "polar star road, wabigoon, unorganized kenora district, kenora district, northwestern ontario, ontario, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 27851,
+      "province": "ON",
+      "address": "polar star road, wabigoon, unorganized kenora district, kenora district, northwestern ontario, ontario, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 23419,
+      "province": "ON",
+      "address": "prolite glass & mirrors, 2151, bantree street, alta vista, ottawa, eastern ontario, ontario, k1b 4e4, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 32451,
+      "province": "ON",
+      "address": "prolite glass & mirrors, 2151, bantree street, alta vista, ottawa, eastern ontario, ontario, k1b 4e4, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 24351,
+      "province": "ON",
+      "address": "purple valley road, purple valley, south bruce peninsula, bruce county, southwestern ontario, ontario, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 28111,
+      "province": "ON",
+      "address": "purple valley road, purple valley, south bruce peninsula, bruce county, southwestern ontario, ontario, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 27975,
+      "province": "ON",
+      "address": "road 106, unorganized north algoma, algoma district, northeastern ontario, ontario, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 36282,
+      "province": "ON",
+      "address": "road 106, unorganized north algoma, algoma district, northeastern ontario, ontario, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 26782,
+      "province": "ON",
+      "address": "rock-tech, 160, magill street, lively, greater sudbury, sudbury district, northeastern ontario, ontario, p3y 1k6, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 20962,
+      "province": "ON",
+      "address": "rogers (600mhz, 700mhz, 2100mhz), cherrycrest drive, brampton, peel region, golden horseshoe, ontario, l6p 0s2, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 30380,
+      "province": "ON",
+      "address": "rogers (600mhz, 700mhz, 2100mhz), cherrycrest drive, brampton, peel region, golden horseshoe, ontario, l6p 0s2, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 22866,
+      "province": "ON",
+      "address": "rosseau lake road 1, muskoka lakes township, district municipality of muskoka, muskoka district, central ontario, ontario, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 25899,
+      "province": "ON",
+      "address": "rosseau lake road 1, muskoka lakes township, district municipality of muskoka, muskoka district, central ontario, ontario, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 24682,
+      "province": "ON",
+      "address": "rosslyn road, thunder bay, thunder bay district, northwestern ontario, ontario, p7e 6s2, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 25656,
+      "province": "ON",
+      "address": "rosslyn road, thunder bay, thunder bay district, northwestern ontario, ontario, p7e 6s2, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 23403,
+      "province": "ON",
+      "address": "sauble falls parkway, sauble falls, south bruce peninsula, bruce county, southwestern ontario, ontario, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 23587,
+      "province": "ON",
+      "address": "sauble falls parkway, sauble falls, south bruce peninsula, bruce county, southwestern ontario, ontario, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 22394,
+      "province": "ON",
+      "address": "scarcliff road, muskoka lakes township, district municipality of muskoka, muskoka district, central ontario, ontario, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 31027,
+      "province": "ON",
+      "address": "schreiber discovery centre, highway 17, schreiber, schreiber township, thunder bay district, northwestern ontario, ontario, p0t 2s0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 33510,
+      "province": "ON",
+      "address": "schreiber discovery centre, highway 17, schreiber, schreiber township, thunder bay district, northwestern ontario, ontario, p0t 2s0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 33337,
+      "province": "ON",
+      "address": "searchmont resort, 103, highway 532, searchmont, unorganized north algoma, algoma district, northeastern ontario, ontario, p0s 1j0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 35137,
+      "province": "ON",
+      "address": "searchmont resort, 103, highway 532, searchmont, unorganized north algoma, algoma district, northeastern ontario, ontario, p0s 1j0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 28088,
+      "province": "ON",
+      "address": "sfreddo drive, unorganized kenora district, kenora district, northwestern ontario, ontario, p8n 1r4, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 34128,
+      "province": "ON",
+      "address": "sfreddo drive, unorganized kenora district, kenora district, northwestern ontario, ontario, p8n 1r4, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 22094,
+      "province": "ON",
+      "address": "shadow lake trail, waterford, norfolk county, southwestern ontario, ontario, n0e 1y0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 26328,
+      "province": "ON",
+      "address": "shadow lake trail, waterford, norfolk county, southwestern ontario, ontario, n0e 1y0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 26571,
+      "province": "ON",
+      "address": "sharpe's lane, elizabethtown-kitley, leeds and grenville counties, eastern ontario, ontario, k6v 7b6, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 35068,
+      "province": "ON",
+      "address": "sharpe's lane, elizabethtown-kitley, leeds and grenville counties, eastern ontario, ontario, k6v 7b6, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 22444,
+      "province": "ON",
+      "address": "sideroad 70, chatsworth, grey county, ontario, n0h 1c0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 30079,
+      "province": "ON",
+      "address": "sideroad 70, chatsworth, grey county, ontario, n0h 1c0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 22858,
+      "province": "ON",
+      "address": "skyline road, oakwood, kawartha lakes, central ontario, ontario, k0m 2m0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 27192,
+      "province": "ON",
+      "address": "skyline road, oakwood, kawartha lakes, central ontario, ontario, k0m 2m0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 22637,
+      "province": "ON",
+      "address": "smith road, gravenhurst, district municipality of muskoka, muskoka district, central ontario, ontario, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 32063,
+      "province": "ON",
+      "address": "smith road, gravenhurst, district municipality of muskoka, muskoka district, central ontario, ontario, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 23366,
+      "province": "ON",
+      "address": "southgate road 24, southgate, grey county, southwestern ontario, ontario, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 28118,
+      "province": "ON",
+      "address": "southgate road 24, southgate, grey county, southwestern ontario, ontario, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 29117,
+      "province": "ON",
+      "address": "sprucedale youth centre, ireland road, simcoe, norfolk county, southwestern ontario, ontario, n3y 5j8, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 26930,
+      "province": "ON",
+      "address": "st francis xavier secondary school, 1145, bronte street south, milton, halton region, golden horseshoe, ontario, l9t 8b4, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 25025,
+      "province": "ON",
+      "address": "taunton road east, audley north, ajax, durham region, golden horseshoe, ontario, l1z 1t4, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 30554,
+      "province": "ON",
+      "address": "taunton road east, audley north, ajax, durham region, golden horseshoe, ontario, l1z 1t4, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 33128,
+      "province": "ON",
+      "address": "the duke, frog creek road, gojijiing / couchiching, rainy river district, northwestern ontario, ontario, p9a 2s2, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 34751,
+      "province": "ON",
+      "address": "the duke, frog creek road, gojijiing / couchiching, rainy river district, northwestern ontario, ontario, p9a 2s2, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 27552,
+      "province": "ON",
+      "address": "the york club, 135, st george street, annex, university—rosedale, toronto, golden horseshoe, ontario, m5s 1w7, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 33600,
+      "province": "ON",
+      "address": "the york club, 135, st george street, annex, university—rosedale, toronto, golden horseshoe, ontario, m5s 1w7, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 27471,
+      "province": "ON",
+      "address": "townline road north, eastdale, clarington, durham region, golden horseshoe, ontario, l1k 0s4, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 29461,
+      "province": "ON",
+      "address": "townline road north, eastdale, clarington, durham region, golden horseshoe, ontario, l1k 0s4, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 24033,
+      "province": "ON",
+      "address": "tramway road, dresden, chatham-kent, ontario, n0p 1m0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 24285,
+      "province": "ON",
+      "address": "tramway road, dresden, chatham-kent, ontario, n0p 1m0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 28128,
+      "province": "ON",
+      "address": "trillium road, muskoka lakes township, district municipality of muskoka, muskoka district, central ontario, ontario, p0b 1j0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 23207,
+      "province": "ON",
+      "address": "ultramar, 94, bridge street south, hastings, trent hills, northumberland county, central ontario, ontario, k0l 1y0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 31255,
+      "province": "ON",
+      "address": "ultramar, 94, bridge street south, hastings, trent hills, northumberland county, central ontario, ontario, k0l 1y0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 22241,
+      "province": "ON",
+      "address": "unorganized west manitoulin, manitoulin district, northeastern ontario, ontario, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 26747,
+      "province": "ON",
+      "address": "unorganized west manitoulin, manitoulin district, northeastern ontario, ontario, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 21041,
+      "province": "ON",
+      "address": "william roe boulevard, newmarket, york region, golden horseshoe, ontario, l3y 5y1, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 25423,
+      "province": "ON",
+      "address": "winders bay road, lake of bays township, district municipality of muskoka, muskoka district, central ontario, ontario, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 28876,
+      "province": "ON",
+      "address": "winders bay road, lake of bays township, district municipality of muskoka, muskoka district, central ontario, ontario, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 26023,
+      "province": "ON",
+      "address": "woodroffe road, muskoka lakes township, district municipality of muskoka, muskoka district, central ontario, ontario, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 33679,
+      "province": "ON",
+      "address": "woodroffe road, muskoka lakes township, district municipality of muskoka, muskoka district, central ontario, ontario, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 21310,
+      "province": "ON",
+      "address": "zephyr road, uxbridge, durham region, golden horseshoe, ontario, l0c 1c0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 28705,
+      "province": "ON",
+      "address": "zephyr road, uxbridge, durham region, golden horseshoe, ontario, l0c 1c0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 25662,
+      "province": "ON",
+      "address": "école sacré-coeur, 14, strathcona street, chapleau, chapleau township, sudbury district, northeastern ontario, ontario, p0m 1k0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    },
+    {
+      "id": 33764,
+      "province": "ON",
+      "address": "école sacré-coeur, 14, strathcona street, chapleau, chapleau township, sudbury district, northeastern ontario, ontario, p0m 1k0, canada",
+      "previousStatusId": null,
+      "updatedAtBefore": "2026-10-15T01:33:13.135Z",
+      "updatedAtAfter": "2026-10-15T01:33:21.121Z"
+    }
+  ]
+}
