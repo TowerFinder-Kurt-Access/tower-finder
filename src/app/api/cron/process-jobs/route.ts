@@ -29,9 +29,12 @@ export async function GET(request: Request) {
         }
 
         // 1. If no jobs are pending, trigger the initial batches for all key services
-        const pendingCount = await (prisma as any).jobQueue.count({ where: { status: 'pending' } });
+        const pendingCount = await prisma.jobQueue.count({ where: { status: 'pending' } });
         if (pendingCount === 0) {
             console.log('[Cron] No pending jobs. Triggering initial batches...');
+            // score_towers is seeded like the rest: it re-enqueues itself while
+            // stale rows remain, so any queue position also drains the backlog.
+            await enqueueJob('score_towers', { batchSize: 5000 });
             await enqueueJob('validate_phone_numbers', { batchSize: 50 });
             await enqueueJob('process_nrcan_batch', {});
             await enqueueJob('submit_geoapify_batch', {});

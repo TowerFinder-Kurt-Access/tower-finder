@@ -18,10 +18,25 @@ import NotesIcon from '@mui/icons-material/Notes';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import { pinnedMapUrl } from '@/lib/google-maps';
+import { calibratedPercent } from '@/lib/ml/calibration';
 
-// Defined at module level so MUI DataGrid receives a stable slot reference —
-// a new function on every render causes DataGrid to unmount/remount the footer
-// which can trigger spurious onPaginationModelChange resets.
+// The score is a ranking heuristic, not a tower detector.
+const AI_SCORE_TOOLTIP = [
+    'Heuristic rank, not a tower detection.',
+    'Model rf-v2 reads business density, tower spacing, and the FCC registry.',
+    'It never looks at map or satellite imagery.',
+    'Region is not an input, so the score does not shift with the location filter.',
+    'The percent is the measured tower rate for this score range, not the raw model vote share.',
+    'Measured on Canadian review labels, so treat it as an upper bound in other regions.',
+    'Use it to order your review queue only.',
+].join(' ');
+
+// Bands follow the calibrated display scale, where the measured tower rate for
+// the flag range is 83%. The old 70/55 cutoffs predated calibration and would
+// have made every row amber despite being the most reliable band.
+const AI_SCORE_GREEN_PCT = 70;
+const AI_SCORE_WARN_PCT = 35;
+
 interface CustomFooterSlotProps {
     currentPage: number;
     jumpPage: string;
@@ -123,9 +138,7 @@ export default function TowerTableSimple({
     onPageChange,
     onRowsPerPageChange,
     onViewOnMap,
-    onGetOwner,
     onViewDetails,
-    isOwnerLoading,
     isLoading,
     isExporting,
     filterOptions,
@@ -174,16 +187,19 @@ export default function TowerTableSimple({
     const selectionCount = getSelectionCount();
     const selectionIds = getSelectionIds();
 
-    React.useEffect(() => {
+    // Reset the box when the committed search value changes from outside (filter chips, back navigation).
+    const [syncedSearch, setSyncedSearch] = React.useState(filters.search);
+    if (syncedSearch !== filters.search) {
+        setSyncedSearch(filters.search);
         setLocalSearch(filters.search || '');
-    }, [filters.search]);
+    }
 
     const handleSearchSubmit = (e?: React.FormEvent) => {
         if (e) e.preventDefault();
         onFilterChange({ ...filters, search: localSearch.trim() || undefined });
     };
 
-    // Default column visibility (lat/lon hidden by default)
+    // Default column visibility (lat/lon hidden by default).
     const defaultVisibility: GridColumnVisibilityModel = {
         lat: false,
         lon: false,
@@ -191,7 +207,7 @@ export default function TowerTableSimple({
         avgBusinessDistance: true,
     };
 
-    // Column visibility with localStorage persistence
+    // Column visibility with localStorage persistence.
     const [columnVisibilityModel, setColumnVisibilityModel] = React.useState<GridColumnVisibilityModel>(() => {
         if (typeof window !== 'undefined') {
             const saved = localStorage.getItem('towersColumnVisibility');
@@ -199,7 +215,7 @@ export default function TowerTableSimple({
                 try {
                     return JSON.parse(saved);
                 } catch (e) {
-                    // ignore
+                    // ignore.
                 }
             }
         }
@@ -214,22 +230,8 @@ export default function TowerTableSimple({
     const handleJumpToPage = (e: React.FormEvent) => {
         e.preventDefault();
         const pageNum = parseInt(jumpPage, 10);
-        // Ensure page is within valid range (1 to totalPages)
-        const totalPages = Math.ceil(totalCount / rowsPerPage);
-
         if (!isNaN(pageNum) && pageNum >= 1) {
-            // Convert 1-based user input to 0-based API page
-            // If user enters a number larger than max, standard behavior is often to go to last page,
-            // or we can let the API handle it / user beware. Let's clamp it if we know total.
-            // But we might be in server-side pagination where we don't know total easily in all cases?
-            // current totalCount is passed in.
-
-            // Allow jumping beyond current known count if user wants to try, 
-            // but usually we should clamp to totalPages if known. 
-            // However, typical "Jump to" features allow going to any page.
-
-            const targetPage = pageNum - 1;
-            onPageChange(targetPage);
+            onPageChange(pageNum - 1); // 1-based input to 0-based API page
         }
     };
 
@@ -267,16 +269,9 @@ export default function TowerTableSimple({
         }
     };
 
-    const handleGetOwner = () => {
-        if (selectedTower) {
-            onGetOwner(selectedTower);
-            handleMenuClose();
-        }
-    };
-
     const handleOpenBingMaps = () => {
         if (selectedTower) {
-            // Open Bing Maps at the tower location with nearby places search
+            // Open Bing Maps at the tower location with nearby places search.
             const bingMapsUrl = `https://www.bing.com/maps?cp=${selectedTower.lat}~${selectedTower.lon}&lvl=17&style=r`;
             window.open(bingMapsUrl, '_blank', 'noopener,noreferrer');
             handleMenuClose();
@@ -290,40 +285,12 @@ export default function TowerTableSimple({
         }
     };
 
-    const handleFilterModelChange = (filterModel: any) => {
-        // Guard: only propagate when there are actual column-filter items with values.
-        // Without this guard the DataGrid can fire onFilterModelChange spuriously
-        // (e.g. during internal state sync when rows/paginationModel change), which
-        // would unconditionally call onFilterChange → setPage(0) and reset pagination.
-        if (!filterModel.items || filterModel.items.length === 0) return;
-
-        const newFilters: { city?: string; state?: string; county?: string; zip?: string; type?: string; carrier?: string; status?: string; address?: string; search?: string } = { ...filters };
-        let changed = false;
-
-        filterModel.items.forEach((item: any) => {
-            if (item.value) {
-                switch (item.field) {
-                    case 'city': newFilters.city = item.value; changed = true; break;
-                    case 'county': newFilters.county = item.value; changed = true; break;
-                    case 'state': newFilters.state = item.value; changed = true; break;
-                    case 'zip': newFilters.zip = item.value; changed = true; break;
-                    case 'type': newFilters.type = item.value; changed = true; break;
-                    case 'carrier': newFilters.carrier = item.value; changed = true; break;
-                    case 'status': newFilters.status = item.value; changed = true; break;
-                    case 'address': newFilters.address = item.value; changed = true; break;
-                }
-            }
-        });
-
-        if (changed) onFilterChange(newFilters);
-    };
-
-    // Helper: count how many filter keys have a truthy value
+    // Helper: count how many filter keys have a truthy value.
     const activeFilterCount = Object.values(filters).filter(v => v && v.length > 0).length;
 
     const handleExternalFilterChange = (field: string, values: string[]) => {
         const newFilters = { ...filters, [field]: values.join(',') };
-        // Remove keys with empty value
+        // Remove keys with empty value.
         if (!values.length) delete (newFilters as any)[field];
         onFilterChange(newFilters);
     };
@@ -334,14 +301,14 @@ export default function TowerTableSimple({
         handleExternalFilterChange(field, updated);
     };
 
-    // Collect all active filter chips for display
+    // Collect all active filter chips for display.
     const activeChips: { field: string; label: string; value: string }[] = [];
     const fieldLabels: Record<string, string> = {
         city: 'City', state: country === 'USA' ? 'State' : 'Province',
         county: 'County', zip: country === 'USA' ? 'ZIP' : 'Postal Code',
         type: 'Type', status: 'Status', carrier: 'Carrier',
         minBusinessCount: 'Min Businesses', maxAvgDistance: 'Max Distance',
-        minAiScore: 'Min AI %', maxAiScore: 'Max AI %'
+        minAiScore: 'Min AI Score %', maxAiScore: 'Max AI Score %'
     };
     for (const [field, label] of Object.entries(fieldLabels)) {
         const val = (filters as any)[field];
@@ -585,20 +552,35 @@ export default function TowerTableSimple({
         {
             field: 'aiTowerScore',
             headerName: 'AI Score',
-            width: 100,
+            width: 140,
             type: 'number',
+            renderHeader: () => (
+                <Tooltip
+                    title={AI_SCORE_TOOLTIP}
+                    placement="top"
+                    componentsProps={{ tooltip: { sx: { maxWidth: 320 } } }}
+                >
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>AI Score</Typography>
+                </Tooltip>
+            ),
             renderCell: (params: GridRenderCellParams) => {
                 const score = params.row.aiTowerScore;
                 if (score === null || score === undefined) {
                     return <Typography variant="body2" color="text.secondary">–</Typography>;
                 }
-                const pct = Math.round(score * 100);
+                const raw = score as number;
+                // Display the measured tower rate for the band, not the raw vote
+                // share: 0.36 is 180 of 500 trees, while the same band verifies
+                // as a tower 83% of the time.
+                const pct = calibratedPercent(raw);
                 return (
-                    <Chip
-                        label={`${pct}%`}
-                        size="small"
-                        color={pct >= 70 ? 'success' : pct >= 40 ? 'warning' : 'default'}
-                    />
+                    <Tooltip title={`${AI_SCORE_TOOLTIP} Verified at ${pct}% for this score range.`} placement="top" componentsProps={{ tooltip: { sx: { maxWidth: 320 } } }}>
+                        <Chip
+                            label={`${pct}%`}
+                            size="small"
+                            color={pct >= AI_SCORE_GREEN_PCT ? 'success' : pct >= AI_SCORE_WARN_PCT ? 'warning' : 'default'}
+                        />
+                    </Tooltip>
                 );
             }
         },
@@ -676,13 +658,13 @@ export default function TowerTableSimple({
             field: 'lat',
             headerName: 'Latitude',
             width: 100,
-            valueGetter: (value: any, row: any) => row.lat?.toFixed(6) || ''
+            valueGetter: (_value: any, row: any) => row.lat?.toFixed(6) || ''
         },
         {
             field: 'lon',
             headerName: 'Longitude',
             width: 100,
-            valueGetter: (value: any, row: any) => row.lon?.toFixed(6) || ''
+            valueGetter: (_value: any, row: any) => row.lon?.toFixed(6) || ''
         },
         {
             field: 'businessCount',
@@ -730,13 +712,10 @@ export default function TowerTableSimple({
         },
     ];
 
-    // Sorting runs server-side; only fields the API can order by are sortable
+    // Sorting runs server-side; only fields the API can order by are sortable.
     const SERVER_SORTABLE = new Set(['id', 'businessCount', 'avgBusinessDistance', 'aiTowerScore', 'hasOwnerName']);
     const sortableColumns = columns.map(c => ({ ...c, sortable: SERVER_SORTABLE.has(c.field) }));
 
-    // Stable references for controlled DataGrid props — creating new objects/arrays on
-    // every render causes MUI DataGrid v8 to fire onSortModelChange / onPaginationModelChange
-    // spuriously, which calls setPage(0) and resets the user back to the first page.
     const sortModelArray = React.useMemo(
         () => sortModel ? [{ field: sortModel.field, sort: sortModel.order }] : [],
         [sortModel]
@@ -762,7 +741,7 @@ export default function TowerTableSimple({
                     const newSort = (model.length === 0 || !model[0].sort)
                         ? null
                         : { field: model[0].field, order: model[0].sort as 'asc' | 'desc' };
-                    // Guard: skip if sort hasn't actually changed (prevents spurious setPage(0))
+                    // Guard: skip if sort hasn't actually changed (prevents spurious setPage(0)).
                     if (newSort?.field === sortModel?.field && newSort?.order === sortModel?.order) return;
                     onSortChange(newSort);
                 }}
@@ -780,7 +759,7 @@ export default function TowerTableSimple({
                 rowSelectionModel={selectionModel}
                 onRowSelectionModelChange={handleSelectionChange}
                 processRowUpdate={(newRow, oldRow) => {
-                    // Find which field changed
+                    // Find which field changed.
                     const editableFields = ['type', 'carrier', 'status'];
                     for (const field of editableFields) {
                         if (newRow[field] !== oldRow[field] && onCellEdit) {
@@ -842,12 +821,9 @@ export default function TowerTableSimple({
                     </ListItemIcon>
                     <ListItemText>Open Satellite View</ListItemText>
                 </MenuItem>
-                {/* <MenuItem onClick={handleGetOwner} disabled={isOwnerLoading}>
-                    <ListItemIcon>
-                        <BusinessIcon fontSize="small" />
-                    </ListItemIcon>
-                    <ListItemText>{isOwnerLoading ? 'Loading Property Owner...' : 'Lookup Property Owner'}</ListItemText>
-                </MenuItem> */}
+                {/* Lookup Property Owner was removed as dead code: the button never had a
+                    consumer. handleLookupOwner in src/app/towers/page.tsx still works and is
+                    reachable from the tower detail page. */}
                 <MenuItem onClick={handleOpenBingMaps}>
                     <ListItemIcon>
                         <TravelExploreIcon fontSize="small" />

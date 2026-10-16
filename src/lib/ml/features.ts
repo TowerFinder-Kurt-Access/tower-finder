@@ -1,38 +1,66 @@
-/**
- * Feature extraction for the tower classifier.
- *
- * Used by both training (scripts/train-tower-classifier.ts) and scoring
- * (scripts/score-towers.ts) so the two can never drift: FEATURE_NAMES is the
- * single source of truth for vector order and is serialized with the model.
- *
- * Leakage rules — these fields encode the *outcome* of human review and must
- * never be features: statusId, typeId (96% of unreviewed towers sit at the
- * default "Other Structure"; reviewed ones were re-typed by hand), note
- * counts/content, legacyStatus, humanLabel.
- */
+/** Feature extraction shared by training and scoring. */
 import { latLngToCell, gridDisk } from 'h3-js';
+import { registryEvidenceFor, REG_UNMEASURED } from './registry';
+import type { RegistryIndex } from './registry';
 
 const H3_RES = 8; // ~461 m hex edge
 const MAX_RING = 4; // nearest-neighbor search horizon (~3.5 km)
 const NEAREST_CAP_M = 5000;
+const BIZ_UNMEASURED = 99;
 
-/** Tower source files double as a coarse region indicator. */
-const SOURCE_BUCKETS = [
-    'BC', 'Alberta', 'Saskatchewan', 'Manitoba', 'Ontario', 'Quebec',
-    'East Coast', 'NorthWest', 'markslist',
-] as const;
-
+// Region features are deliberately absent. Labels come from region-correlated
+// sources (Canadian review spreadsheets, and US OpenStreetMap tags when those
+// are in use), so any location column lets the forest infer the label instead
+// of measuring the tower. All other features are honest: none of them separates
+// the labeled set on its own (single-feature AUC 0.40-0.67).
 export const FEATURE_NAMES: string[] = [
     'businessCount',
     'hasAvgBusinessDistance',
     'avgBusinessDistance',
     'logNearestTowerM',
     'towersWithin1Ring',
-    'lat',
-    'lon',
-    ...SOURCE_BUCKETS.map(s => `src_${s}`),
-    'src_other',
+    'logNearestBusinessM',
+    // Business aggregates read straight from BusinessNearby.
+    'bizCount',
+    'bizWithin150',
+    'bizWithin400',
+    'bizCategoryKinds',
+    // Registry structures read from the file cache in data/registry-cache/.
+    'regWithin150',
+    'regWithin400',
+    'logNearestRegistryM',
+    'registryHeightM',
 ];
+
+export interface BusinessAggregate {
+    towerId: number;
+    n: number;
+    n150: number;
+    n400: number;
+    minM: number;
+    cats: number;
+}
+
+export const BUSINESS_FEATURES_SQL = `
+    SELECT "towerId"::int AS "towerId",
+           count(*)::int AS n,
+           count(*) FILTER (WHERE "distance" <= 150)::int AS n150,
+           count(*) FILTER (WHERE "distance" <= 400)::int AS n400,
+           min("distance")::float AS "minM",
+           count(DISTINCT "rawData"->'properties'->'categories'->>0)::int AS cats
+    FROM "BusinessNearby"
+    GROUP BY "towerId"`;
+
+export const BUSINESS_FEATURES_FOR_IDS_SQL = `
+    SELECT "towerId"::int AS "towerId",
+           count(*)::int AS n,
+           count(*) FILTER (WHERE "distance" <= 150)::int AS n150,
+           count(*) FILTER (WHERE "distance" <= 400)::int AS n400,
+           min("distance")::float AS "minM",
+           count(DISTINCT "rawData"->'properties'->'categories'->>0)::int AS cats
+    FROM "BusinessNearby"
+    WHERE "towerId" = ANY($1::int[])
+    GROUP BY "towerId"`;
 
 export interface FeatureTower {
     id: number;
@@ -45,6 +73,8 @@ export interface FeatureTower {
 
 export interface TowerContext {
     cells: Map<string, { id: number; lat: number; lon: number }[]>;
+    business: Map<number, BusinessAggregate>;
+    registry?: RegistryIndex;
 }
 
 function haversineM(lat1: number, lon1: number, lat2: number, lon2: number) {
@@ -56,12 +86,12 @@ function haversineM(lat1: number, lon1: number, lat2: number, lon2: number) {
     return 2 * R * Math.asin(Math.sqrt(a));
 }
 
-/**
- * Spatial index over the full tower population. Density features are computed
- * against ALL towers (any status) — presence in the scrape, not review outcome,
- * so they are equally defined for labeled and unlabeled rows.
- */
-export function buildTowerContext(towers: { id: number; lat: number; lon: number }[]): TowerContext {
+/** Spatial index over the full tower population. */
+export function buildTowerContext(
+    towers: { id: number; lat: number; lon: number }[],
+    business: BusinessAggregate[] = [],
+    registry?: RegistryIndex
+): TowerContext {
     const cells = new Map<string, { id: number; lat: number; lon: number }[]>();
     for (const t of towers) {
         const cell = latLngToCell(t.lat, t.lon, H3_RES);
@@ -69,7 +99,7 @@ export function buildTowerContext(towers: { id: number; lat: number; lon: number
         list.push(t);
         cells.set(cell, list);
     }
-    return { cells };
+    return { cells, business: new Map(business.map(b => [b.towerId, b])), registry };
 }
 
 function nearestOtherTowerM(ctx: TowerContext, lat: number, lon: number, selfId: number): number {
@@ -99,30 +129,35 @@ function towersInOneRing(ctx: TowerContext, lat: number, lon: number, selfId: nu
     return count;
 }
 
-function sourceBucket(source: string): string {
-    for (const b of SOURCE_BUCKETS) {
-        if (source.includes(b)) return b;
-    }
-    return 'other';
-}
-
-/**
- * Returns the numeric feature vector in FEATURE_NAMES order.
- * Continuous values are quantized — coarser than the signal we need, and it
- * keeps the pure-JS CART trainer fast (split candidates scale with unique values).
- */
+/** Returns the numeric feature vector in FEATURE_NAMES order. */
 export function towerToFeatures(tower: FeatureTower, ctx: TowerContext): number[] {
     const nearest = nearestOtherTowerM(ctx, tower.lat, tower.lon, tower.id);
-    const bucket = sourceBucket(tower.source);
+    const biz = ctx.business.get(tower.id);
+    // A tower with no BusinessNearby rows is unmeasured, not empty.
+    const n = biz ? Math.min(biz.n, 60) : BIZ_UNMEASURED;
+    const n150 = biz ? Math.min(biz.n150, 6) : BIZ_UNMEASURED;
+    const n400 = biz ? Math.min(biz.n400, 20) : BIZ_UNMEASURED;
+    const nearestBiz = biz ? biz.minM : NEAREST_CAP_M;
+    const cats = biz ? Math.min(biz.cats, 8) : BIZ_UNMEASURED;
+    // Registry evidence, same sentinel convention: no cache rows in range is
+    // unmeasured, not proof of absence.
+    const reg = ctx.registry ? registryEvidenceFor(ctx.registry, tower.lat, tower.lon) : null;
     return [
         tower.businessCount ?? 0,
         tower.avgBusinessDistance !== null ? 1 : 0,
         Math.round((tower.avgBusinessDistance ?? 0) / 10) * 10,
         Math.round(Math.log1p(nearest) * 10) / 10,
         towersInOneRing(ctx, tower.lat, tower.lon, tower.id),
-        Math.round(tower.lat * 20) / 20, // ~5 km grid — region signal, not address
-        Math.round(tower.lon * 20) / 20,
-        ...SOURCE_BUCKETS.map(s => (bucket === s ? 1 : 0)),
-        bucket === 'other' ? 1 : 0,
+        n,
+        n150,
+        n400,
+        Math.round(Math.log1p(nearestBiz) * 10) / 10,
+        cats,
+        // Registry evidence. A row with no registry cell in range is
+        // unmeasured, not isolated: distinct sentinels, never zero.
+        reg && reg.measured ? reg.within150 : REG_UNMEASURED,
+        reg && reg.measured ? reg.within400 : REG_UNMEASURED,
+        reg && reg.measured ? Math.round(Math.log1p(reg.nearestM) * 10) / 10 : Math.round(Math.log1p(NEAREST_CAP_M) * 10) / 10,
+        reg?.heightM ?? -1,
     ];
 }

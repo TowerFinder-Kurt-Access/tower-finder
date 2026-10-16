@@ -1,16 +1,4 @@
-/**
- * Backfill Tower.humanLabel from the review signals confirmed by the Phase 0
- * audit (docs/phase0-label-audit.md):
- *   not_tower — status "No GSV" (9) OR a note containing "no cell" / "no tower"
- *               / "not a tower"
- *   tower     — status in {3,5,10,11,12,13,14,15,17}
- * Towers with a positive status AND a negative note are conflicted: skipped.
- *
- * Idempotent: recomputes labels from scratch each run (only touches rows whose
- * label would change), so it can be re-run as reviewers add notes/statuses.
- *
- * Run: npx tsx --env-file=.env scripts/backfill-tower-labels.ts
- */
+// Backfill Tower.humanLabel from the review signals confirmed by the Phase 0 audit (docs/phase0-label-audit.md): not_tower — status "No GSV" (9) OR a note containing "no cell" / "no tower" / "not a tower" tower — status in {3,5,10,11,12,13,14,15,17} Towers with a positive status AND a negative note are conflicted: skipped.
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
@@ -61,7 +49,7 @@ async function main() {
         }
     }
 
-    const changes = [...targets.entries()];
+    const changes = Array.from(targets.entries());
     const now = new Date();
     const CHUNK = 500;
     for (let i = 0; i < changes.length; i += CHUNK) {
@@ -85,7 +73,7 @@ async function main() {
     console.log(`tower:      ${counts.tower}`);
     console.log(`not_tower:  ${counts.not_tower}`);
     console.log(`conflicted: ${counts.conflicted} (skipped)`);
-    console.log(`unlabeled:  ${counts.unlabeled}`);
+    console.log(`unlabeled: ${counts.unlabeled}`);
     console.log(`rows written this run: ${counts.updated}`);
 }
 

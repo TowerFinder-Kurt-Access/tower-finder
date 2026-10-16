@@ -4,6 +4,7 @@ import { processNRCanBatch } from './jobs/nrcan';
 import { validatePhoneNumbers } from './jobs/phone-validation';
 import { normalizeLocations } from './jobs/normalization';
 import { processArcGISCountyDiscovery } from './jobs/arcgisDiscovery';
+import { scoreTowerBatch } from './jobs/scoreTowers';
 
 // Re-export individual handlers for internal use and testing
 export { 
@@ -13,7 +14,8 @@ export {
     processNRCanBatch, 
     validatePhoneNumbers, 
     normalizeLocations,
-    processArcGISCountyDiscovery
+    processArcGISCountyDiscovery,
+    scoreTowerBatch
 };
 
 /**
@@ -31,6 +33,7 @@ export const JOB_HANDLERS: Record<string, (params: any, jobId?: string) => Promi
     'process_nrcan_batch': processNRCanBatch,
     'validate_phone_numbers': validatePhoneNumbers,
     'normalize_locations': normalizeLocations,
+    'score_towers': scoreTowerBatch,
     'fcc_rooftop_discovery': async (params: any, jobId?: string) => {
         const { processFCCDiscovery } = await import('./jobs/fccDiscovery');
         return processFCCDiscovery(params);
