@@ -121,5 +121,5 @@ removed.
   `Status` filter isolates them.
 - Rows a person gave a status to are never labelled, and a pair where one side was
   reviewed keeps the reviewed row and leaves the other side alone.
-- A pair where a person labelled both sides keeps both labels. The script cannot
-  tell which one a person meant to keep.
+- 900 pairs still carry the label on both rows: a person set it on one side and
+  the script set it on the other. The script never touches a status a person set.
