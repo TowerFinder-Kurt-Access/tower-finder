@@ -47,15 +47,19 @@ status. Those rows are reported and left alone.
 ## The run of 2026-10-21
 
 - Tolerance 25 m, every province.
-- Labeled 3011 rows and gave the label back on 1032 rows that an earlier run had
+- Labeled 3011 rows and gave the label back on 199 rows that an earlier run had
   labelled on both sides of a pair.
 - Wrote 4531 notes of the form `Duplicate of tower #<keeper id>`.
 - Left 644 rows alone because a person had already given them a status.
 - Held back 3077 addresses: same address, but the closest two towers are further
   apart than the tolerance.
-- Backup: `data/dupes/dupe-label-2026-10-21T16-40-00-000Z.json`.
+- Backup: `data/dupes/dupe-label-2026-10-21T17-24-00-764Z.json`.
 - A second run finds nothing to do. The run is idempotent.
 - Nothing else changed. No note a person wrote was touched. No row was deleted.
+
+The undo was run on the live database and put every row back, then the run was
+repeated and every row came back to the same value. The run and its undo are
+exact inverses of each other.
 
 The run before it, on 2026-10-15, is in
 `data/dupes/dupe-label-2026-10-15T01-33-20-507Z.json`. It labelled 419 rows in 218
@@ -78,6 +82,7 @@ npx tsx --env-file=.env scripts/migrations/label-duplicate-towers.ts --restore -
   the app after the labeling run.
 - The undo restores the status each row had before the run, deletes the notes the
   run wrote, and puts the label back on the rows the run took it away from.
+- The undo took 14 seconds on the 2026-10-21 run.
 
 ## Run it again
 

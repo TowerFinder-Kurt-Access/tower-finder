@@ -1,5 +1,5 @@
 {
-  "createdAt": "2026-10-21T16:34:55.973Z",
+  "createdAt": "2026-10-21T17:24:18.948Z",
   "maxSeparationM": 25,
   "rule": "same Parcel address, nearest tower further apart than maxSeparationM",
   "groups": [

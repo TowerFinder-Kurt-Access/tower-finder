@@ -620,10 +620,14 @@ async function restore(backupPath: string): Promise<void> {
         revert.push(row);
     }
 
+    // A row the run labelled and later took the label back from is in both sets. The
+    // revert already puts it back to its own status, so it must not be relabelled.
+    const revertIds = new Set(backup.rows.map((r) => r.id));
     const relabel: BackupUnlabelRow[] = [];
     for (const row of backup.unlabelled ?? []) {
         const now = byId.get(row.id);
         if (!now) continue;
+        if (revertIds.has(row.id)) continue;
         if (now.statusId !== row.restoredStatusId) {
             skipped.push(`id ${row.id}: status is now ${now.statusId}, not ${row.restoredStatusId}`);
             continue;
@@ -666,27 +670,57 @@ async function restore(backupPath: string): Promise<void> {
 
     let notesRestored = 0;
     let notesDeleted = 0;
+    const toDelete: number[] = [];
+    const toRecreate: { id: number; towerId: number; content: string }[] = [];
+    const contentUpdates = new Map<string, number[]>();
     for (const note of backup.notes ?? []) {
         if (note.deleted) {
-            const current = await prisma.note.findUnique({ where: { id: note.id } });
-            if (!current) {
-                await prisma.note.create({ data: { towerId: note.towerId, content: note.content, authorId: null } });
-                notesRestored++;
-            } else if (current.content !== note.content) {
-                await prisma.note.update({ where: { id: note.id }, data: { content: note.content } });
-                notesRestored++;
-            }
-            continue;
-        }
-        const current = await prisma.note.findUnique({ where: { id: note.id } });
-        if (!current || current.content !== note.content) continue;
-        if (note.previousContent) {
-            await prisma.note.update({ where: { id: note.id }, data: { content: note.previousContent } });
-            notesRestored++;
+            toRecreate.push({ id: note.id, towerId: note.towerId, content: note.content });
+        } else if (note.previousContent) {
+            const list = contentUpdates.get(note.previousContent) ?? [];
+            list.push(note.id);
+            contentUpdates.set(note.previousContent, list);
         } else {
-            await prisma.note.delete({ where: { id: note.id } });
-            notesDeleted++;
+            toDelete.push(note.id);
         }
+    }
+
+    // Only touch a note that still carries the content the run wrote.
+    const noteIds = [...toDelete, ...[...contentUpdates.values()].flat(), ...(backup.notes ?? []).filter((n) => n.deleted).map((n) => n.id)];
+    const currentNotes = noteIds.length
+        ? await prisma.note.findMany({ where: { id: { in: noteIds } }, select: { id: true, content: true } })
+        : [];
+    const contentById = new Map(currentNotes.map((n) => [n.id, n.content]));
+
+    const deleteIds = toDelete.filter((id) => {
+        const expected = (backup.notes ?? []).find((n) => n.id === id)?.content;
+        return contentById.get(id) === expected;
+    });
+    for (const ids of chunk(deleteIds, 1000)) {
+        const result = await prisma.note.deleteMany({ where: { id: { in: ids } } });
+        notesDeleted += result.count;
+    }
+
+    for (const [previousContent, ids] of contentUpdates) {
+        const matchIds = ids.filter((id) => {
+            const expected = (backup.notes ?? []).find((n) => n.id === id)?.content;
+            return contentById.get(id) === expected;
+        });
+        for (const group of chunk(matchIds, 1000)) {
+            const result = await prisma.note.updateMany({
+                where: { id: { in: group } },
+                data: { content: previousContent },
+            });
+            notesRestored += result.count;
+        }
+    }
+
+    const recreate = toRecreate.filter((note) => !contentById.has(note.id));
+    if (recreate.length > 0) {
+        await prisma.note.createMany({
+            data: recreate.map((n) => ({ towerId: n.towerId, content: n.content, authorId: null })),
+        });
+        notesRestored += recreate.length;
     }
     console.log(`  notes deleted: ${notesDeleted}, notes restored: ${notesRestored}`);
 
