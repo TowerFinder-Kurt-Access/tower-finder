@@ -29,6 +29,7 @@ const prisma = new PrismaClient();
 
 const LABEL_NAME = 'Duplicate Tower';
 const NEW_STATUS_NAME = 'New';
+const NOTE_PREFIX = 'Duplicate of tower #';
 const BACKUP_DIR = path.join(process.cwd(), 'data', 'dupes');
 const REPORT_FILE = path.join(BACKUP_DIR, 'far-apart-latest.json');
 const EARTH_RADIUS_M = 6371000;
@@ -84,6 +85,8 @@ interface Plan {
     toLabel: LabelAction[];
     toUnlabel: UnlabelAction[];
     keepHuman: LabelAction[];
+    noteTargets: LabelAction[];
+    keepers: Row[];
     clusters: Cluster[];
     farGroups: { province: string; address: string; rowIds: number[]; nearestM: number }[];
 }
@@ -96,7 +99,6 @@ interface BackupRow {
     previousStatusId: number | null;
     updatedAtBefore: string;
     updatedAtAfter: string | null;
-    noteIds: number[];
 }
 
 interface BackupUnlabelRow {
@@ -105,6 +107,14 @@ interface BackupUnlabelRow {
     restoredStatusId: number | null;
     updatedAtBefore: string;
     updatedAtAfter: string | null;
+}
+
+interface BackupNote {
+    id: number;
+    towerId: number;
+    content: string;
+    previousContent: string | null;
+    deleted: boolean;
 }
 
 interface Backup {
@@ -116,6 +126,7 @@ interface Backup {
     rule: string;
     rows: BackupRow[];
     unlabelled: BackupUnlabelRow[];
+    notes: BackupNote[];
 }
 
 function distanceM(aLat: number, aLon: number, bLat: number, bLon: number): number {
@@ -166,7 +177,7 @@ async function selectRows(): Promise<Row[]> {
                COALESCE(a.assignments, 0)::int AS assignments
         FROM t
         JOIN g ON g.province = t.province AND g.address = t.address
-        LEFT JOIN (SELECT "towerId", count(*) AS notes FROM "Note" GROUP BY 1) n ON n."towerId" = t.id
+        LEFT JOIN (SELECT "towerId", count(*) AS notes FROM "Note" WHERE content NOT LIKE ${`${NOTE_PREFIX}%`} GROUP BY 1) n ON n."towerId" = t.id
         LEFT JOIN (SELECT "towerId", count(*) AS assignments FROM "TowerAssignment" GROUP BY 1) a ON a."towerId" = t.id
         ORDER BY t.province, t.address, t.id
     `);
@@ -209,6 +220,8 @@ function buildPlan(rows: Row[], previousStatus: Map<number, number | null>): Pla
     const toLabel: LabelAction[] = [];
     const toUnlabel: UnlabelAction[] = [];
     const keepHuman: LabelAction[] = [];
+    const noteTargets: LabelAction[] = [];
+    const keepers: Row[] = [];
     const clusters: Cluster[] = [];
     const farGroups: Plan['farGroups'] = [];
 
@@ -268,10 +281,9 @@ function buildPlan(rows: Row[], previousStatus: Map<number, number | null>): Pla
                 .sort((a, b) => keeperScore(b) - keeperScore(a) || a.id - b.id)[0];
             const others = group.filter((m) => m.id !== keeper.id);
 
-            const clusterDistances: number[] = [];
-            for (const [i, j, d] of edges) {
-                if (indices.includes(i) && indices.includes(j)) clusterDistances.push(d);
-            }
+            const clusterDistances = edges
+                .filter(([i, j]) => indices.includes(i) && indices.includes(j))
+                .map(([, , d]) => d);
             clusters.push({
                 province: keeper.province,
                 address: keeper.address,
@@ -281,13 +293,16 @@ function buildPlan(rows: Row[], previousStatus: Map<number, number | null>): Pla
                 spreadM: Math.max(...clusterDistances),
             });
 
+            keepers.push(keeper);
+
             for (const other of others) {
-                if (other.statusId !== null && other.statusName === LABEL_NAME) continue; // already labelled
-                if (other.statusId !== null && other.statusName !== NEW_STATUS_NAME) {
+                const status = other.statusName ?? '';
+                if (other.statusId !== null && status !== NEW_STATUS_NAME && status !== LABEL_NAME) {
                     keepHuman.push({ row: other, keeperId: keeper.id });
                     continue;
                 }
-                toLabel.push({ row: other, keeperId: keeper.id });
+                noteTargets.push({ row: other, keeperId: keeper.id });
+                if (status !== LABEL_NAME) toLabel.push({ row: other, keeperId: keeper.id });
             }
 
             // A keeper that carries the label from an earlier run gives the label back.
@@ -302,7 +317,54 @@ function buildPlan(rows: Row[], previousStatus: Map<number, number | null>): Pla
         }
     }
 
-    return { toLabel, toUnlabel, keepHuman, clusters, farGroups };
+    return { toLabel, toUnlabel, keepHuman, noteTargets, keepers, clusters, farGroups };
+}
+
+/** Which labelled rows still need the note that points at their keeper. */
+async function planNotes(targets: LabelAction[], keepers: Row[]): Promise<{
+    existing: Map<number, { id: number; content: string }[]>;
+    stale: { id: number; towerId: number; content: string; previousContent: string }[];
+    missing: { towerId: number; content: string }[];
+    onKeeper: { id: number; towerId: number; content: string }[];
+}> {
+    const empty = { existing: new Map(), stale: [], missing: [], onKeeper: [] };
+    if (targets.length === 0 && keepers.length === 0) return empty;
+
+    const towerIds = [...targets.map((t) => t.row.id), ...keepers.map((k) => k.id)];
+    const notes = await prisma.$queryRaw<{ id: number; towerId: number; content: string }[]>(Prisma.sql`
+        SELECT id, "towerId", content FROM "Note"
+        WHERE "towerId" IN (${Prisma.join(towerIds)}) AND content LIKE ${`${NOTE_PREFIX}%`}
+    `);
+
+    const existing = new Map<number, { id: number; content: string }[]>();
+    for (const note of notes) {
+        const list = existing.get(note.towerId) ?? [];
+        list.push({ id: note.id, content: note.content });
+        existing.set(note.towerId, list);
+    }
+
+    const stale: { id: number; towerId: number; content: string; previousContent: string }[] = [];
+    const missing: { towerId: number; content: string }[] = [];
+    for (const target of targets) {
+        const content = `${NOTE_PREFIX}${target.keeperId}`;
+        const found = existing.get(target.row.id) ?? [];
+        if (found.some((n) => n.content === content)) continue;
+        const previous = found[0];
+        if (previous) {
+            stale.push({ id: previous.id, towerId: target.row.id, content, previousContent: previous.content });
+        } else {
+            missing.push({ towerId: target.row.id, content });
+        }
+    }
+
+    // A keeper that still carries the note of an earlier run points at a row that is
+    // no longer its keeper. The note goes; the row is not a duplicate.
+    const keeperIds = new Set(keepers.map((k) => k.id));
+    const onKeeper = notes
+        .filter((note) => keeperIds.has(note.towerId))
+        .map((note) => ({ id: note.id, towerId: note.towerId, content: note.content }));
+
+    return { existing, stale, missing, onKeeper };
 }
 
 async function findStatus(name: string): Promise<{ id: number; name: string } | null> {
@@ -348,6 +410,7 @@ async function label(): Promise<void> {
     const rows = await selectRows();
     const previousStatus = previousStatusByRow();
     const plan = buildPlan(rows, previousStatus);
+    const notes = await planNotes(plan.noteTargets, plan.keepers);
 
     console.log(`label status: ${status.id} "${status.name}"`);
     console.log(`provinces: ${provinces ? provinces.join(', ') : 'all'}, max separation: ${maxSeparationM} m`);
@@ -357,6 +420,7 @@ async function label(): Promise<void> {
     summarise('to label', plan.toLabel);
     summarise('keeper gives the label back', plan.toUnlabel);
     summarise('left alone, a person already judged it', plan.keepHuman);
+    console.log(`notes to write: ${notes.missing.length}, notes to repoint: ${notes.stale.length}, notes on keepers to remove: ${notes.onKeeper.length}`);
     console.log(`same address but further apart than ${maxSeparationM} m: ${plan.farGroups.length} addresses`);
 
     console.log('\nfirst clusters:');
@@ -367,8 +431,15 @@ async function label(): Promise<void> {
         );
     }
 
-    if (plan.toLabel.length === 0 && plan.toUnlabel.length === 0) {
+    const work =
+        plan.toLabel.length +
+        plan.toUnlabel.length +
+        notes.missing.length +
+        notes.stale.length +
+        notes.onKeeper.length;
+    if (work === 0) {
         console.log('\nNothing to do.');
+        if (shouldWrite) writeReport(plan);
         return;
     }
     if (!shouldWrite) {
@@ -377,8 +448,9 @@ async function label(): Promise<void> {
     }
 
     const backupFile = path.join(BACKUP_DIR, `dupe-label-${new Date().toISOString().replace(/[:.]/g, '-')}.json`);
+    const touchedIds = [...plan.toLabel.map((a) => a.row.id), ...plan.toUnlabel.map((a) => a.row.id)];
     const before = await prisma.tower.findMany({
-        where: { id: { in: [...plan.toLabel.map((a) => a.row.id), ...plan.toUnlabel.map((a) => a.row.id)] } },
+        where: { id: { in: touchedIds } },
         select: { id: true, updatedAt: true },
     });
     const beforeById = new Map(before.map((r) => [r.id, r.updatedAt.toISOString()]));
@@ -398,7 +470,6 @@ async function label(): Promise<void> {
             previousStatusId: a.row.statusId,
             updatedAtBefore: beforeById.get(a.row.id) ?? '',
             updatedAtAfter: null,
-            noteIds: [],
         })),
         unlabelled: plan.toUnlabel.map((a) => ({
             id: a.row.id,
@@ -407,6 +478,7 @@ async function label(): Promise<void> {
             updatedAtBefore: beforeById.get(a.row.id) ?? '',
             updatedAtAfter: null,
         })),
+        notes: [],
     };
     writeJson(backupFile, backup);
     console.log(`\nbackup before any write: ${path.relative(process.cwd(), backupFile)}`);
@@ -438,22 +510,58 @@ async function label(): Promise<void> {
         console.log(`  ${result.count} of ${ids.length} keepers gave the label back (status ${key})`);
     }
 
-    for (const action of plan.toLabel) {
-        const content = `Duplicate of tower #${action.keeperId}`;
-        const existing = await prisma.note.findFirst({ where: { towerId: action.row.id, content } });
-        if (existing) {
-            const entry = backup.rows.find((r) => r.id === action.row.id);
-            if (entry) entry.noteIds.push(existing.id);
-            continue;
-        }
-        const note = await prisma.note.create({ data: { towerId: action.row.id, content, authorId: null } });
-        const entry = backup.rows.find((r) => r.id === action.row.id);
-        if (entry) entry.noteIds.push(note.id);
+    const existingNoteIds = new Set<number>();
+    for (const list of notes.existing.values()) {
+        for (const note of list) existingNoteIds.add(note.id);
     }
-    console.log(`  notes written: ${backup.rows.reduce((n, r) => n + r.noteIds.length, 0)}`);
+
+    if (notes.stale.length > 0) {
+        for (const note of notes.stale) {
+            await prisma.note.update({ where: { id: note.id }, data: { content: note.content } });
+        }
+        console.log(`  notes repointed: ${notes.stale.length}`);
+    }
+    if (notes.missing.length > 0) {
+        await prisma.note.createMany({
+            data: notes.missing.map((m) => ({ towerId: m.towerId, content: m.content, authorId: null })),
+        });
+        console.log(`  notes written: ${notes.missing.length}`);
+    }
+
+    const deletedNotes: BackupNote[] = [];
+    for (const note of notes.onKeeper) {
+        const current = await prisma.note.findUnique({ where: { id: note.id } });
+        if (!current || current.content !== note.content) continue;
+        await prisma.note.delete({ where: { id: note.id } });
+        deletedNotes.push({ ...note, previousContent: null, deleted: true });
+    }
+    if (deletedNotes.length > 0) console.log(`  notes removed from keepers: ${deletedNotes.length}`);
+
+    const targetIds = plan.noteTargets.map((t) => t.row.id);
+    const written = targetIds.length
+        ? await prisma.$queryRaw<{ id: number; towerId: number; content: string }[]>(Prisma.sql`
+            SELECT id, "towerId", content FROM "Note"
+            WHERE "towerId" IN (${Prisma.join(targetIds)}) AND content LIKE ${`${NOTE_PREFIX}%`}
+        `)
+        : [];
+    backup.notes = [
+        ...deletedNotes,
+        ...written
+            .filter((note) => !existingNoteIds.has(note.id) || notes.stale.some((s) => s.id === note.id))
+            .map((note) => {
+                const stale = notes.stale.find((s) => s.id === note.id);
+                return {
+                    id: note.id,
+                    towerId: note.towerId,
+                    content: note.content,
+                    previousContent: stale ? stale.previousContent : null,
+                    deleted: false,
+                };
+            }),
+    ];
 
     const after = await prisma.tower.findMany({
-        where: { id: { in: [...plan.toLabel.map((a) => a.row.id), ...plan.toUnlabel.map((a) => a.row.id)] } },
+        where: { id: { in: touchedIds } },
         select: { id: true, statusId: true, updatedAt: true },
     });
     const afterById = new Map(after.map((r) => [r.id, r]));
@@ -469,6 +577,10 @@ async function label(): Promise<void> {
     writeJson(backupFile, backup);
     console.log(`backup stamped with the new timestamps: ${path.relative(process.cwd(), backupFile)}`);
 
+    writeReport(plan);
+}
+
+function writeReport(plan: Plan): void {
     writeJson(REPORT_FILE, {
         createdAt: new Date().toISOString(),
         maxSeparationM,
@@ -552,11 +664,31 @@ async function restore(backupPath: string): Promise<void> {
         console.log(`  relabelled ${result.count} of ${ids.length} keepers`);
     }
 
-    const noteIds = revert.flatMap((r) => r.noteIds ?? []);
-    if (noteIds.length > 0) {
-        const deleted = await prisma.note.deleteMany({ where: { id: { in: noteIds } } });
-        console.log(`  deleted ${deleted.count} notes this run wrote`);
+    let notesRestored = 0;
+    let notesDeleted = 0;
+    for (const note of backup.notes ?? []) {
+        if (note.deleted) {
+            const current = await prisma.note.findUnique({ where: { id: note.id } });
+            if (!current) {
+                await prisma.note.create({ data: { towerId: note.towerId, content: note.content, authorId: null } });
+                notesRestored++;
+            } else if (current.content !== note.content) {
+                await prisma.note.update({ where: { id: note.id }, data: { content: note.content } });
+                notesRestored++;
+            }
+            continue;
+        }
+        const current = await prisma.note.findUnique({ where: { id: note.id } });
+        if (!current || current.content !== note.content) continue;
+        if (note.previousContent) {
+            await prisma.note.update({ where: { id: note.id }, data: { content: note.previousContent } });
+            notesRestored++;
+        } else {
+            await prisma.note.delete({ where: { id: note.id } });
+            notesDeleted++;
+        }
     }
+    console.log(`  notes deleted: ${notesDeleted}, notes restored: ${notesRestored}`);
 
     const left = await prisma.tower.count({ where: { id: { in: backup.rows.map((r) => r.id) }, statusId: backup.label.id } });
     console.log(`rows from this backup still carrying the label: ${left}`);

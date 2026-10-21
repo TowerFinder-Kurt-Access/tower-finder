@@ -4,15 +4,37 @@ How the duplicate-tower labeling works, how to undo it, and how to run it again.
 
 ## What the label means
 
-`Duplicate Tower` means a human already checked that row. The labeling script picks up the
-rows nobody has checked yet: towers with **no status** that share a Parcel address with
-another tower in the same province.
+`Duplicate Tower` marks a row that is the second copy of a site that is already in
+the pool under another row. The keeper row keeps its own status, so the site stays
+in the tower list, on the map, and in outreach.
 
-It writes one field, `Tower.statusId`. It does not move notes, does not write owner or
-parcel fields, does not create a tower, and does not delete anything.
+The labeling script picks up the rows nobody has checked yet: towers with no
+status, or with the machine-set status `New`, that share a Parcel address with
+another tower in the same province and sit within `--max-separation` metres of it.
 
-Groups whose rows sit further apart than `--max-separation` (default 50 m) are left alone
-and listed in a report instead. Two real towers on one property can share an address.
+It writes two things:
+
+- `Tower.statusId` — the `Duplicate Tower` status.
+- a note on the row: `Duplicate of tower #<keeper id>`.
+
+It does not move notes a person wrote, does not write owner or parcel fields, does
+not create a tower, and does not delete anything.
+
+### Which row is the keeper
+
+Every cluster of same-address towers within the tolerance keeps one row:
+
+1. A row a person gave a status to wins (`Owner Found`, `No GSV`, `Could Not Find
+   Owner (Calls)`, anything except `New` and `Duplicate Tower`).
+2. Then the row with the most human work: notes, then assignments, then a human
+   label, then an owner.
+3. Then the lowest ID.
+
+The notes this script writes do not count as human work, so the keeper does not
+change from one run to the next.
+
+The other rows in the cluster get the label, unless a person already gave them a
+status. Those rows are reported and left alone.
 
 ## Files
 
@@ -20,16 +42,24 @@ and listed in a report instead. Two real towers on one property can share an add
 |---|---|
 | `scripts/migrations/label-duplicate-towers.ts` | the labeling run and the undo |
 | `data/dupes/dupe-label-<timestamp>.json` | backup of every row the run changed |
-| `data/dupes/far-apart-latest.json` | shared-address groups left unlabeled, with row IDs and distances |
+| `data/dupes/far-apart-latest.json` | same-address groups the tolerance left alone, with row IDs and the distance between the closest two |
 
-## The run of 2026-10-15
+## The run of 2026-10-21
 
-- Labeled 419 rows in 218 addresses. Ontario 396, Alberta 23.
-- Backup: `data/dupes/dupe-label-2026-10-15T01-33-20-507Z.json`.
-- Held back: 4611 rows in 1812 addresses, because their rows sit more than 50 m apart.
-  Ontario 3895, Alberta 716.
-- Nothing else changed. No note was touched. No row was deleted. No owner or parcel field
-  was written.
+- Tolerance 25 m, every province.
+- Labeled 3011 rows and gave the label back on 1032 rows that an earlier run had
+  labelled on both sides of a pair.
+- Wrote 4531 notes of the form `Duplicate of tower #<keeper id>`.
+- Left 644 rows alone because a person had already given them a status.
+- Held back 3077 addresses: same address, but the closest two towers are further
+  apart than the tolerance.
+- Backup: `data/dupes/dupe-label-2026-10-21T16-40-00-000Z.json`.
+- A second run finds nothing to do. The run is idempotent.
+- Nothing else changed. No note a person wrote was touched. No row was deleted.
+
+The run before it, on 2026-10-15, is in
+`data/dupes/dupe-label-2026-10-15T01-33-20-507Z.json`. It labelled 419 rows in 218
+addresses and wrote no notes.
 
 ## Undo
 
@@ -41,12 +71,13 @@ npx tsx --env-file=.env scripts/migrations/label-duplicate-towers.ts --restore
 npx tsx --env-file=.env scripts/migrations/label-duplicate-towers.ts --restore --write
 ```
 
-- The undo reads the **newest** backup in `data/dupes/`. Pass a path after `--restore` to
-  use a named one.
-- The undo refuses a row when its status is no longer the label, or when the row was
-  edited after the label. It prints every refusal. That protects work done in the app
-  after the labeling run.
-- It restores the status each row had before the run, which was empty for all 419 rows.
+- The undo reads the **newest** backup in `data/dupes/`. Pass a path after
+  `--restore` to use a named one.
+- The undo refuses a row when its status is no longer the label, or when the row
+  was edited after the label. It prints every refusal. That protects work done in
+  the app after the labeling run.
+- The undo restores the status each row had before the run, deletes the notes the
+  run wrote, and puts the label back on the rows the run took it away from.
 
 ## Run it again
 
@@ -55,14 +86,16 @@ npx tsx --env-file=.env scripts/migrations/label-duplicate-towers.ts            
 npx tsx --env-file=.env scripts/migrations/label-duplicate-towers.ts --write
 ```
 
-A second run is safe. Rows that already carry the label are skipped.
+A second run is safe. Rows that already carry the label are skipped, a note that
+already points at the keeper is not written twice, and a note left on a keeper is
+removed.
 
 ## Flags
 
 | Flag | Meaning |
 |---|---|
-| `--provinces=ON,AB` | provinces to scan. Default `ON,AB` |
-| `--max-separation=50` | groups spread wider than this many metres are held back and reported |
+| `--provinces=ON,AB` | provinces to scan. Default: every province |
+| `--max-separation=25` | two towers on one address count as the same site within this many metres |
 | `--write` | apply the change. Without it the script only prints |
 | `--restore [file]` | undo. Newest backup unless a path follows |
 
@@ -70,17 +103,23 @@ A second run is safe. Rows that already carry the label are skipped.
 
 - The database is live. `POSTGRES_URL` points at the shared Prisma Postgres, and no
   staging copy exists. The backup file is the only way back.
-- Every write run writes the backup **before** it changes a row, then stamps the
+- Every write run writes the backup **before** it changes anything, then stamps the
   post-write timestamps into the same file. A backup with `updatedAtAfter: null` came from
   an interrupted run. The undo then skips the timestamp check.
 - `data/dupes/` is not in `.gitignore`. Commit the backup, or ignore it. Your call.
 - The script never creates a status. `Duplicate Tower` must exist. It is id 16 today.
+- Parcel addresses change when parcels are reprocessed. A group that was too wide
+  can become a close pair later, and a close pair can drift apart. The run is a
+  snapshot of the day it ran.
 
 ## Still open
 
-- 4611 rows share an address but sit more than 50 m apart. Address equality alone cannot
-  judge those. Of the 1812 held-back addresses, 1265 hold rows more than 1.2 km apart,
-  and most of those addresses carry no house number. Choose the tolerance with Arleen.
-  `--max-separation=200` would add 292 rows. The 200 m to 500 m band adds 315 more.
-- Quebec is untouched, with 3647 rows in shared-address groups, and it is not in the
-  default province list.
+- 3077 addresses hold two or more towers that share an address but sit further
+  apart than 25 m. Address equality alone cannot judge those. A wider tolerance
+  labels more, and risks labelling two real towers on one property.
+- The map and the towers list still show every row, duplicates included. The
+  `Status` filter isolates them.
+- Rows a person gave a status to are never labelled, and a pair where one side was
+  reviewed keeps the reviewed row and leaves the other side alone.
+- A pair where a person labelled both sides keeps both labels. The script cannot
+  tell which one a person meant to keep.
