@@ -41,7 +41,7 @@ status. Those rows are reported and left alone.
 | File | Purpose |
 |---|---|
 | `scripts/migrations/label-duplicate-towers.ts` | the labeling run and the undo |
-| `data/dupes/dupe-label-<timestamp>.json` | backup of every row the run changed |
+| `data/dupes/dupe-label-<timestamp>.json` | backup of every row the run changed. Not in git: the repo is public and the file holds site addresses and the duplicate mapping. Copy it somewhere private before you need it |
 | `data/dupes/far-apart-latest.json` | same-address groups the tolerance left alone, with row IDs and the distance between the closest two |
 
 ## The run of 2026-10-21
@@ -111,7 +111,9 @@ removed.
 - Every write run writes the backup **before** it changes anything, then stamps the
   post-write timestamps into the same file. A backup with `updatedAtAfter: null` came from
   an interrupted run. The undo then skips the timestamp check.
-- `data/dupes/` is not in `.gitignore`. Commit the backup, or ignore it. Your call.
+- `data/dupes/dupe-label-*.json` is in `.gitignore`. The repo is public, and a backup
+  holds thousands of site addresses. Keep a copy outside the repo, on a private disk
+  or bucket, before the run. The file on the machine that ran the script is not a backup.
 - The script never creates a status. `Duplicate Tower` must exist. It is id 16 today.
 - Parcel addresses change when parcels are reprocessed. A group that was too wide
   can become a close pair later, and a close pair can drift apart. The run is a
