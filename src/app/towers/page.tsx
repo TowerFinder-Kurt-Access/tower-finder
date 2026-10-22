@@ -35,6 +35,8 @@ interface Tower {
     avgBusinessDistance?: number;
     aiTowerScore?: number | null;
     aiLabel?: string | null;
+    contactPerson?: string | null;
+    companyName?: string | null;
 }
 
 
