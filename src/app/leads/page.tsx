@@ -7,6 +7,7 @@ import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
 import TextField from '@mui/material/TextField';
+import MenuItem from '@mui/material/MenuItem';
 import InputAdornment from '@mui/material/InputAdornment';
 import Chip from '@mui/material/Chip';
 import Link from '@mui/material/Link';
@@ -17,36 +18,23 @@ import Divider from '@mui/material/Divider';
 import Skeleton from '@mui/material/Skeleton';
 import Alert from '@mui/material/Alert';
 import Tooltip from '@mui/material/Tooltip';
+import Switch from '@mui/material/Switch';
+import FormControlLabel from '@mui/material/FormControlLabel';
 import CircularProgress from '@mui/material/CircularProgress';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import SearchIcon from '@mui/icons-material/Search';
 import CloseIcon from '@mui/icons-material/Close';
+import AddIcon from '@mui/icons-material/Add';
+import EditIcon from '@mui/icons-material/Edit';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import SearchOffIcon from '@mui/icons-material/SearchOff';
 import MailOutlineIcon from '@mui/icons-material/MailOutline';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
-import { LEAD_STAGE_LABELS } from '@/lib/leads';
+import { LEAD_STAGE_LABELS, type LeadRow } from '@/lib/leads';
+import { useSnackbar } from '@/components/GlobalSnackbar';
 
 type LeadStage = keyof typeof LEAD_STAGE_LABELS;
-
-interface LeadRow {
-    id: number;
-    stage: LeadStage;
-    contactPerson: string | null;
-    companyName: string | null;
-    actions: string | null;
-    remarks: string | null;
-    brettStatus: string | null;
-    emailFollowUp: boolean;
-    towerId: number;
-    address: string | null;
-    city: string | null;
-    state: string | null;
-    ownerName: string | null;
-    ownerType: string | null;
-    ownerPhone: string | null;
-}
 
 const STAGES = Object.keys(LEAD_STAGE_LABELS) as LeadStage[];
 const PAGE_SIZE = 50;
@@ -65,11 +53,47 @@ const sectionLabel = {
     letterSpacing: '0.04em',
 } as const;
 
+interface LeadFormValues {
+    towerId: string;
+    stage: LeadStage;
+    contactPerson: string;
+    companyName: string;
+    actions: string;
+    remarks: string;
+    brettStatus: string;
+    emailFollowUp: boolean;
+}
+
+const EMPTY_FORM: LeadFormValues = {
+    towerId: '',
+    stage: 'PROSPECTIVE',
+    contactPerson: '',
+    companyName: '',
+    actions: '',
+    remarks: '',
+    brettStatus: '',
+    emailFollowUp: false,
+};
+
+const formFromRow = (row: LeadRow): LeadFormValues => ({
+    towerId: String(row.towerId),
+    stage: row.stage,
+    contactPerson: row.contactPerson ?? '',
+    companyName: row.companyName ?? '',
+    actions: row.actions ?? '',
+    remarks: row.remarks ?? '',
+    brettStatus: row.brettStatus ?? '',
+    emailFollowUp: row.emailFollowUp,
+});
+
+type DrawerState = { mode: 'view' | 'edit'; lead: LeadRow } | { mode: 'create' } | null;
+
 function LeadsContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const activeStage = (searchParams.get('stage') || '') as LeadStage | '';
     const reduceMotion = useMediaQuery('(prefers-reduced-motion: reduce)');
+    const { showSnackbar } = useSnackbar();
 
     const [rows, setRows] = useState<LeadRow[]>([]);
     const [total, setTotal] = useState(0);
@@ -80,7 +104,11 @@ function LeadsContent() {
     const [search, setSearch] = useState('');
     const [page, setPage] = useState(0);
     const [reloadKey, setReloadKey] = useState(0);
-    const [selected, setSelected] = useState<LeadRow | null>(null);
+
+    const [drawer, setDrawer] = useState<DrawerState>(null);
+    const [form, setForm] = useState<LeadFormValues>(EMPTY_FORM);
+    const [formError, setFormError] = useState<string | null>(null);
+    const [saving, setSaving] = useState(false);
 
     useEffect(() => {
         const controller = new AbortController();
@@ -119,7 +147,7 @@ function LeadsContent() {
 
     const selectStage = (stage: LeadStage | '') => {
         setPage(0);
-        setSelected(null);
+        setDrawer(null);
         if (stage) router.push(`/leads?stage=${stage}`);
         else router.push('/leads');
     };
@@ -137,9 +165,77 @@ function LeadsContent() {
         router.push('/leads');
     };
 
+    const openLead = (lead: LeadRow) => {
+        setForm(formFromRow(lead));
+        setFormError(null);
+        setDrawer({ mode: 'view', lead });
+    };
+
+    const openCreate = () => {
+        setForm({ ...EMPTY_FORM, stage: activeStage || 'PROSPECTIVE' });
+        setFormError(null);
+        setDrawer({ mode: 'create' });
+    };
+
+    const closeDrawer = () => {
+        if (saving) return;
+        setDrawer(null);
+        setFormError(null);
+    };
+
+    const updateForm = <K extends keyof LeadFormValues>(key: K, value: LeadFormValues[K]) => {
+        setForm((current) => ({ ...current, [key]: value }));
+    };
+
+    const save = async () => {
+        if (!drawer) return;
+        setFormError(null);
+
+        const towerId = Number(form.towerId);
+        if (drawer.mode === 'create' && (!Number.isInteger(towerId) || towerId <= 0)) {
+            setFormError('Enter a numeric tower ID.');
+            return;
+        }
+
+        const payload = {
+            stage: form.stage,
+            contactPerson: form.contactPerson || null,
+            companyName: form.companyName || null,
+            actions: form.actions || null,
+            remarks: form.remarks || null,
+            brettStatus: form.brettStatus || null,
+            emailFollowUp: form.emailFollowUp,
+        };
+
+        setSaving(true);
+        try {
+            if (drawer.mode === 'create') {
+                await axios.post('/api/leads', { ...payload, towerId });
+                showSnackbar(`Lead added to tower ${towerId}.`);
+            } else {
+                await axios.patch(`/api/leads/${drawer.lead.id}`, payload);
+                showSnackbar('Lead updated.');
+            }
+            setDrawer(null);
+            setReloadKey((key) => key + 1);
+        } catch (err) {
+            const message = axios.isAxiosError(err)
+                ? (err.response?.data as { error?: string } | undefined)?.error
+                : undefined;
+            setFormError(message || 'Could not save the lead. Try again.');
+        } finally {
+            setSaving(false);
+        }
+    };
+
     const start = total === 0 ? 0 : page * PAGE_SIZE + 1;
     const end = Math.min((page + 1) * PAGE_SIZE, total);
     const hasFilters = Boolean(search || activeStage);
+    const drawerTitle = drawer?.mode === 'create'
+        ? 'New lead'
+        : drawer?.mode === 'view'
+            ? (drawer.lead.contactPerson || drawer.lead.companyName || 'Lead')
+            : 'Edit lead';
 
     return (
         <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column', gap: 2, p: { xs: 2, md: 3 } }}>
@@ -152,38 +248,43 @@ function LeadsContent() {
                         {allCount} leads from the CellWaves outreach workbook, across all four tabs.
                     </Typography>
                 </Box>
-                <Box component="form" onSubmit={submitSearch} sx={{ ml: 'auto', width: { xs: '100%', sm: 340 } }}>
-                    <TextField
-                        size="small"
-                        fullWidth
-                        placeholder="Search contact, company, actions, remarks"
-                        value={searchInput}
-                        onChange={(event) => setSearchInput(event.target.value)}
-                        slotProps={{
-                            input: {
-                                startAdornment: (
-                                    <InputAdornment position="start">
-                                        <SearchIcon fontSize="small" />
-                                    </InputAdornment>
-                                ),
-                                endAdornment: searchInput ? (
-                                    <InputAdornment position="end">
-                                        <IconButton
-                                            size="small"
-                                            aria-label="Clear search"
-                                            onClick={() => {
-                                                setSearchInput('');
-                                                setSearch('');
-                                                setPage(0);
-                                            }}
-                                        >
-                                            <CloseIcon fontSize="small" />
-                                        </IconButton>
-                                    </InputAdornment>
-                                ) : undefined,
-                            },
-                        }}
-                    />
+                <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 1, width: { xs: '100%', sm: 'auto' } }}>
+                    <Box component="form" onSubmit={submitSearch} sx={{ flex: 1, minWidth: { sm: 300 } }}>
+                        <TextField
+                            size="small"
+                            fullWidth
+                            placeholder="Search contact, company, actions, remarks"
+                            value={searchInput}
+                            onChange={(event) => setSearchInput(event.target.value)}
+                            slotProps={{
+                                input: {
+                                    startAdornment: (
+                                        <InputAdornment position="start">
+                                            <SearchIcon fontSize="small" />
+                                        </InputAdornment>
+                                    ),
+                                    endAdornment: searchInput ? (
+                                        <InputAdornment position="end">
+                                            <IconButton
+                                                size="small"
+                                                aria-label="Clear search"
+                                                onClick={() => {
+                                                    setSearchInput('');
+                                                    setSearch('');
+                                                    setPage(0);
+                                                }}
+                                            >
+                                                <CloseIcon fontSize="small" />
+                                            </IconButton>
+                                        </InputAdornment>
+                                    ) : undefined,
+                                },
+                            }}
+                        />
+                    </Box>
+                    <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate} sx={{ flexShrink: 0 }}>
+                        New lead
+                    </Button>
                 </Box>
             </Box>
 
@@ -288,9 +389,13 @@ function LeadsContent() {
                                     {search ? `Nothing matches "${search}".` : 'This stage has no leads yet.'}
                                 </Typography>
                             </Box>
-                            {hasFilters && (
+                            {hasFilters ? (
                                 <Button variant="outlined" onClick={clearFilters}>
                                     Clear filters
+                                </Button>
+                            ) : (
+                                <Button variant="outlined" startIcon={<AddIcon />} onClick={openCreate}>
+                                    New lead
                                 </Button>
                             )}
                         </Box>
@@ -301,11 +406,11 @@ function LeadsContent() {
                             key={row.id}
                             role="button"
                             tabIndex={0}
-                            onClick={() => setSelected(row)}
+                            onClick={() => openLead(row)}
                             onKeyDown={(event) => {
                                 if (event.key === 'Enter' || event.key === ' ') {
                                     event.preventDefault();
-                                    setSelected(row);
+                                    openLead(row);
                                 }
                             }}
                             sx={{
@@ -389,82 +494,189 @@ function LeadsContent() {
 
             <Drawer
                 anchor="right"
-                open={selected !== null}
-                onClose={() => setSelected(null)}
+                open={drawer !== null}
+                onClose={closeDrawer}
                 transitionDuration={reduceMotion ? 0 : 200}
                 slotProps={{ paper: { sx: { width: { xs: '100%', sm: 460 } } } }}
             >
-                {selected && (
-                    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+                {drawer && (
+                    <Box component="form" onSubmit={(event) => { event.preventDefault(); save(); }} sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
                         <Box sx={{ px: 3, py: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
                             <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
                                 <Box sx={{ minWidth: 0, flex: 1 }}>
                                     <Typography component="h2" variant="h6" sx={{ fontWeight: 600, lineHeight: 1.3 }}>
-                                        {selected.contactPerson || 'No contact name'}
+                                        {drawerTitle}
                                     </Typography>
                                     <Typography variant="body2" color="text.secondary">
-                                        {selected.companyName || 'No company on file'}
+                                        {drawer.mode === 'create'
+                                            ? 'Attach a lead to an existing tower.'
+                                            : drawer.mode === 'view'
+                                                ? (drawer.lead.companyName || 'No company on file')
+                                                : 'Edit the lead details.'}
                                     </Typography>
                                 </Box>
-                                <IconButton size="small" aria-label="Close lead details" onClick={() => setSelected(null)}>
+                                <IconButton size="small" aria-label="Close lead details" onClick={closeDrawer} disabled={saving}>
                                     <CloseIcon fontSize="small" />
                                 </IconButton>
                             </Box>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', mt: 1.5 }}>
-                                <Chip label={LEAD_STAGE_LABELS[selected.stage]} size="small" variant="outlined" />
-                                {selected.emailFollowUp && <Chip label="Email follow-up" size="small" variant="outlined" />}
-                                {selected.brettStatus && <Chip label={selected.brettStatus} size="small" variant="outlined" />}
-                            </Box>
+                            {drawer.mode === 'view' && (
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', mt: 1.5 }}>
+                                    <Chip label={LEAD_STAGE_LABELS[drawer.lead.stage]} size="small" variant="outlined" />
+                                    {drawer.lead.emailFollowUp && <Chip label="Email follow-up" size="small" variant="outlined" />}
+                                    {drawer.lead.brettStatus && <Chip label={drawer.lead.brettStatus} size="small" variant="outlined" />}
+                                </Box>
+                            )}
                         </Box>
 
-                        <Box sx={{ flex: 1, overflowY: 'auto', px: 3, py: 2.5 }}>
-                            <Box sx={{ display: 'grid', gap: 2.5 }}>
-                                <Box>
-                                    <Typography sx={sectionLabel}>Actions</Typography>
-                                    <Typography variant="body2" sx={{ mt: 0.5, whiteSpace: 'pre-wrap' }}>
-                                        {selected.actions || 'No action logged.'}
-                                    </Typography>
-                                </Box>
-                                <Box>
-                                    <Typography sx={sectionLabel}>Remarks</Typography>
-                                    <Typography variant="body2" sx={{ mt: 0.5, whiteSpace: 'pre-wrap' }}>
-                                        {selected.remarks || 'No remarks.'}
-                                    </Typography>
-                                </Box>
-                                <Divider />
-                                <Box>
-                                    <Typography sx={sectionLabel}>Property owner</Typography>
-                                    <Typography variant="body2" sx={{ mt: 0.5 }}>
-                                        {selected.ownerName || 'No owner record on file.'}
-                                    </Typography>
-                                    {selected.ownerPhone && (
-                                        <Typography variant="body2" color="text.secondary">
-                                            {selected.ownerPhone}
+                        {drawer.mode === 'view' ? (
+                            <Box sx={{ flex: 1, overflowY: 'auto', px: 3, py: 2.5 }}>
+                                <Box sx={{ display: 'grid', gap: 2.5 }}>
+                                    <Box>
+                                        <Typography sx={sectionLabel}>Actions</Typography>
+                                        <Typography variant="body2" sx={{ mt: 0.5, whiteSpace: 'pre-wrap' }}>
+                                            {drawer.lead.actions || 'No action logged.'}
                                         </Typography>
-                                    )}
-                                </Box>
-                                <Box>
-                                    <Typography sx={sectionLabel}>Location</Typography>
-                                    <Typography variant="body2" sx={{ mt: 0.5 }}>
-                                        {selected.address || 'No address on file.'}
-                                    </Typography>
-                                    <Typography variant="body2" color="text.secondary">
-                                        {[selected.city, selected.state].filter(Boolean).join(', ') || 'No city on file.'}
-                                    </Typography>
+                                    </Box>
+                                    <Box>
+                                        <Typography sx={sectionLabel}>Remarks</Typography>
+                                        <Typography variant="body2" sx={{ mt: 0.5, whiteSpace: 'pre-wrap' }}>
+                                            {drawer.lead.remarks || 'No remarks.'}
+                                        </Typography>
+                                    </Box>
+                                    <Divider />
+                                    <Box>
+                                        <Typography sx={sectionLabel}>Property owner</Typography>
+                                        <Typography variant="body2" sx={{ mt: 0.5 }}>
+                                            {drawer.lead.ownerName || 'No owner record on file.'}
+                                        </Typography>
+                                        {drawer.lead.ownerPhone && (
+                                            <Typography variant="body2" color="text.secondary">
+                                                {drawer.lead.ownerPhone}
+                                            </Typography>
+                                        )}
+                                    </Box>
+                                    <Box>
+                                        <Typography sx={sectionLabel}>Location</Typography>
+                                        <Typography variant="body2" sx={{ mt: 0.5 }}>
+                                            {drawer.lead.address || 'No address on file.'}
+                                        </Typography>
+                                        <Typography variant="body2" color="text.secondary">
+                                            {[drawer.lead.city, drawer.lead.state].filter(Boolean).join(', ') || 'No city on file.'}
+                                        </Typography>
+                                    </Box>
                                 </Box>
                             </Box>
-                        </Box>
+                        ) : (
+                            <Box sx={{ flex: 1, overflowY: 'auto', px: 3, py: 2.5, display: 'grid', gap: 2 }}>
+                                {drawer.mode === 'create' && (
+                                    <TextField
+                                        size="small"
+                                        label="Tower ID"
+                                        placeholder="e.g. 14389"
+                                        value={form.towerId}
+                                        onChange={(event) => updateForm('towerId', event.target.value)}
+                                        helperText="The tower this lead belongs to."
+                                        slotProps={{ htmlInput: { inputMode: 'numeric' } }}
+                                    />
+                                )}
+                                <TextField
+                                    select
+                                    size="small"
+                                    label="Stage"
+                                    value={form.stage}
+                                    onChange={(event) => updateForm('stage', event.target.value as LeadStage)}
+                                >
+                                    {STAGES.map((stage) => (
+                                        <MenuItem key={stage} value={stage}>{LEAD_STAGE_LABELS[stage]}</MenuItem>
+                                    ))}
+                                </TextField>
+                                <TextField
+                                    size="small"
+                                    label="Contact person"
+                                    value={form.contactPerson}
+                                    onChange={(event) => updateForm('contactPerson', event.target.value)}
+                                />
+                                <TextField
+                                    size="small"
+                                    label="Company"
+                                    value={form.companyName}
+                                    onChange={(event) => updateForm('companyName', event.target.value)}
+                                />
+                                <TextField
+                                    size="small"
+                                    label="Actions"
+                                    value={form.actions}
+                                    onChange={(event) => updateForm('actions', event.target.value)}
+                                    multiline
+                                    minRows={2}
+                                />
+                                <TextField
+                                    size="small"
+                                    label="Remarks"
+                                    value={form.remarks}
+                                    onChange={(event) => updateForm('remarks', event.target.value)}
+                                    multiline
+                                    minRows={3}
+                                />
+                                <TextField
+                                    size="small"
+                                    label="Brett status"
+                                    value={form.brettStatus}
+                                    onChange={(event) => updateForm('brettStatus', event.target.value)}
+                                />
+                                <FormControlLabel
+                                    control={
+                                        <Switch
+                                            checked={form.emailFollowUp}
+                                            onChange={(event) => updateForm('emailFollowUp', event.target.checked)}
+                                        />
+                                    }
+                                    label="Email follow-up needed"
+                                />
+                                {formError && <Alert severity="error">{formError}</Alert>}
+                            </Box>
+                        )}
 
-                        <Box sx={{ px: 3, py: 2, borderTop: '1px solid', borderColor: 'divider' }}>
-                            <Button
-                                component={NextLink}
-                                href={`/towers/${selected.towerId}`}
-                                variant="contained"
-                                endIcon={<OpenInNewIcon fontSize="small" />}
-                                fullWidth
-                            >
-                                Open tower #{selected.towerId}
-                            </Button>
+                        <Box sx={{ px: 3, py: 2, borderTop: '1px solid', borderColor: 'divider', display: 'flex', gap: 1 }}>
+                            {drawer.mode === 'view' ? (
+                                <>
+                                    <Button
+                                        variant="outlined"
+                                        startIcon={<EditIcon />}
+                                        onClick={() => {
+                                            setForm(formFromRow(drawer.lead));
+                                            setFormError(null);
+                                            setDrawer({ mode: 'edit', lead: drawer.lead });
+                                        }}
+                                    >
+                                        Edit
+                                    </Button>
+                                    <Button
+                                        component={NextLink}
+                                        href={`/towers/${drawer.lead.towerId}`}
+                                        variant="contained"
+                                        endIcon={<OpenInNewIcon fontSize="small" />}
+                                        fullWidth
+                                    >
+                                        Open tower #{drawer.lead.towerId}
+                                    </Button>
+                                </>
+                            ) : (
+                                <>
+                                    <Button onClick={closeDrawer} disabled={saving} color="inherit">
+                                        Cancel
+                                    </Button>
+                                    <Button
+                                        type="submit"
+                                        variant="contained"
+                                        fullWidth
+                                        disabled={saving}
+                                        startIcon={saving ? <CircularProgress size={16} color="inherit" /> : undefined}
+                                    >
+                                        {drawer.mode === 'create' ? 'Create lead' : 'Save changes'}
+                                    </Button>
+                                </>
+                            )}
                         </Box>
                     </Box>
                 )}

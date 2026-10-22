@@ -62,3 +62,22 @@ export function resolveContact(
         companyName: companyName ?? (ownerIsPerson ? null : ownerName),
     };
 }
+
+/** One lead as the list and drawer render it. */
+export interface LeadRow {
+    id: number;
+    stage: LeadStage;
+    contactPerson: string | null;
+    companyName: string | null;
+    actions: string | null;
+    remarks: string | null;
+    brettStatus: string | null;
+    emailFollowUp: boolean;
+    towerId: number;
+    address: string | null;
+    city: string | null;
+    state: string | null;
+    ownerName: string | null;
+    ownerType: string | null;
+    ownerPhone: string | null;
+}
