@@ -51,6 +51,7 @@ model Tower {
   leadSource          TowerLead?
   cellMapperLog       CellMapperLog?
   customerLeadForms   CustomerLeadForm[]
+  leads               Lead[]
 
   @@unique([lat, lon])
   @@index([aiTowerScore])
@@ -488,6 +489,34 @@ model CustomerLeadForm {
   @@index([towerId])
   @@index([status])
   @@index([fileId])
+}
+
+// One row per lead in the CellWaves outreach workbook. `stage` mirrors the
+// workbook tab, so a tower can hold several leads (one per stage).
+enum LeadStage {
+  PROSPECTIVE
+  LATER_OUTREACH
+  NOT_INTERESTED
+  LARRYS_CORNER
+}
+
+model Lead {
+  id            Int       @id @default(autoincrement())
+  towerId       Int
+  stage         LeadStage
+  contactPerson String?
+  companyName   String?
+  actions       String?
+  remarks       String?
+  brettStatus   String?
+  emailFollowUp Boolean   @default(false)
+  sortOrder     Int       @default(0)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  tower         Tower     @relation(fields: [towerId], references: [id], onDelete: Cascade)
+
+  @@index([towerId])
+  @@index([stage])
 }
 
 enum Role {
