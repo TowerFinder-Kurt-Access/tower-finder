@@ -64,6 +64,9 @@ DAILY_DOF_CSV.ZIP
 *.pdf
 graphify-out
 
+# duplicate tower undo backups (the only way back from a run) - keep off the repo
+data/dupes/dupe-label-*.json
+
 # discovery debug artifacts
 *.log
 antennasearch_*.png
