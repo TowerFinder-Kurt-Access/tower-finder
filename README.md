@@ -8,6 +8,7 @@
 
 - **Interactive Map** — Leaflet map with tower markers, marker clustering, and tower detail popups.
 - **Tower Management** — Full tower CRUD with status tracking, sorting, and AI-assisted lead classification.
+- **Outreach Leads** — Call-sheet leads from the CellWaves workbook, grouped by stage and enriched with property owner data.
 - **Owner & Parcel Lookup** — Parcel records, owner details, and third-party data enrichment per tower.
 - **Nearby Businesses** — Geoapify-powered business discovery around each tower for contactable landowners.
 - **Review & Print Forms** — Structured lead review forms (deal type, rent, fees, notes) with a clean printable document.
@@ -60,6 +61,16 @@ Default admin login:
 
 - Email: admin@tower-finder.com
 - Password: Use the password set during admin creation
+
+## 📇 Importing Outreach Leads
+
+The Leads page reads from the `Lead` table. Seed or refresh it from the CellWaves workbook:
+
+```bash
+node scripts/import-cellwaves-leads.js "/path/to/CellWaves Leads.xlsx"
+```
+
+The script replaces every existing lead row, so rerun it after each sheet update.
 
 ## 📦 Build for Production
 
