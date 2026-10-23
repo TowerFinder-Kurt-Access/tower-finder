@@ -4,6 +4,7 @@ import { getAuthUser } from '@/lib/auth-helpers';
 import bcrypt from 'bcryptjs';
 import { LoginEventType } from '@prisma/client';
 import { validatePassword } from '@/lib/password-policy';
+import { markPasswordPolicyCurrent } from '@/lib/password-policy-server';
 import { recordLoginEvent, requestIp } from '@/lib/login-security';
 
 interface RouteParams {
@@ -72,6 +73,8 @@ export async function POST(request: Request, { params }: RouteParams) {
             where: { id: userId },
             data: { password: hashedPassword, passwordChangedAt: new Date(), sessionVersion: { increment: 1 }, mustChangePassword: false }
         });
+
+        await markPasswordPolicyCurrent(userId);
 
         const ip = requestIp(request);
         await recordLoginEvent({

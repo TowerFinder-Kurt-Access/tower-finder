@@ -11,6 +11,8 @@ declare module "next-auth" {
       sessionVersion: number
       mustChangePassword?: boolean
       forcedPasswordChange?: boolean
+      passwordPolicyOutdated?: boolean
+      twoFactorEnabled?: boolean
     } & DefaultSession["user"]
   }
 
@@ -28,5 +30,7 @@ declare module "next-auth/jwt" {
     sessionVersion: number
     mustChangePassword: boolean
     forcedPasswordChange: boolean
+    passwordPolicyOutdated: boolean
+    twoFactorEnabled: boolean
   }
 }

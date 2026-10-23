@@ -9,6 +9,7 @@ import {
   recordLoginEvent,
   requestIp,
 } from "@/lib/login-security"
+import { isPolicyOutdated } from "@/lib/password-policy"
 import { issueLoginOtp, verifyLoginOtp } from "@/lib/otp"
 
 // bcrypt hash of a random string: when the email is unknown we still run a
@@ -92,6 +93,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           }
 
           // Password valid from here on.
+          // Read the policy version once at sign-in. A missing row is version 0.
+          const passwordPolicy = await prisma.userPasswordPolicy.findUnique({
+            where: { userId: user.id },
+            select: { policyVersion: true },
+          });
+
           const sessionUser = {
             id: user.id.toString(),
             email: user.email,
@@ -99,7 +106,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             role: user.role,
             sessionVersion: user.sessionVersion,
             passwordChangedAt: user.passwordChangedAt,
-            mustChangePassword: user.mustChangePassword
+            mustChangePassword: user.mustChangePassword,
+            passwordPolicyOutdated: isPolicyOutdated(passwordPolicy?.policyVersion),
+            twoFactorEnabled: user.twoFactorEnabled,
           }
 
           // Single-step login unless the user opted into the OTP second factor

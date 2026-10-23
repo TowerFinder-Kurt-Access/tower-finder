@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { requireAdmin, getAuthUser } from '@/lib/auth-helpers';
 import bcrypt from 'bcryptjs';
 import { validatePassword } from '@/lib/password-policy';
+import { markPasswordPolicyCurrent } from '@/lib/password-policy-server';
 
 // GET /api/users - List all users (admin only)
 export async function GET(request: Request) {
@@ -118,6 +119,8 @@ export async function POST(request: Request) {
                 updatedAt: true
             }
         });
+
+        await markPasswordPolicyCurrent(user.id);
 
         return NextResponse.json(user, { status: 201 });
     } catch (error) {

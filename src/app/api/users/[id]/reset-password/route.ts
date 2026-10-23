@@ -4,6 +4,7 @@ import { requireAdmin } from '@/lib/auth-helpers';
 import bcrypt from 'bcryptjs';
 import { LoginEventType } from '@prisma/client';
 import { validatePassword } from '@/lib/password-policy';
+import { markPasswordPolicyCurrent } from '@/lib/password-policy-server';
 import { recordLoginEvent, requestIp } from '@/lib/login-security';
 import { LOCKOUT_WINDOW_MS } from '@/lib/security-policy';
 
@@ -56,6 +57,8 @@ export async function POST(request: Request, { params }: RouteParams) {
                 mustChangePassword: true,
             }
         });
+
+        await markPasswordPolicyCurrent(userId);
 
         // Clean up any pending OTP codes for this email so stale rows
         // don't interfere with the next login attempt.
