@@ -6,6 +6,7 @@ import { buildTowerAccessFilter } from '@/lib/tower-access';
 import { ABBR_TO_PROVINCE, PROVINCE_TO_ABBR } from '@/lib/locations';
 import { dedupeDisplayValues } from '@/lib/normalize';
 import { filterOfficialCanadianCities, filterOfficialCanadianCounties, filterCanadianPostalCodes, isCanada } from '@/lib/official-cities';
+import { resolveContact } from '@/lib/leads';
 
 // Expand a province/state value into all equivalent search terms (full name +
 // abbreviation), lower-cased, so distinct-city/zip filtering matches whether the
@@ -645,6 +646,12 @@ export async function GET(request: Request) {
                     type: true,
                     carrier: true,
                     status: true,
+                    // Lead stage order doubles as contact priority: a prospective
+                    // lead's contact beats a not-interested one for the list columns.
+                    leads: {
+                        select: { contactPerson: true, companyName: true, stage: true },
+                        orderBy: [{ stage: 'asc' }, { id: 'asc' }],
+                    },
                     _count: {
                         select: { notes: true }
                     }
@@ -669,10 +676,14 @@ export async function GET(request: Request) {
             needsCount ? prisma.tower.count({ where: whereClause }) : Promise.resolve(undefined)
         ]);
 
-        const withFlags = towers.map(t => ({
-            ...t,
-            hasOwnerName: Boolean(t.parcel?.ownerId)
-        }));
+        const withFlags = towers.map(({ leads, ...tower }) => {
+            const lead = leads.find((entry) => entry.contactPerson || entry.companyName) ?? leads[0] ?? null;
+            return {
+                ...tower,
+                hasOwnerName: Boolean(tower.parcel?.ownerId),
+                ...resolveContact(lead, tower.parcel?.owner),
+            };
+        });
 
         // If pagination was used, return both data and count
         if (needsCount) {

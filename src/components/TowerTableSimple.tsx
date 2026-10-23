@@ -601,6 +601,26 @@ export default function TowerTableSimple({
             }
         },
         {
+            field: 'contactPerson',
+            headerName: 'Contact Person',
+            width: 170,
+            renderCell: (params: GridRenderCellParams) => (
+                params.row.contactPerson
+                    ? <Typography variant="body2">{params.row.contactPerson}</Typography>
+                    : <Typography variant="body2" color="text.secondary">–</Typography>
+            )
+        },
+        {
+            field: 'companyName',
+            headerName: 'Company Name',
+            width: 220,
+            renderCell: (params: GridRenderCellParams) => (
+                params.row.companyName
+                    ? <Tooltip title={params.row.companyName}><Typography variant="body2" noWrap>{params.row.companyName}</Typography></Tooltip>
+                    : <Typography variant="body2" color="text.secondary">–</Typography>
+            )
+        },
+        {
             field: 'notesCount',
             headerName: 'Notes',
             width: 80,

@@ -7,6 +7,7 @@ import Typography from '@mui/material/Typography';
 import MapIcon from '@mui/icons-material/Map';
 import GroupIcon from '@mui/icons-material/Group';
 import TableRowsIcon from '@mui/icons-material/TableRows';
+import ContactsIcon from '@mui/icons-material/Contacts';
 import DescriptionIcon from '@mui/icons-material/Description';
 import PersonIcon from '@mui/icons-material/Person';
 import CellTowerIcon from '@mui/icons-material/CellTower';
@@ -31,6 +32,7 @@ export default function NavRail() {
     const navItems = [
         { label: 'Map', icon: <MapIcon />, path: '/' },
         { label: 'Towers', icon: <TableRowsIcon />, path: '/towers' },
+        { label: 'Leads', icon: <ContactsIcon />, path: '/leads' },
         { label: 'Property Owners', icon: <GroupIcon />, path: '/owners' },
         ...(isAdmin ? [{ label: 'Review', icon: <DescriptionIcon />, path: '/review' }] : []),
     ];
