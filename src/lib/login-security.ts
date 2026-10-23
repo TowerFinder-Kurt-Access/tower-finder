@@ -38,7 +38,9 @@ export function isIpRateLimited(ip: string | null, max = 5, windowMs = 60_000): 
 export function recordLoginEvent(event: LoginEventInput) {
     return prisma.loginEvent.create({
         data: {
-            email: event.email,
+            // Stored lower-cased so the lockout count cannot be evaded by
+            // changing the letter case of the same address.
+            email: event.email.trim().toLowerCase(),
             userId: event.userId ?? null,
             type: event.type,
             ip: event.ip ?? null,
@@ -53,7 +55,7 @@ export function recordLoginEvent(event: LoginEventInput) {
 export async function isLockedOut(email: string): Promise<boolean> {
     const recentFailures = await prisma.loginEvent.count({
         where: {
-            email,
+            email: email.trim().toLowerCase(),
             type: LoginEventType.LOGIN_FAILED,
             createdAt: { gte: new Date(Date.now() - LOCKOUT_WINDOW_MS) },
         },
@@ -67,7 +69,7 @@ export async function isLockedOut(email: string): Promise<boolean> {
 export async function getLockoutRemainingSeconds(email: string): Promise<number> {
     const recent = await prisma.loginEvent.findMany({
         where: {
-            email,
+            email: email.trim().toLowerCase(),
             type: LoginEventType.LOGIN_FAILED,
             createdAt: { gte: new Date(Date.now() - LOCKOUT_WINDOW_MS) },
         },

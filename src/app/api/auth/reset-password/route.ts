@@ -3,6 +3,8 @@ import { prisma } from '@/lib/prisma';
 import { createHash, timingSafeEqual } from 'crypto';
 import bcrypt from 'bcryptjs';
 import { validatePassword } from '@/lib/password-policy';
+import { markPasswordPolicyCurrent } from '@/lib/password-policy-server';
+import { LOCKOUT_WINDOW_MS } from '@/lib/security-policy';
 import { recordLoginEvent, requestIp } from '@/lib/login-security';
 
 const MAX_CODE_ATTEMPTS = 5;
@@ -92,14 +94,31 @@ export async function POST(request: Request) {
                 password: hashedPassword,
                 passwordChangedAt: new Date(),
                 sessionVersion: { increment: 1 },
+                // A completed reset is the change, so the forced-change gate lifts.
+                mustChangePassword: false,
             },
         });
+
+        // A fresh password ends the failed-login lockout. Without this, a user
+        // who reset while locked out stayed blocked for the rest of the window.
+        await prisma.loginEvent.deleteMany({
+            where: {
+                OR: [
+                    { userId: user.id },
+                    { email: { equals: email.trim(), mode: 'insensitive' } },
+                ],
+                type: 'LOGIN_FAILED',
+                createdAt: { gte: new Date(Date.now() - LOCKOUT_WINDOW_MS) },
+            },
+        }).catch(() => {});
 
         // Clean up: delete this code and any others for this email.
         await prisma.passwordResetToken.deleteMany({ where: { email: email.trim().toLowerCase() } }).catch(() => {});
 
         // Clean up stale OTP rows.
         await prisma.loginOtp.deleteMany({ where: { email: email.trim().toLowerCase() } }).catch(() => {});
+
+        await markPasswordPolicyCurrent(user.id);
 
         const ip = requestIp(request);
         await recordLoginEvent({

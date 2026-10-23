@@ -10,6 +10,8 @@ interface SignInUser {
     sessionVersion: number;
     passwordChangedAt: Date;
     mustChangePassword: boolean;
+    passwordPolicyOutdated: boolean;
+    twoFactorEnabled: boolean;
 }
 
 export const authConfig = {
@@ -30,6 +32,8 @@ export const authConfig = {
                         token.sessionVersion = signInUser.sessionVersion;
                         token.mustChangePassword = passwordIsExpired(signInUser.passwordChangedAt);
                         token.forcedPasswordChange = signInUser.mustChangePassword;
+                        token.passwordPolicyOutdated = signInUser.passwordPolicyOutdated;
+                        token.twoFactorEnabled = signInUser.twoFactorEnabled;
             }
             return token;
         },
@@ -42,6 +46,8 @@ export const authConfig = {
                 session.user.sessionVersion = token.sessionVersion as number;
                         session.user.mustChangePassword = token.mustChangePassword as boolean;
                         session.user.forcedPasswordChange = token.forcedPasswordChange as boolean;
+                        session.user.passwordPolicyOutdated = token.passwordPolicyOutdated as boolean;
+                        session.user.twoFactorEnabled = token.twoFactorEnabled as boolean;
             }
             return session;
         },

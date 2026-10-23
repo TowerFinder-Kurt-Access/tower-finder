@@ -10,6 +10,8 @@ import NavRail from './NavRail';
 import SuperpowersSidebar from './SuperpowersSidebar';
 import ContentArea from './ContentArea';
 import { PasswordChangeReminder } from './PasswordChangeReminder';
+import { PasswordPolicyReminder } from './PasswordPolicyReminder';
+import { TwoFactorReminder } from './TwoFactorReminder';
 
 const PUBLIC_ROUTES = ['/login', '/forgot-password', '/reset-password'];
 
@@ -62,6 +64,8 @@ export default function SuperpowersShell({ children }: { children: React.ReactNo
                 <SuperpowersSidebar />
                 <ContentArea>{children}</ContentArea>
                 <PasswordChangeReminder />
+                <PasswordPolicyReminder />
+                <TwoFactorReminder />
             </Box>
         );
     }
@@ -71,6 +75,8 @@ export default function SuperpowersShell({ children }: { children: React.ReactNo
             <NavRail />
             <ContentArea>{children}</ContentArea>
             <PasswordChangeReminder />
+            <PasswordPolicyReminder />
+            <TwoFactorReminder />
         </Box>
     );
 }
