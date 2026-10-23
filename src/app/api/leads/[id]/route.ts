@@ -34,6 +34,16 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
             return NextResponse.json({ error: 'Nothing to update.' }, { status: 400 });
         }
 
+        if (typeof data.towerId === 'number' && data.towerId !== existing.towerId) {
+            const tower = await prisma.tower.findUnique({ where: { id: data.towerId }, select: { id: true } });
+            if (!tower) {
+                return NextResponse.json({ error: `Tower ${data.towerId} does not exist.` }, { status: 404 });
+            }
+            if (!(await canAccessTower(user.id, user.role, data.towerId))) {
+                return NextResponse.json({ error: 'You do not have access to that tower.' }, { status: 403 });
+            }
+        }
+
         const lead = await prisma.lead.update({ where: { id }, data, include: leadInclude });
         return NextResponse.json(toLeadRow(lead));
     } catch (error) {

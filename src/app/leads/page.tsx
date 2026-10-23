@@ -7,6 +7,7 @@ import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
 import TextField from '@mui/material/TextField';
+import Autocomplete from '@mui/material/Autocomplete';
 import MenuItem from '@mui/material/MenuItem';
 import InputAdornment from '@mui/material/InputAdornment';
 import Chip from '@mui/material/Chip';
@@ -35,6 +36,16 @@ import { LEAD_STAGE_LABELS, type LeadRow } from '@/lib/leads';
 import { useSnackbar } from '@/components/GlobalSnackbar';
 
 type LeadStage = keyof typeof LEAD_STAGE_LABELS;
+
+interface TowerOption {
+    id: number;
+    address: string | null;
+    city: string | null;
+    state: string | null;
+    type: string | null;
+    ownerName: string | null;
+    ownerType: string | null;
+}
 
 const STAGES = Object.keys(LEAD_STAGE_LABELS) as LeadStage[];
 const PAGE_SIZE = 50;
@@ -109,6 +120,45 @@ function LeadsContent() {
     const [form, setForm] = useState<LeadFormValues>(EMPTY_FORM);
     const [formError, setFormError] = useState<string | null>(null);
     const [saving, setSaving] = useState(false);
+    const [selectedTower, setSelectedTower] = useState<TowerOption | null>(null);
+    const [towerOptions, setTowerOptions] = useState<TowerOption[]>([]);
+    const [towerQuery, setTowerQuery] = useState('');
+    const [towerLoading, setTowerLoading] = useState(false);
+
+    // Debounced lookup so typing an address does not fire a request per keystroke.
+    useEffect(() => {
+        const query = towerQuery.trim();
+        if (query.length === 0) return;
+
+        const controller = new AbortController();
+        const timer = setTimeout(async () => {
+            setTowerLoading(true);
+            try {
+                const response = await axios.get('/api/towers/options', {
+                    params: { q: query },
+                    signal: controller.signal,
+                });
+                setTowerOptions(response.data);
+            } catch (err) {
+                if (!axios.isCancel(err)) console.error('Tower search failed', err);
+            } finally {
+                if (!controller.signal.aborted) setTowerLoading(false);
+            }
+        }, 250);
+
+        return () => {
+            clearTimeout(timer);
+            controller.abort();
+        };
+    }, [towerQuery]);
+
+    const updateTowerQuery = (value: string) => {
+        setTowerQuery(value);
+        if (value.trim().length === 0) {
+            setTowerOptions([]);
+            setTowerLoading(false);
+        }
+    };
 
     useEffect(() => {
         const controller = new AbortController();
@@ -167,12 +217,24 @@ function LeadsContent() {
 
     const openLead = (lead: LeadRow) => {
         setForm(formFromRow(lead));
+        setSelectedTower({
+            id: lead.towerId,
+            address: lead.address,
+            city: lead.city,
+            state: lead.state,
+            type: null,
+            ownerName: lead.ownerName,
+            ownerType: lead.ownerType,
+        });
+        updateTowerQuery('');
         setFormError(null);
         setDrawer({ mode: 'view', lead });
     };
 
     const openCreate = () => {
         setForm({ ...EMPTY_FORM, stage: activeStage || 'PROSPECTIVE' });
+        setSelectedTower(null);
+        updateTowerQuery('');
         setFormError(null);
         setDrawer({ mode: 'create' });
     };
@@ -192,12 +254,13 @@ function LeadsContent() {
         setFormError(null);
 
         const towerId = Number(form.towerId);
-        if (drawer.mode === 'create' && (!Number.isInteger(towerId) || towerId <= 0)) {
-            setFormError('Enter a numeric tower ID.');
+        if (!Number.isInteger(towerId) || towerId <= 0) {
+            setFormError('Select a tower for this lead.');
             return;
         }
 
         const payload = {
+            towerId,
             stage: form.stage,
             contactPerson: form.contactPerson || null,
             companyName: form.companyName || null,
@@ -210,7 +273,7 @@ function LeadsContent() {
         setSaving(true);
         try {
             if (drawer.mode === 'create') {
-                await axios.post('/api/leads', { ...payload, towerId });
+                await axios.post('/api/leads', payload);
                 showSnackbar(`Lead added to tower ${towerId}.`);
             } else {
                 await axios.patch(`/api/leads/${drawer.lead.id}`, payload);
@@ -568,17 +631,59 @@ function LeadsContent() {
                             </Box>
                         ) : (
                             <Box sx={{ flex: 1, overflowY: 'auto', px: 3, py: 2.5, display: 'grid', gap: 2 }}>
-                                {drawer.mode === 'create' && (
-                                    <TextField
-                                        size="small"
-                                        label="Tower ID"
-                                        placeholder="e.g. 14389"
-                                        value={form.towerId}
-                                        onChange={(event) => updateForm('towerId', event.target.value)}
-                                        helperText="The tower this lead belongs to."
-                                        slotProps={{ htmlInput: { inputMode: 'numeric' } }}
-                                    />
-                                )}
+                                <Autocomplete
+                                    size="small"
+                                    options={towerOptions}
+                                    value={selectedTower}
+                                    loading={towerLoading}
+                                    filterOptions={(options) => options}
+                                    getOptionLabel={(option) => (option.city ? `#${option.id}, ${option.city}` : `#${option.id}`)}
+                                    isOptionEqualToValue={(option, value) => option.id === value.id}
+                                    onInputChange={(_event, value, reason) => {
+                                        if (reason === 'input' || reason === 'clear') updateTowerQuery(value);
+                                    }}
+                                    onChange={(_event, option) => {
+                                        setSelectedTower(option);
+                                        if (!option) {
+                                            updateForm('towerId', '');
+                                            return;
+                                        }
+                                        setForm((current) => {
+                                            const ownerIsPerson = option.ownerType?.toLowerCase() === 'individual';
+                                            return {
+                                                ...current,
+                                                towerId: String(option.id),
+                                                contactPerson: current.contactPerson || (ownerIsPerson ? (option.ownerName ?? '') : ''),
+                                                companyName: current.companyName || (ownerIsPerson ? '' : (option.ownerName ?? '')),
+                                            };
+                                        });
+                                    }}
+                                    noOptionsText={
+                                        towerQuery.trim().length === 0
+                                            ? 'Type a tower ID, address, or city.'
+                                            : 'No towers found.'
+                                    }
+                                    renderOption={({ key, ...optionProps }, option) => (
+                                        <Box component="li" key={key} {...optionProps} sx={{ gap: 0, alignItems: 'flex-start' }}>
+                                            <Box sx={{ minWidth: 0 }}>
+                                                <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                                                    #{option.id} {option.address || 'No address'}
+                                                </Typography>
+                                                <Typography variant="caption" color="text.secondary">
+                                                    {[option.city, option.state, option.ownerName].filter(Boolean).join(', ')}
+                                                </Typography>
+                                            </Box>
+                                        </Box>
+                                    )}
+                                    renderInput={(params) => (
+                                        <TextField
+                                            {...params}
+                                            label="Tower"
+                                            placeholder="Search by ID, address, or city"
+                                            helperText="Picking a tower fills the contact or company from its property owner."
+                                        />
+                                    )}
+                                />
                                 <TextField
                                     select
                                     size="small"

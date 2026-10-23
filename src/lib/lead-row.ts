@@ -67,5 +67,11 @@ export function readLeadFields(body: unknown): { data: LeadFieldInput; error?: s
         data.stage = input.stage as LeadStage;
     }
 
+    if ('towerId' in input) {
+        const towerId = Number(input.towerId);
+        if (!Number.isInteger(towerId) || towerId <= 0) return { data, error: 'Invalid tower ID' };
+        data.towerId = towerId;
+    }
+
     return { data };
 }
