@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect, Suspense } from 'react';
-import { signIn } from 'next-auth/react';
+import { signIn, signOut } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
@@ -66,6 +66,14 @@ function LoginPageContent() {
         const id = setInterval(() => setResendSecondsLeft((s) => (s <= 0 ? 0 : s - 1)), 1000);
         return () => clearInterval(id);
     }, [resendSecondsLeft]);
+
+    // A revoked JWT keeps riding a valid cookie, so the form would submit under
+    // a stale session. Clear it here; the middleware cannot, because the
+    // NextAuth wrapper re-issues the cookie after the middleware returns.
+    const sessionRevoked = searchParams.get('error') === 'session-revoked';
+    useEffect(() => {
+        if (sessionRevoked) void signOut({ redirect: false });
+    }, [sessionRevoked]);
 
     // ---- Login handler ----
     const handleSubmit = async (e: React.FormEvent) => {

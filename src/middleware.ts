@@ -34,7 +34,9 @@ export default auth(async (req: any) => {
     if (revoked) {
         if (pathname !== '/login') {
             // API routes get a clean 401 so clients don't choke on a redirect;
-            // pages get bounced to the login page with a reason.
+            // pages get bounced to the login page with a reason. The stale
+            // cookie cannot be cleared here: the NextAuth wrapper re-issues it
+            // after this handler returns. The login page clears it instead.
             if (pathname.startsWith('/api/')) {
                 return Response.json({ error: 'Unauthorized' }, { status: 401 });
             }
@@ -52,8 +54,10 @@ export default auth(async (req: any) => {
         return Response.redirect(new URL('/change-password', req.url));
     }
 
-    // 3. Valid sessions visiting /login go home.
-    if (isLoggedIn && pathname === '/login') {
+    // 3. Valid sessions visiting /login go home. A revoked session also arrives
+    //    here holding a valid JWT, so sending it home would bounce straight back.
+    const sessionRevoked = req.nextUrl.searchParams.get('error') === 'session-revoked';
+    if (isLoggedIn && pathname === '/login' && !sessionRevoked) {
         return Response.redirect(new URL('/', req.url));
     }
 
