@@ -64,7 +64,9 @@
 /* ---------- Popups ---------- */
 .mapcn-popup {
   position: relative;
-  max-width: 248px;
+  /* Wide enough for a full street address without an aggressive wrap. */
+  width: max-content;
+  max-width: 300px;
   padding: 12px;
   border-radius: 6px;
   border: 1px solid #e2e8f0;
@@ -78,19 +80,32 @@
 .mapcn-popup-title {
   display: block;
   font-weight: 600;
-  font-size: 13px;
-  margin-bottom: 2px;
+  font-size: 14px;
+  margin-bottom: 6px;
   color: #0f172a;
 }
+/* The content wrapper. It must not impose its own width, or it fights the
+   grid columns of the rows inside it. */
+.mapcn-popup-body {
+  min-width: 0;
+}
+/*
+ * A fixed label column and a value column that may wrap. A flex row with
+ * space-between shrinks the label and forces the value into a narrow column,
+ * which is what broke the address line.
+ */
 .mapcn-popup-row {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
+  display: grid;
+  grid-template-columns: 76px minmax(0, 1fr);
+  gap: 10px;
+  align-items: baseline;
+  padding: 2px 0;
   color: #64748b;
 }
-.mapcn-popup-row strong {
+.mapcn-popup-row > :last-child {
   color: #334155;
   font-weight: 500;
+  overflow-wrap: anywhere;
 }
 .mapcn-popup-actions {
   display: flex;

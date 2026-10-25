@@ -520,7 +520,7 @@ export default function TowerMap({
                     className="mapcn-popup"
                     onClose={() => onTowerSelect(selectedTower)}
                 >
-                    <Box sx={{ minWidth: 240 }}>
+                    <Box className="mapcn-popup-body">
                         <Typography className="mapcn-popup-title">{towerLabel(selectedTower.type)}</Typography>
                         <Box className="mapcn-popup-row">
                             <span>ID</span>
@@ -578,7 +578,7 @@ export default function TowerMap({
                     closeButton
                     className="mapcn-popup"
                 >
-                    <Box sx={{ minWidth: 180 }}>
+                    <Box className="mapcn-popup-body">
                         <Typography className="mapcn-popup-title">{selectedBusiness.name}</Typography>
                         <Box className="mapcn-popup-row">
                             <span>Type</span>

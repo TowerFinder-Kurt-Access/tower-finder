@@ -227,35 +227,33 @@ export default function DiscoveryMap({ cells, state }: { cells: DiscoveryCell[];
                     longitude={selectedCell.lon}
                     latitude={selectedCell.lat}
                     closeButton
+                    className="mapcn-popup"
                     onClose={() => setSelected(null)}
                 >
-                    <Box sx={{ minWidth: 150 }}>
-                        <Typography variant="subtitle2" sx={{ fontWeight: 900, display: 'block' }}>
-                            {selectedCell.h3Index}
-                        </Typography>
-                        <Typography variant="body2" sx={{ display: 'block' }}>
-                            <strong>Status:</strong>{' '}
-                            <Box component="span" sx={{ color: cellColor(selectedCell), fontWeight: 700 }}>
+                    <Box className="mapcn-popup-body">
+                        <Typography className="mapcn-popup-title">{selectedCell.h3Index}</Typography>
+                        <Box className="mapcn-popup-row">
+                            <span>Status</span>
+                            <strong style={{ color: cellColor(selectedCell) }}>
                                 {selectedCell.status.toUpperCase()}
-                            </Box>
-                        </Typography>
-                        <Typography variant="body2" sx={{ display: 'block' }}>
-                            <strong>Discovery Type:</strong> County-Licensee Drilldown
-                        </Typography>
+                            </strong>
+                        </Box>
+                        <Box className="mapcn-popup-row">
+                            <span>Discovery Type</span>
+                            <span>County-Licensee Drilldown</span>
+                        </Box>
                         {selectedCell.status === 'completed' && (
-                            <Typography variant="body2" sx={{ display: 'block' }}>
-                                <strong>Rooftops found:</strong>{' '}
-                                <Box
-                                    component="span"
-                                    sx={{
+                            <Box className="mapcn-popup-row">
+                                <span>Rooftops found</span>
+                                <strong
+                                    style={{
                                         color: (selectedCell.foundCount || 0) > 0 ? '#ff9800' : '#666',
-                                        fontWeight: 900,
                                         fontSize: '1.2rem',
                                     }}
                                 >
                                     {selectedCell.foundCount || 0}
-                                </Box>
-                            </Typography>
+                                </strong>
+                            </Box>
                         )}
                     </Box>
                 </MapPopup>
