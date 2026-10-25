@@ -205,6 +205,20 @@ function MapModeEffects({ modes, styleId }: { modes: MapModeState; styleId: MapS
         }
     }, [map, isLoaded, modes.globe]);
 
+    // Tilt the camera for 3D. Extruded buildings are invisible from directly
+    // overhead, so the mode is useless without pitch. Only tilt when zoomed in
+    // far enough for buildings to exist, and leave a globe view alone.
+    useEffect(() => {
+        if (!map || !isLoaded) return;
+        if (modes.globe) return;
+        if (map.getZoom() < 10) return;
+        map.easeTo({
+            pitch: modes.buildings3d ? 55 : 0,
+            duration: modes.buildings3d ? 800 : 600,
+            easing: (t: number) => 1 - Math.pow(1 - t, 3),
+        });
+    }, [map, isLoaded, modes.buildings3d, modes.globe]);
+
     // Extruded buildings. The satellite basemap has no building layer, so the
     // mode is a no-op there rather than an error.
     useEffect(() => {
@@ -600,6 +614,12 @@ export default function TowerMap({
 
     // Cluster palettes lighten on a dark basemap, where the deep reds vanish.
     const dark = isDarkBasemap(mapStyle);
+    // Stable reference: a fresh object literal each render would re-run the
+    // projection effect on every paint.
+    const projection = useMemo(
+        () => ({ type: mapModes.globe ? ('globe' as const) : ('mercator' as const) }),
+        [mapModes.globe],
+    );
     const towerClusterColors = dark ? TOWER_CLUSTER_COLORS_DARK : TOWER_CLUSTER_COLORS;
     const leadClusterColors = dark ? LEAD_CLUSTER_COLORS_DARK : LEAD_CLUSTER_COLORS;
 
@@ -611,7 +631,7 @@ export default function TowerMap({
                 light: MAP_STYLES[mapStyle].url,
                 dark: MAP_STYLES[mapStyle].url,
             }}
-            projection={mapModes.globe ? { type: 'globe' } : { type: 'mercator' }}
+            projection={projection}
             viewport={initialViewport}
             maxZoom={MAX_ZOOM}
             attributionControl={{ compact: true }}

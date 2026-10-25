@@ -10,6 +10,10 @@ import LayersIcon from '@mui/icons-material/Layers';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import PublicIcon from '@mui/icons-material/Public';
 import ApartmentIcon from '@mui/icons-material/Apartment';
+import LightModeIcon from '@mui/icons-material/LightMode';
+import DarkModeIcon from '@mui/icons-material/DarkMode';
+import MapIcon from '@mui/icons-material/Map';
+import SatelliteAltIcon from '@mui/icons-material/SatelliteAlt';
 import {
     MAP_STYLES,
     type MapModeState,
@@ -26,71 +30,16 @@ interface MapDetailsPanelProps {
 const STYLE_ORDER: MapStyleId[] = ['light', 'dark', 'voyager', 'satellite'];
 
 /** A basemap thumbnail. Colors only, so no image asset is needed. */
-function StyleSwatch({ style, selected }: { style: MapStyleId; selected: boolean }) {
-    const { swatch } = MAP_STYLES[style];
-    return (
-        <Box
-            sx={{
-                position: 'relative',
-                width: '100%',
-                aspectRatio: '1 / 1',
-                borderRadius: 1.5,
-                overflow: 'hidden',
-                bgcolor: swatch.land,
-                border: '2px solid',
-                borderColor: selected ? 'primary.main' : 'divider',
-                transition: 'border-color 150ms ease',
-            }}
-        >
-            {/* Water band, so the swatch reads as a map rather than a color chip. */}
-            <Box
-                sx={{
-                    position: 'absolute',
-                    inset: 0,
-                    background: `linear-gradient(160deg, transparent 55%, ${swatch.water} 55%)`,
-                }}
-            />
-            {/* Two road strokes. */}
-            <Box
-                sx={{
-                    position: 'absolute',
-                    top: '48%',
-                    left: '-10%',
-                    width: '120%',
-                    height: 3,
-                    bgcolor: swatch.background,
-                    transform: 'rotate(-12deg)',
-                }}
-            />
-            <Box
-                sx={{
-                    position: 'absolute',
-                    top: '-10%',
-                    left: '42%',
-                    width: 2,
-                    height: '120%',
-                    bgcolor: swatch.background,
-                    transform: 'rotate(8deg)',
-                }}
-            />
-            {selected && (
-                <Box
-                    sx={{
-                        position: 'absolute',
-                        top: 4,
-                        right: 4,
-                        width: 8,
-                        height: 8,
-                        borderRadius: '50%',
-                        bgcolor: 'primary.main',
-                        border: '2px solid',
-                        borderColor: 'background.paper',
-                    }}
-                />
-            )}
-        </Box>
-    );
-}
+/**
+ * One icon per basemap. A glyph reads faster than a color chip at this size,
+ * and needs no image asset or per-style color plumbing.
+ */
+const STYLE_ICONS: Record<MapStyleId, React.ReactNode> = {
+    light: <LightModeIcon fontSize="small" />,
+    dark: <DarkModeIcon fontSize="small" />,
+    voyager: <MapIcon fontSize="small" />,
+    satellite: <SatelliteAltIcon fontSize="small" />,
+};
 
 function ModeButton({
     label,
@@ -214,34 +163,13 @@ export default function MapDetailsPanel({
                     </Typography>
                     <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1 }}>
                         {STYLE_ORDER.map((id) => (
-                            <Box
-                                component="button"
-                                type="button"
+                            <ModeButton
                                 key={id}
+                                label={MAP_STYLES[id].label}
+                                icon={STYLE_ICONS[id]}
+                                selected={mapStyle === id}
                                 onClick={() => onMapStyleChange(id)}
-                                aria-pressed={mapStyle === id}
-                                sx={{
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    gap: 0.5,
-                                    p: 0,
-                                    border: 0,
-                                    bgcolor: 'transparent',
-                                    cursor: 'pointer',
-                                    font: 'inherit',
-                                }}
-                            >
-                                <StyleSwatch style={id} selected={mapStyle === id} />
-                                <Typography
-                                    sx={{
-                                        fontSize: 11,
-                                        fontWeight: mapStyle === id ? 700 : 500,
-                                        color: mapStyle === id ? 'primary.main' : 'text.secondary',
-                                    }}
-                                >
-                                    {MAP_STYLES[id].label}
-                                </Typography>
-                            </Box>
+                            />
                         ))}
                     </Box>
 
@@ -264,24 +192,14 @@ export default function MapDetailsPanel({
                             label="3D Globe"
                             icon={<PublicIcon fontSize="small" />}
                             selected={mapModes.globe}
-                            onClick={() =>
-                                // Globe and 3D buildings are mutually exclusive:
-                                // buildings only extrude on the flat projection.
-                                onMapModesChange({
-                                    globe: !mapModes.globe,
-                                    buildings3d: false,
-                                })
-                            }
+                            onClick={() => onMapModesChange({ ...mapModes, globe: !mapModes.globe })}
                         />
                         <ModeButton
                             label="3D Mode"
                             icon={<ApartmentIcon fontSize="small" />}
                             selected={mapModes.buildings3d}
                             onClick={() =>
-                                onMapModesChange({
-                                    globe: false,
-                                    buildings3d: !mapModes.buildings3d,
-                                })
+                                onMapModesChange({ ...mapModes, buildings3d: !mapModes.buildings3d })
                             }
                         />
                     </Box>
