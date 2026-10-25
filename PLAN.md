@@ -1,5 +1,7 @@
 # Map Migration Plan
 
+**Status: complete.** All seven phases are done on branch `feat/mapcn-migration`.
+
 Replace the Leaflet map stack with mapcn (MapLibre GL) across the dashboard, the tower
 detail page, and the discovery page. In this document, "popup" means the popout named in
 the request.
@@ -11,15 +13,14 @@ the request.
 | File | Lines | Role |
 | --- | --- | --- |
 | `src/components/Map.tsx` | 469 | Dashboard map: towers, leads, businesses, parcel polygon, GPS dot |
-| `src/components/DiscoveryMap.tsx` | 120 | H3 scan progress map |
-| `src/app/page.tsx` | 621 | Consumer, holds viewport state and the bbox fetch |
+| `src/components/DiscoveryMap.tsx` | 120 | H3 scan progress map || `src/app/page.tsx` | 621 | Consumer, holds viewport state and the bbox fetch |
 | `src/app/towers/[id]/page.tsx` | 1764 | Consumer, holds selected-business state |
 | `src/app/superpowers/discovery/page.tsx` | 299 | Consumer, passes H3 cells |
 | `src/app/globals.css` | — | Holds `.selected-tower-pulse` and the cluster icon rules |
 | `src/lib/google-maps.ts` | 33 | External links, unchanged by this work |
 
-Map-related packages in `package.json`: `leaflet`, `react-leaflet`,
-`react-leaflet-cluster`, `@types/leaflet`.
+Map-related packages in `package.json` at the start of this work: `leaflet`,
+`react-leaflet`, `react-leaflet-cluster`, `@types/leaflet`. All four are now removed.
 
 The dashboard map renders two `MarkerClusterGroup` instances, one for towers and one for
 leads. Each group uses a custom `divIcon` cluster badge. The map holds `maxZoom={18}` and
