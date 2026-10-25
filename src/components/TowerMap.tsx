@@ -18,11 +18,18 @@ import Button from '@mui/material/Button';
 import type { GeoJSON } from 'geojson';
 import { toLngLat, type MapBounds } from '@/lib/map-viewport';
 import {
-    ESRI_LIGHT_GRAY_STYLE,
-    LEAD_CLUSTER_COLORS,
-    LEAD_POINT_COLOR,
+    DEFAULT_MAP_MODES,
+    DEFAULT_MAP_STYLE,
+    MAP_STYLES,
     TOWER_CLUSTER_COLORS,
+    TOWER_CLUSTER_COLORS_DARK,
     TOWER_POINT_COLOR,
+    LEAD_CLUSTER_COLORS,
+    LEAD_CLUSTER_COLORS_DARK,
+    LEAD_POINT_COLOR,
+    isDarkBasemap,
+    type MapModeState,
+    type MapStyleId,
 } from '@/components/ui/cluster-styles';
 
 /** Hysteresis pad. While the viewport stays inside the last reported area,
@@ -176,6 +183,87 @@ function statusLabel(status: MapTower['status']): string {
     return status || 'Unknown';
 }
 
+/**
+ * Applies the display modes that MapLibre cannot express as props: the fog that
+ * makes a globe read as a globe, and the extruded buildings for 3D mode.
+ */
+function MapModeEffects({ modes, styleId }: { modes: MapModeState; styleId: MapStyleId }) {
+    const { map, isLoaded } = useMap();
+
+    // Atmosphere for the globe projection. Without it a globe looks like a flat
+    // map that happens to curve at the edges.
+    useEffect(() => {
+        if (!map || !isLoaded) return;
+        try {
+            if (modes.globe) {
+                map.setSky({ 'atmosphere-blend': 1 });
+            } else {
+                map.setSky({ 'atmosphere-blend': 0 });
+            }
+        } catch {
+            // The style may be mid-reload.
+        }
+    }, [map, isLoaded, modes.globe]);
+
+    // Extruded buildings. The satellite basemap has no building layer, so the
+    // mode is a no-op there rather than an error.
+    useEffect(() => {
+        if (!map || !isLoaded) return;
+        const layerId = 'tower-map-3d-buildings';
+
+        const removeLayer = () => {
+            try {
+                if (map.getLayer(layerId)) map.removeLayer(layerId);
+            } catch {
+                // The style may be mid-reload.
+            }
+        };
+
+        if (!modes.buildings3d) {
+            removeLayer();
+            return;
+        }
+
+        const style = map.getStyle();
+        const source = style?.sources?.protomaps;
+        if (!source) {
+            // A raster basemap: no vector buildings to extrude.
+            removeLayer();
+            return;
+        }
+
+        // Insert under the first label layer so labels stay on top.
+        const beforeId = (style.layers ?? []).find((l) => l.type === 'symbol')?.id;
+
+        try {
+            if (!map.getLayer(layerId)) {
+                map.addLayer(
+                    {
+                        id: layerId,
+                        type: 'fill-extrusion',
+                        source: 'protomaps',
+                        'source-layer': 'buildings',
+                        minzoom: 14,
+                        paint: {
+                            'fill-extrusion-color': '#d6d6d6',
+                            'fill-extrusion-height': ['coalesce', ['get', 'render_height'], 8],
+                            'fill-extrusion-base': ['coalesce', ['get', 'render_min_height'], 0],
+                            'fill-extrusion-opacity': 0.75,
+                        },
+                    },
+                    beforeId,
+                );
+            }
+        } catch {
+            // The style may be mid-reload.
+        }
+
+        return removeLayer;
+    }, [map, isLoaded, modes.buildings3d, styleId]);
+
+    return null;
+}
+
 /** Report bounds on moveend, with the same hysteresis the Leaflet stack used. */
 function BoundsReporter({ onBoundsChange }: { onBoundsChange?: (bounds: MapBounds) => void }) {
     const map = useMap().map;
@@ -315,6 +403,10 @@ export interface TowerMapProps {
     onBoundsChange?: (bounds: MapBounds) => void;
     /** Toggle GPS tracking from the map's locate control. */
     onLocate?: () => void;
+    /** Basemap picked in the map details panel. */
+    mapStyle?: MapStyleId;
+    /** Display modes picked in the same panel. */
+    mapModes?: MapModeState;
     userPosition?: { lat: number; lon: number; accuracy?: number } | null;
 }
 
@@ -332,6 +424,8 @@ export default function TowerMap({
     onBoundsChange,
     onLocate,
     userPosition,
+    mapStyle = DEFAULT_MAP_STYLE,
+    mapModes = DEFAULT_MAP_MODES,
 }: TowerMapProps) {
     const mapRef = useRef<MapRef | null>(null);
 
@@ -504,17 +598,27 @@ export default function TowerMap({
     );
     const selectedBusinessCoords = selectedBusiness ? businessCoords(selectedBusiness) : null;
 
+    // Cluster palettes lighten on a dark basemap, where the deep reds vanish.
+    const dark = isDarkBasemap(mapStyle);
+    const towerClusterColors = dark ? TOWER_CLUSTER_COLORS_DARK : TOWER_CLUSTER_COLORS;
+    const leadClusterColors = dark ? LEAD_CLUSTER_COLORS_DARK : LEAD_CLUSTER_COLORS;
+
     return (
         <Map
             ref={mapRef}
-            theme="light"
-            styles={{ light: ESRI_LIGHT_GRAY_STYLE }}
+            theme={dark ? 'dark' : 'light'}
+            styles={{
+                light: MAP_STYLES[mapStyle].url,
+                dark: MAP_STYLES[mapStyle].url,
+            }}
+            projection={mapModes.globe ? { type: 'globe' } : { type: 'mercator' }}
             viewport={initialViewport}
             maxZoom={MAX_ZOOM}
             attributionControl={{ compact: true }}
             style={{ height: '100%', width: '100%' }}
         >
             <BoundsReporter onBoundsChange={onBoundsChange} />
+            <MapModeEffects modes={mapModes} styleId={mapStyle} />
 
             <MapControls
                 position="bottom-right"
@@ -529,7 +633,7 @@ export default function TowerMap({
                 data={towerFeatures.length > 0 ? { type: 'FeatureCollection', features: towerFeatures } : EMPTY_FEATURE_COLLECTION}
                 clusterRadius={50}
                 clusterMaxZoom={MAX_ZOOM}
-                clusterColors={[...TOWER_CLUSTER_COLORS]}
+                clusterColors={[...towerClusterColors]}
                 clusterThresholds={[100, 750]}
                 pointColor={TOWER_POINT_COLOR}
                 onPointClick={handlePointClick}
@@ -540,7 +644,7 @@ export default function TowerMap({
                 data={leadFeatures.length > 0 ? { type: 'FeatureCollection', features: leadFeatures } : EMPTY_FEATURE_COLLECTION}
                 clusterRadius={40}
                 clusterMaxZoom={MAX_ZOOM}
-                clusterColors={[...LEAD_CLUSTER_COLORS]}
+                clusterColors={[...leadClusterColors]}
                 clusterThresholds={[100, 750]}
                 pointColor={LEAD_POINT_COLOR}
                 onPointClick={handlePointClick}

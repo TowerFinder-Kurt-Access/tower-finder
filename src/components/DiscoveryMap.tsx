@@ -5,7 +5,7 @@ import type { GeoJSON } from 'geojson';
 import { Map, MapControls, MapPopup, useMap } from '@/components/ui/map';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
-import { ESRI_LIGHT_GRAY_STYLE } from '@/components/ui/cluster-styles';
+import { MAP_STYLES, DEFAULT_MAP_STYLE } from '@/components/ui/cluster-styles';
 
 /** Zoom ceiling of the Esri basemap. */
 const MAX_ZOOM = 18;
@@ -196,7 +196,7 @@ export default function DiscoveryMap({ cells, state }: { cells: DiscoveryCell[];
     return (
         <Map
             theme="light"
-            styles={{ light: ESRI_LIGHT_GRAY_STYLE }}
+            styles={{ light: MAP_STYLES[DEFAULT_MAP_STYLE].url }}
             viewport={viewport}
             maxZoom={MAX_ZOOM}
             attributionControl={{ compact: true }}

@@ -18,6 +18,8 @@ const Map = dynamic(() => import('@/components/TowerMap'), {
 });
 import AddOwnerDialog from '@/components/AddOwnerDialog';
 import PromoteLeadDialog from '@/components/PromoteLeadDialog';
+import MapDetailsPanel from '@/components/MapDetailsPanel';
+import { DEFAULT_MAP_MODES, DEFAULT_MAP_STYLE, type MapModeState, type MapStyleId } from '@/components/ui/cluster-styles';
 
 interface Tower {
   id: number;
@@ -69,6 +71,8 @@ function HomeContent() {
   const [addOwnerTower, setAddOwnerTower] = useState<any>(null);
   const [isViewingSpecificTower, setIsViewingSpecificTower] = useState<boolean>(false);
   const [isTrackingLocation, setIsTrackingLocation] = useState<boolean>(false);
+  const [mapStyle, setMapStyle] = useState<MapStyleId>(DEFAULT_MAP_STYLE);
+  const [mapModes, setMapModes] = useState<MapModeState>(DEFAULT_MAP_MODES);
   const [isDroppingTower, setIsDroppingTower] = useState<boolean>(false);
   const { position: userPosition, error: geoError, start: startGeo, stop: stopGeo } = useGeolocation();
 
@@ -480,6 +484,8 @@ function HomeContent() {
             towerLeads={showLeads ? towerLeads : []}
             userPosition={isTrackingLocation ? userPosition : null}
             onLocate={toggleLocationTracking}
+            mapStyle={mapStyle}
+            mapModes={mapModes}
           />
         </Suspense>
 
@@ -518,6 +524,13 @@ function HomeContent() {
             </Box>
           </Box>
         </Paper>
+
+        <MapDetailsPanel
+          mapStyle={mapStyle}
+          onMapStyleChange={setMapStyle}
+          mapModes={mapModes}
+          onMapModesChange={setMapModes}
+        />
 
         {/* Drop tower: only meaningful with a GPS fix, so it appears then. */}
         {isTrackingLocation && userPosition && (
