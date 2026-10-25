@@ -75,5 +75,8 @@ export default auth(async (req: any) => {
 });
 
 export const config = {
-    matcher: ['/((?!_next/static|_next/image|favicon.ico|favicon.svg).*)'],
+    // The MapLibre worker is a static asset that the browser fetches directly.
+    // Middleware must let it through, or it gets redirected to /login and the
+    // map never paints.
+    matcher: ['/((?!_next/static|_next/image|favicon.ico|favicon.svg|maplibre-gl-worker.mjs).*)'],
 };

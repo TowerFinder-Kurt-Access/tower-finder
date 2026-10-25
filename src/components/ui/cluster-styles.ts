@@ -19,6 +19,10 @@ const ESRI_ATTRIBUTION =
  */
 export const ESRI_LIGHT_GRAY_STYLE = {
     version: 8,
+    // MapLibre needs a glyph endpoint before it can render any symbol layer.
+    // The cluster count text in MapClusterLayer is a symbol layer, so without
+    // this the counts are blank and the map has no labels at all.
+    glyphs: 'https://tiles.basemaps.cartocdn.com/v/20261001-03/fonts/{fontstack}/{range}.pbf',
     sources: {
         esri: {
             type: 'raster' as const,
