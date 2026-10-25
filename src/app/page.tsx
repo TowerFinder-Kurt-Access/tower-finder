@@ -12,7 +12,7 @@ import MyLocationIcon from '@mui/icons-material/MyLocation';
 import AddLocationIcon from '@mui/icons-material/AddLocation';
 import { useGeolocation } from '@/hooks/useGeolocation';
 // Dynamically import Map to avoid SSR issues with Leaflet
-const Map = dynamic(() => import('@/components/Map'), {
+const Map = dynamic(() => import('@/components/TowerMap'), {
   ssr: false,
   loading: () => <p>Loading Map...</p>
 });

@@ -65,8 +65,8 @@ import { getRadiusTiers } from '@/lib/nearby-business';
 import { pinnedMapUrl, towerToPlaceUrl } from '@/lib/google-maps';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
 
-// Dynamically import Map to avoid SSR issues with Leaflet
-const Map = dynamic(() => import('@/components/Map'), {
+// Dynamically import Map to avoid SSR issues
+const Map = dynamic(() => import('@/components/TowerMap'), {
     ssr: false,
     loading: () => <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}><CircularProgress /></Box>
 });
