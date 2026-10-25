@@ -182,6 +182,12 @@ type MapContextValue = {
   mapLib: MapLibreModule | null;
   isLoaded: boolean;
   resolvedTheme: Theme;
+  /**
+   * Bumped on every style swap. Layer children list this in their effect deps:
+   * `setStyle` destroys every source and layer, and `isLoaded` does not change
+   * across a swap, so without this the layers never come back.
+   */
+  styleGeneration: number;
 };
 
 const MapContext = createContext<MapContextValue | null>(null);
@@ -306,6 +312,7 @@ const Map = forwardRef<MapRef, MapProps>(function Map(
   const [mapInstance, setMapInstance] = useState<MapLibreGL.Map | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
   const [isStyleLoaded, setIsStyleLoaded] = useState(false);
+  const [styleGeneration, setStyleGeneration] = useState(0);
   const currentStyleRef = useRef<MapStyleOption | null>(null);
   const styleSwapInFlightRef = useRef(false);
   const internalUpdateRef = useRef(false);
@@ -380,6 +387,9 @@ const Map = forwardRef<MapRef, MapProps>(function Map(
         instance.on("style.load", () => {
           styleSwapInFlightRef.current = false;
           setIsStyleLoaded(true);
+          // A swap destroyed every source and layer. Bumping the generation
+          // makes layer children re-run their add effects against the new style.
+          setStyleGeneration((n) => n + 1);
         });
         // Skip viewport changes triggered by internal updates
         instance.on("move", () => {
@@ -497,8 +507,9 @@ const Map = forwardRef<MapRef, MapProps>(function Map(
       mapLib,
       isLoaded: isLoaded && isStyleLoaded,
       resolvedTheme,
+      styleGeneration,
     }),
-    [mapInstance, mapLib, isLoaded, isStyleLoaded, resolvedTheme],
+    [mapInstance, mapLib, isLoaded, isStyleLoaded, resolvedTheme, styleGeneration],
   );
 
   return (
@@ -1285,7 +1296,7 @@ function MapGeoJSON<
   interactive = false,
   beforeId,
 }: MapGeoJSONProps<P>) {
-  const { map, isLoaded, resolvedTheme } = useMap();
+  const { map, isLoaded, resolvedTheme, styleGeneration } = useMap();
   const autoId = useId();
   const id = propId ?? autoId;
   const sourceId = `geojson-source-${id}`;
@@ -1338,7 +1349,7 @@ function MapGeoJSON<
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLoaded, map]);
+  }, [isLoaded, map, styleGeneration]);
 
   // Sync data when it changes.
   useEffect(() => {
@@ -1536,7 +1547,7 @@ function MapClusterLayer<
   onPointClick,
   onClusterClick,
 }: MapClusterLayerProps<P>) {
-  const { map, isLoaded } = useMap();
+  const { map, isLoaded, styleGeneration } = useMap();
   const id = useId();
   const sourceId = `cluster-source-${id}`;
   const clusterLayerId = `clusters-${id}`;
@@ -1636,7 +1647,7 @@ function MapClusterLayer<
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLoaded, map, sourceId]);
+  }, [isLoaded, map, sourceId, styleGeneration]);
 
   // Update source data when data prop changes (only for non-URL data)
   useEffect(() => {
