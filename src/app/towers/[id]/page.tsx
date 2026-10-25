@@ -18,7 +18,6 @@ import { useState, useEffect, useMemo, use, useSyncExternalStore } from 'react';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
 import dynamic from 'next/dynamic';
-import 'leaflet/dist/leaflet.css';
 import {
     Box,
     Paper,
