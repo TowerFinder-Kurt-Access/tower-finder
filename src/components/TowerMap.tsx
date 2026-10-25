@@ -309,6 +309,8 @@ export interface TowerMapProps {
     selectedBusinessId?: number | null;
     onBusinessSelect?: (id: number) => void;
     onBoundsChange?: (bounds: MapBounds) => void;
+    /** Toggle GPS tracking from the map's locate control. */
+    onLocate?: () => void;
     userPosition?: { lat: number; lon: number; accuracy?: number } | null;
 }
 
@@ -324,6 +326,7 @@ export default function TowerMap({
     selectedBusinessId,
     onBusinessSelect,
     onBoundsChange,
+    onLocate,
     userPosition,
 }: TowerMapProps) {
     const mapRef = useRef<MapRef | null>(null);
@@ -458,7 +461,13 @@ export default function TowerMap({
         >
             <BoundsReporter onBoundsChange={onBoundsChange} />
 
-            <MapControls position="bottom-right" showZoom showLocate showFullscreen />
+            <MapControls
+                position="bottom-right"
+                showZoom
+                showLocate
+                showFullscreen
+                onLocate={() => onLocate?.()}
+            />
 
             {/* Tower clusters */}
             <MapClusterLayer<TowerFeatureProps>

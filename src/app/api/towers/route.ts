@@ -136,9 +136,12 @@ export async function GET(request: Request) {
 
         // Default limit to prevent sending too many towers at once (performance optimization)
         // Use 1000 as default limit if not specified, unless fetching by ID
+        // The map asks for a higher limit: it needs every tower in the viewport,
+        // or clusters under-report and land in the wrong place.
         const DEFAULT_LIMIT = 1000;
+        const MAX_LIMIT = 20000;
         let limit: number | undefined = DEFAULT_LIMIT;
-        if (limitStr) limit = parseInt(limitStr, 10);
+        if (limitStr) limit = Math.min(parseInt(limitStr, 10), MAX_LIMIT);
         else if (id) limit = undefined;
         const page = pageStr ? parseInt(pageStr, 10) : undefined; // Only set page if explicitly provided
 

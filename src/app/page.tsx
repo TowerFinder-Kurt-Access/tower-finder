@@ -193,14 +193,15 @@ function HomeContent() {
         if (selectedCarrier) params.carrier = selectedCarrier;
         if (searchQuery) params.search = searchQuery;
 
-        // BBox (only if allowed / needed)
-        if (mapBounds && !shouldFitBounds && !((selectedCity || selectedProvince) && towers.length === 0)) {
+        // BBox. The map draws what is in view, so ask the API for exactly that.
+        // Without a bbox the API returns the first N towers by id, which all sit
+        // in one region and make every cluster wrong.
+        if (mapBounds) {
           const { north, south, east, west } = mapBounds;
           params.bbox = `${west},${south},${east},${north}`;
-        }
-
-        if (shouldFitBounds) {
-          delete params.bbox;
+          // The API caps at 20000. A viewport that wide is a whole continent, so
+          // the cap only trims a view where clusters would be unreadable anyway.
+          params.limit = 20000;
         }
 
         const { data } = await axios.get('/api/towers', { params });
@@ -478,6 +479,7 @@ function HomeContent() {
             selectedTower={selectedTower}
             towerLeads={showLeads ? towerLeads : []}
             userPosition={isTrackingLocation ? userPosition : null}
+            onLocate={toggleLocationTracking}
           />
         </Suspense>
 
@@ -517,80 +519,39 @@ function HomeContent() {
           </Box>
         </Paper>
 
-        <Paper
-          elevation={3}
-          sx={{
-            position: 'absolute',
-            top: 90,
-            right: 20,
-            zIndex: 1000,
-            bgcolor: 'background.paper',
-            borderRadius: 2,
-            overflow: 'hidden',
-            minWidth: 200
-          }}
-        >
-          <Box
-            onClick={toggleLocationTracking}
+        {/* Drop tower: only meaningful with a GPS fix, so it appears then. */}
+        {isTrackingLocation && userPosition && (
+          <Paper
+            elevation={3}
+            onClick={isDroppingTower ? undefined : handleDropTower}
             sx={{
+              position: 'absolute',
+              top: 90,
+              right: 20,
+              zIndex: 1000,
               p: 1.5,
-              cursor: 'pointer',
+              cursor: isDroppingTower ? 'wait' : 'pointer',
               display: 'flex',
               alignItems: 'center',
               gap: 1,
-              minHeight: 44,
+              borderRadius: 2,
+              bgcolor: 'success.soft',
+              opacity: isDroppingTower ? 0.6 : 1,
               '&:hover': { bgcolor: 'action.hover' },
-              bgcolor: isTrackingLocation ? 'primary.soft' : 'background.paper'
             }}
           >
-            <MyLocationIcon color={isTrackingLocation ? 'primary' : 'action'} />
+            <AddLocationIcon color="success" />
             <Box>
               <Box sx={{ fontWeight: 'bold', fontSize: '0.9rem' }}>
-                {isTrackingLocation ? 'Tracking location' : 'Locate me'}
+                {isDroppingTower ? 'Saving…' : 'Drop tower here'}
               </Box>
               <Box sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>
-                {isTrackingLocation
-                  ? (userPosition ? 'GPS active' : 'Waiting for GPS…')
-                  : 'Tap to share location'}
+                {userPosition.lat.toFixed(5)}, {userPosition.lon.toFixed(5)}
               </Box>
             </Box>
-          </Box>
+          </Paper>
+        )}
 
-          {isTrackingLocation && geoError && (
-            <Box sx={{ px: 1.5, pb: 1, fontSize: '0.75rem', color: 'error.main' }}>
-              Location unavailable — check permissions
-            </Box>
-          )}
-
-          {isTrackingLocation && userPosition && (
-            <Box
-              onClick={isDroppingTower ? undefined : handleDropTower}
-              sx={{
-                p: 1.5,
-                cursor: isDroppingTower ? 'wait' : 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 1,
-                minHeight: 44,
-                borderTop: '1px solid',
-                borderColor: 'divider',
-                bgcolor: 'success.soft',
-                opacity: isDroppingTower ? 0.6 : 1,
-                '&:hover': { bgcolor: isDroppingTower ? 'success.soft' : 'action.hover' }
-              }}
-            >
-              <AddLocationIcon color="success" />
-              <Box>
-                <Box sx={{ fontWeight: 'bold', fontSize: '0.9rem' }}>
-                  {isDroppingTower ? 'Saving…' : 'Drop tower here'}
-                </Box>
-                <Box sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>
-                  {userPosition.lat.toFixed(5)}, {userPosition.lon.toFixed(5)}
-                </Box>
-              </Box>
-            </Box>
-          )}
-        </Paper>
 
         <PromoteLeadDialog
           open={!!leadToPromote}
