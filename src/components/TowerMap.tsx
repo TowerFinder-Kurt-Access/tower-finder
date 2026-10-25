@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { MapRef, MapViewport } from '@/components/ui/map';
 import {
     Map,
@@ -331,19 +331,48 @@ export default function TowerMap({
 }: TowerMapProps) {
     const mapRef = useRef<MapRef | null>(null);
 
-    const viewport = useMemo<Partial<MapViewport>>(
-        () => ({ center: toLngLat(center[0], center[1]), zoom, bearing: 0, pitch: 0 }),
+    // The map is uncontrolled after the first paint. The page's `center` and
+    // `zoom` props say where to start and where to jump when the user picks a
+    // tower. If they stayed authoritative, every re-render would snap the map
+    // back to a stale zoom and fight the user's own zooming.
+    //
+    // `navTarget` is the only thing that moves the map after mount: a new tower
+    // selection or an explicit centre change from the page.
+    const navTarget = useMemo(
+        () => ({ center: toLngLat(center[0], center[1]), zoom }),
         [center, zoom],
     );
 
-    // Controlled mode feeds the viewport back to the map, so the state in the
-    // page is the single source of truth for where the map looks.
-    const handleViewportChange = useCallback((next: MapViewport) => {
-        // Bounds come from `moveend` in BoundsReporter, not from here. This
-        // callback fires on `move`, once per frame, which would refetch towers
-        // on every pan frame.
-        void next;
-    }, []);
+    const lastNavRef = useRef(navTarget);
+
+    useEffect(() => {
+        const map = mapRef.current;
+        if (!map) return;
+        if (lastNavRef.current === navTarget) return;
+
+        const previous = lastNavRef.current;
+        lastNavRef.current = navTarget;
+
+        // The page changed `zoom` on purpose (a URL param, a GPS fix): honour it.
+        // If only the centre changed (a tower click), pan at the live zoom so the
+        // user's chosen zoom level survives.
+        const pageChangedZoom = previous.zoom !== navTarget.zoom;
+        map.easeTo({
+            center: navTarget.center,
+            zoom: pageChangedZoom ? navTarget.zoom : map.getZoom(),
+            duration: 600,
+        });
+    }, [navTarget]);
+
+    // Only the initial viewport is controlled. After mount the map owns its own
+    // camera, so user zoom and pan are never reverted. Computed once, not per
+    // render, because `Map` reads this on mount only.
+    const [initialViewport] = useState<Partial<MapViewport>>(() => ({
+        center: toLngLat(center[0], center[1]),
+        zoom,
+        bearing: 0,
+        pitch: 0,
+    }));
 
     // `bounds` asks the map to fit a rectangle. The page sets it when a province
     // or a country is chosen, then clears it.
@@ -453,8 +482,7 @@ export default function TowerMap({
             ref={mapRef}
             theme="light"
             styles={{ light: ESRI_LIGHT_GRAY_STYLE }}
-            viewport={viewport}
-            onViewportChange={handleViewportChange}
+            viewport={initialViewport}
             maxZoom={MAX_ZOOM}
             attributionControl={{ compact: true }}
             style={{ height: '100%', width: '100%' }}
