@@ -33,6 +33,10 @@ const BOUNDS_PAD = 0.6;
 /** Zoom ceiling of the Esri basemap. Past this the tiles are blank. */
 const MAX_ZOOM = 18;
 
+/** Zoom a tower click settles at: close enough to read the parcel, not so
+ *  close the popup covers the street. Never zooms out, only in. */
+const DETAIL_ZOOM = 16;
+
 export interface MapTower {
     id: number;
     type?: { name: string } | string;
@@ -353,6 +357,11 @@ export default function TowerMap({
         const previous = lastNavRef.current;
         lastNavRef.current = navTarget;
 
+        // A point click already started its own fly-in. Letting this effect run
+        // too would start a second animation that cancels the first, and the
+        // map would end up panning at the old zoom instead of zooming in.
+        if (map.isMoving()) return;
+
         // The page changed `zoom` on purpose (a URL param, a GPS fix): honour it.
         // If only the centre changed (a tower click), pan at the live zoom so the
         // user's chosen zoom level survives.
@@ -450,7 +459,25 @@ export default function TowerMap({
                 return;
             }
             const tower = towerById.get(towerId);
-            if (tower) onTowerSelect(tower);
+            if (!tower) return;
+
+            // Fly into the detail rather than only opening a popup, so a click
+            // on a point reads the same as a click on a cluster. The page also
+            // centres on the tower; this animation carries the zoom.
+            const map = mapRef.current;
+            if (map && typeof tower.lat === 'number' && typeof tower.lon === 'number') {
+                const targetZoom = Math.max(map.getZoom(), DETAIL_ZOOM);
+                if (targetZoom > map.getZoom() + 0.01) {
+                    map.easeTo({
+                        center: [tower.lon, tower.lat],
+                        zoom: Math.min(targetZoom, MAX_ZOOM),
+                        duration: 700,
+                        easing: (t: number) => 1 - Math.pow(1 - t, 3),
+                    });
+                }
+            }
+
+            onTowerSelect(tower);
         },
         [leadById, towerById, onTowerSelect],
     );

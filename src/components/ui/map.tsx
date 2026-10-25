@@ -1721,12 +1721,21 @@ function MapClusterLayer<
       if (onClusterClick) {
         onClusterClick(clusterId, coordinates, pointCount);
       } else {
-        // Default behavior: zoom to cluster expansion zoom
+        // Zoom to the level where this cluster splits into its children.
         const source = map.getSource(sourceId) as MapLibreGL.GeoJSONSource;
-        const zoom = await source.getClusterExpansionZoom(clusterId);
+        const expansionZoom = await source.getClusterExpansionZoom(clusterId);
+
+        // Never zoom out on a cluster click. A large cluster can report an
+        // expansion zoom below the current one, which would pull the user back
+        // out of the detail they are looking at.
+        const targetZoom = Math.max(map.getZoom() + 1, expansionZoom);
+
         map.easeTo({
           center: coordinates,
-          zoom,
+          zoom: Math.min(targetZoom, map.getMaxZoom()),
+          duration: 650,
+          // A gentle ease so a click reads as movement, not a jump cut.
+          easing: (t: number) => 1 - Math.pow(1 - t, 3),
         });
       }
     };
