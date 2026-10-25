@@ -16,30 +16,20 @@ export interface MapStyleOptionEntry {
     label: string;
     /** Style URL. A string keeps every CARTO layer and label rule in sync. */
     url: MapStyleOption;
-    /** Swatch used by the picker, so the UI does not need a screenshot. */
-    swatch: { background: string; land: string; water: string };
 }
 
-export type MapStyleId = 'light' | 'dark' | 'voyager' | 'satellite';
+export type MapStyleId = 'light' | 'dark' | 'satellite';
 
 export const MAP_STYLES: Record<MapStyleId, MapStyleOptionEntry> = {
     light: {
         id: 'light',
         label: 'Light',
         url: 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json',
-        swatch: { background: '#e8eaed', land: '#f7f7f5', water: '#bae6fd' },
     },
     dark: {
         id: 'dark',
         label: 'Dark',
         url: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
-        swatch: { background: '#0f172a', land: '#1a1a1a', water: '#1e3a8a' },
-    },
-    voyager: {
-        id: 'voyager',
-        label: 'Voyager',
-        url: 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json',
-        swatch: { background: '#fef3c7', land: '#fdf6e3', water: '#7dd3fc' },
     },
     // Satellite has real detail in rural areas where the vector styles have no
     // data above zoom 15, which is where tower parcels are inspected.
@@ -77,7 +67,6 @@ export const MAP_STYLES: Record<MapStyleId, MapStyleOptionEntry> = {
                 { id: 'imagery-labels', type: 'raster' as const, source: 'labels', minzoom: 0, maxzoom: 19 },
             ],
         },
-        swatch: { background: '#1a2e1a', land: '#2d4a2d', water: '#1e3a5f' },
     },
 };
 

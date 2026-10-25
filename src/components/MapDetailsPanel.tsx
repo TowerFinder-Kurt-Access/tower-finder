@@ -12,7 +12,6 @@ import PublicIcon from '@mui/icons-material/Public';
 import ApartmentIcon from '@mui/icons-material/Apartment';
 import LightModeIcon from '@mui/icons-material/LightMode';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
-import MapIcon from '@mui/icons-material/Map';
 import SatelliteAltIcon from '@mui/icons-material/SatelliteAlt';
 import {
     MAP_STYLES,
@@ -27,9 +26,8 @@ interface MapDetailsPanelProps {
     onMapModesChange: (modes: MapModeState) => void;
 }
 
-const STYLE_ORDER: MapStyleId[] = ['light', 'dark', 'voyager', 'satellite'];
+const STYLE_ORDER: MapStyleId[] = ['light', 'dark', 'satellite'];
 
-/** A basemap thumbnail. Colors only, so no image asset is needed. */
 /**
  * One icon per basemap. A glyph reads faster than a color chip at this size,
  * and needs no image asset or per-style color plumbing.
@@ -37,7 +35,6 @@ const STYLE_ORDER: MapStyleId[] = ['light', 'dark', 'voyager', 'satellite'];
 const STYLE_ICONS: Record<MapStyleId, React.ReactNode> = {
     light: <LightModeIcon fontSize="small" />,
     dark: <DarkModeIcon fontSize="small" />,
-    voyager: <MapIcon fontSize="small" />,
     satellite: <SatelliteAltIcon fontSize="small" />,
 };
 
@@ -97,8 +94,8 @@ export default function MapDetailsPanel({
             elevation={3}
             sx={{
                 position: 'absolute',
-                top: 90,
-                right: 20,
+                bottom: 40,
+                left: 20,
                 zIndex: 1000,
                 width: 216,
                 borderRadius: 2,
@@ -161,7 +158,7 @@ export default function MapDetailsPanel({
                     >
                         Map type
                     </Typography>
-                    <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1 }}>
+                    <Box sx={{ display: 'grid', gridTemplateColumns: '1fr', gap: 1 }}>
                         {STYLE_ORDER.map((id) => (
                             <ModeButton
                                 key={id}
