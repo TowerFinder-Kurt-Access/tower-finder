@@ -1,0 +1,294 @@
+/*
+ * mapcn component styles.
+ *
+ * The vendored mapcn components ship Tailwind classes. This project has no
+ * Tailwind, so the classes are replaced with real CSS rules that target the
+ * same class names. The values follow the mapcn defaults and the MUI light
+ * theme tokens already used in this dashboard.
+ */
+
+/* ---------- Loader ---------- */
+.mapcn-loader {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.5);
+  backdrop-filter: blur(2px);
+}
+.mapcn-loader-dots {
+  display: flex;
+  gap: 4px;
+}
+.mapcn-loader-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(100, 116, 139, 0.6);
+  animation: mapcn-pulse 1.2s ease-in-out infinite;
+}
+.mapcn-loader-dot:nth-child(2) {
+  animation-delay: 150ms;
+}
+.mapcn-loader-dot:nth-child(3) {
+  animation-delay: 300ms;
+}
+
+@keyframes mapcn-pulse {
+  0%,
+  100% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* ---------- Markers ---------- */
+.mapcn-marker {
+  position: relative;
+  cursor: pointer;
+}
+.mapcn-marker-default {
+  position: relative;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid #ffffff;
+  background: #3b82f6;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+}
+
+/* ---------- Popups ---------- */
+.mapcn-popup {
+  position: relative;
+  max-width: 248px;
+  padding: 12px;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  color: #0f172a;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+  font-size: 13px;
+  line-height: 1.5;
+  animation: mapcn-pop-in 150ms ease-out;
+}
+.mapcn-popup-title {
+  display: block;
+  font-weight: 600;
+  font-size: 13px;
+  margin-bottom: 2px;
+  color: #0f172a;
+}
+.mapcn-popup-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: #64748b;
+}
+.mapcn-popup-row strong {
+  color: #334155;
+  font-weight: 500;
+}
+.mapcn-popup-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+@keyframes mapcn-pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Popup close button */
+.mapcn-popup-close {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  z-index: 10;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: #0f172a;
+  cursor: pointer;
+  transition: background-color 150ms ease;
+}
+.mapcn-popup-close:hover {
+  background: #f1f5f9;
+}
+.mapcn-popup-close:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: -2px;
+  border-radius: 3px;
+}
+
+/* ---------- Tooltips ---------- */
+.mapcn-tooltip {
+  padding: 4px 8px;
+  border-radius: 4px;
+  background: #0f172a;
+  color: #f8fafc;
+  font-size: 11px;
+  line-height: 1.4;
+  pointer-events: none;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  animation: mapcn-pop-in 150ms ease-out;
+}
+
+/* ---------- Marker labels ---------- */
+.mapcn-marker-label {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  font-size: 10px;
+  font-weight: 500;
+  color: #0f172a;
+  pointer-events: none;
+}
+.mapcn-marker-label-top {
+  bottom: 100%;
+  margin-bottom: 4px;
+}
+.mapcn-marker-label-bottom {
+  top: 100%;
+  margin-top: 4px;
+}
+
+/* ---------- Map controls ---------- */
+.mapcn-controls {
+  position: absolute;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.mapcn-controls-top-left {
+  top: 8px;
+  left: 8px;
+}
+.mapcn-controls-top-right {
+  top: 8px;
+  right: 8px;
+}
+.mapcn-controls-bottom-left {
+  bottom: 8px;
+  left: 8px;
+}
+.mapcn-controls-bottom-right {
+  bottom: 40px;
+  right: 8px;
+}
+
+.mapcn-control-group {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+}
+/* Separator between stacked buttons, matching the shadcn border rule. */
+.mapcn-control-group > button:not(:last-child) {
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.mapcn-control-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  background: transparent;
+  color: #334155;
+  cursor: pointer;
+  transition: background-color 150ms ease;
+}
+.mapcn-control-button:first-child {
+  border-radius: 5px 5px 0 0;
+}
+.mapcn-control-button:last-child {
+  border-radius: 0 0 5px 5px;
+}
+.mapcn-control-button:hover {
+  background: #f8fafc;
+}
+.mapcn-control-button:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: -2px;
+}
+.mapcn-control-button:disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/* ---------- Cluster legend ---------- */
+.mapcn-cluster-legend {
+  position: absolute;
+  bottom: 8px;
+  left: 8px;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+  background: rgba(255, 255, 255, 0.94);
+  font-size: 11px;
+  color: #334155;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  pointer-events: none;
+}
+.mapcn-cluster-legend-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.mapcn-cluster-legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 1.5px solid #ffffff;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08);
+}
+
+/* ---------- Tower markers ---------- */
+/* The selected tower reads larger than a cluster point and carries a halo. */
+.mapcn-marker-selected {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #0d47a1;
+  border: 3px solid #ffffff;
+  box-shadow: 0 0 0 2px #0d47a1, 0 2px 4px rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+}
+
+/* The live GPS position: blue dot with a translucent accuracy halo. */
+.mapcn-marker-user {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #42a5f5;
+  border: 2px solid #1976d2;
+  box-shadow: 0 0 0 6px rgba(66, 165, 245, 0.18);
+  pointer-events: none;
+}

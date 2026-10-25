@@ -223,6 +223,12 @@ type MapProps = {
   /** Additional CSS classes for the map container */
   className?: string;
   /**
+   * Inline styles for the map container. The container is `h-full w-full` by
+   * default, which needs a parent with a resolved height. Pass a height here
+   * when the parent chain does not give one.
+   */
+  style?: React.CSSProperties;
+  /**
    * Theme for the map. If not provided, automatically detects system preference.
    * Pass your theme value here.
    */
@@ -259,11 +265,11 @@ type MapProps = {
 
 function DefaultLoader() {
   return (
-    <div className="bg-background/50 absolute inset-0 z-10 flex items-center justify-center backdrop-blur-xs">
-      <div className="flex gap-1">
-        <span className="bg-muted-foreground/60 size-1.5 animate-pulse rounded-full" />
-        <span className="bg-muted-foreground/60 size-1.5 animate-pulse rounded-full [animation-delay:150ms]" />
-        <span className="bg-muted-foreground/60 size-1.5 animate-pulse rounded-full [animation-delay:300ms]" />
+    <div className="mapcn-loader">
+      <div className="mapcn-loader-dots">
+        <span className="mapcn-loader-dot" />
+        <span className="mapcn-loader-dot" />
+        <span className="mapcn-loader-dot" />
       </div>
     </div>
   );
@@ -283,6 +289,7 @@ const Map = forwardRef<MapRef, MapProps>(function Map(
   {
     children,
     className,
+    style,
     theme: themeProp,
     styles,
     blank = false,
@@ -457,6 +464,33 @@ const Map = forwardRef<MapRef, MapProps>(function Map(
     mapInstance.setProjection(projection);
   }, [mapInstance, isStyleLoaded, projection]);
 
+  // Keep the canvas matched to the container.
+  //
+  // The container is `h-full w-full`, which resolves against the parent. In a
+  // flex chain that height is not final until after the first paint, so the
+  // canvas is created too small and MapLibre never re-reads it on its own.
+  // Leaflet's MapContainer called resize() for us; mapcn does not. Without
+  // this, the map paints only the corner the canvas was sized to and the rest
+  // of the box stays blank.
+  useEffect(() => {
+    if (!mapInstance || !isLoaded) return;
+
+    const container = containerRef.current;
+    if (!container) return;
+
+    // ResizeObserver fires on the real layout, so no timeout guess is needed.
+    const observer = new ResizeObserver(() => {
+      mapInstance.resize();
+    });
+    observer.observe(container);
+
+    // One immediate call for the case where the container was already correct
+    // and the observer never fires again.
+    mapInstance.resize();
+
+    return () => observer.disconnect();
+  }, [mapInstance, isLoaded]);
+
   const contextValue = useMemo(
     () => ({
       map: mapInstance,
@@ -472,6 +506,7 @@ const Map = forwardRef<MapRef, MapProps>(function Map(
       <div
         ref={containerRef}
         className={cn("relative h-full w-full", className)}
+        style={style}
       >
         {(!isLoaded || loading) && <DefaultLoader />}
         {/* SSR-safe: children render only when map is loaded on client */}
@@ -675,7 +710,7 @@ function MarkerContent({ children, className }: MarkerContentProps) {
   const { marker } = useMarkerContext();
 
   return createPortal(
-    <div className={cn("relative cursor-pointer", className)}>
+    <div className={cn("mapcn-marker", className)}>
       {children || <DefaultMarkerIcon />}
     </div>,
     marker.getElement(),
@@ -683,9 +718,7 @@ function MarkerContent({ children, className }: MarkerContentProps) {
 }
 
 function DefaultMarkerIcon() {
-  return (
-    <div className="relative h-4 w-4 rounded-full border-2 border-white bg-blue-500 shadow-lg" />
-  );
+  return <div className="mapcn-marker-default" />;
 }
 
 function PopupCloseButton({ onClick }: { onClick: () => void }) {
@@ -694,7 +727,7 @@ function PopupCloseButton({ onClick }: { onClick: () => void }) {
       type="button"
       onClick={onClick}
       aria-label="Close popup"
-      className="focus-visible:ring-ring hover:bg-muted text-foreground absolute top-1 right-1 z-10 inline-flex size-5 cursor-pointer items-center justify-center rounded-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-inset"
+      className="mapcn-popup-close"
     >
       <CloseIcon sx={{ fontSize: 14 }} />
     </button>
@@ -758,11 +791,7 @@ function MarkerPopup({
 
   return createPortal(
     <div
-      className={cn(
-        "bg-popover text-popover-foreground relative max-w-62 rounded-md border p-3 shadow-md",
-        "animate-in fade-in-0 zoom-in-95 duration-200 ease-out",
-        className,
-      )}
+      className={cn("mapcn-popup", "animate-in fade-in-0 zoom-in-95 duration-200 ease-out", className)}
     >
       {closeButton && <PopupCloseButton onClick={handleClose} />}
       {children}
@@ -857,17 +886,11 @@ function MarkerLabel({
   className,
   position = "top",
 }: MarkerLabelProps) {
-  const positionClasses = {
-    top: "bottom-full mb-1",
-    bottom: "top-full mt-1",
-  };
-
   return (
     <div
       className={cn(
-        "absolute left-1/2 -translate-x-1/2 whitespace-nowrap",
-        "text-foreground text-[10px] font-medium",
-        positionClasses[position],
+        "mapcn-marker-label",
+        position === "top" ? "mapcn-marker-label-top" : "mapcn-marker-label-bottom",
         className,
       )}
     >
@@ -894,18 +917,14 @@ type MapControlsProps = {
 };
 
 const positionClasses = {
-  "top-left": "top-2 left-2",
-  "top-right": "top-2 right-2",
-  "bottom-left": "bottom-2 left-2",
-  "bottom-right": "bottom-10 right-2",
+  "top-left": "mapcn-controls-top-left",
+  "top-right": "mapcn-controls-top-right",
+  "bottom-left": "mapcn-controls-bottom-left",
+  "bottom-right": "mapcn-controls-bottom-right",
 };
 
 function ControlGroup({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="border-border bg-background [&>button:not(:last-child)]:border-border flex flex-col overflow-hidden rounded-md border shadow-sm [&>button:not(:last-child)]:border-b">
-      {children}
-    </div>
-  );
+  return <div className="mapcn-control-group">{children}</div>;
 }
 
 function ControlButton({
@@ -924,13 +943,7 @@ function ControlButton({
       onClick={onClick}
       aria-label={label}
       type="button"
-      className={cn(
-        "flex size-8 items-center justify-center transition-colors",
-        "first:rounded-t-md last:rounded-b-md",
-        "hover:bg-accent dark:hover:bg-accent/40",
-        "focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-inset",
-        "disabled:pointer-events-none disabled:opacity-50",
-      )}
+      className={cn("mapcn-control-button")}
       disabled={disabled}
     >
       {children}
@@ -1001,11 +1014,7 @@ function MapControls({
 
   return (
     <div
-      className={cn(
-        "absolute z-10 flex flex-col gap-1.5",
-        positionClasses[position],
-        className,
-      )}
+      className={cn("mapcn-controls", positionClasses[position], className)}
     >
       {showZoom && (
         <ControlGroup>
@@ -1436,6 +1445,8 @@ function MapGeoJSON<
       if (featureId === hoveredId) return;
       setHover(featureId ?? null);
       latestRef.current.onHover?.({
+        // SAFETY: the source carries P-typed properties; MapLibre types them as
+        // an index signature, so the cast restores the caller's generic.
         feature: feature as unknown as MapGeoJSONFeature<P>,
         longitude: e.lngLat.lng,
         latitude: e.lngLat.lat,
@@ -1453,6 +1464,8 @@ function MapGeoJSON<
       const feature = e.features?.[0];
       if (!feature) return;
       latestRef.current.onClick?.({
+        // SAFETY: the source carries P-typed properties; MapLibre types them as
+        // an index signature, so the cast restores the caller's generic.
         feature: feature as unknown as MapGeoJSONFeature<P>,
         longitude: e.lngLat.lng,
         latitude: e.lngLat.lat,
@@ -1737,6 +1750,8 @@ function MapClusterLayer<
       }
 
       onPointClick(
+        // SAFETY: the cluster source is a FeatureCollection of GeoJSON.Point with
+        // P properties, which is what this handler was typed for.
         feature as unknown as GeoJSON.Feature<GeoJSON.Point, P>,
         coordinates,
       );

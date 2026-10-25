@@ -200,6 +200,7 @@ export default function DiscoveryMap({ cells, state }: { cells: DiscoveryCell[];
             viewport={viewport}
             maxZoom={MAX_ZOOM}
             attributionControl={{ compact: true }}
+            style={{ height: '100%', width: '100%' }}
         >
             <MapControls position="bottom-right" showZoom showFullscreen />
             <FitCells cells={cells} />

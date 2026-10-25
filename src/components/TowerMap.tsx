@@ -454,6 +454,7 @@ export default function TowerMap({
             onViewportChange={handleViewportChange}
             maxZoom={MAX_ZOOM}
             attributionControl={{ compact: true }}
+            style={{ height: '100%', width: '100%' }}
         >
             <BoundsReporter onBoundsChange={onBoundsChange} />
 
@@ -505,16 +506,7 @@ export default function TowerMap({
                     onClick={() => onTowerSelect(selectedTower)}
                 >
                     <MarkerContent>
-                        <Box
-                            sx={{
-                                width: 18,
-                                height: 18,
-                                borderRadius: '50%',
-                                bgcolor: '#0d47a1',
-                                border: '3px solid #ffffff',
-                                boxShadow: '0 0 0 2px #0d47a1',
-                            }}
-                        />
+                        <Box className="mapcn-marker-selected" />
                     </MarkerContent>
                 </MapMarker>
             )}
@@ -525,40 +517,54 @@ export default function TowerMap({
                     longitude={selectedTower.lon}
                     latitude={selectedTower.lat}
                     closeButton
-                    className="tower-map-popup"
+                    className="mapcn-popup"
                     onClose={() => onTowerSelect(selectedTower)}
                 >
-                    <Box sx={{ minWidth: 220, p: 0.5 }}>
-                        <Typography variant="subtitle2" sx={{ fontWeight: 700, display: 'block' }}>
-                            {towerLabel(selectedTower.type)}
-                        </Typography>
+                    <Box sx={{ minWidth: 240 }}>
+                        <Typography className="mapcn-popup-title">{towerLabel(selectedTower.type)}</Typography>
+                        <Box className="mapcn-popup-row">
+                            <span>ID</span>
+                            <strong>{selectedTower.id}</strong>
+                        </Box>
                         {selectedTower.parcel?.address && (
-                            <Typography variant="body2" sx={{ display: 'block' }}>
-                                <strong>Address:</strong> {String(selectedTower.parcel.address)}
-                            </Typography>
+                            <Box className="mapcn-popup-row">
+                                <span>Address</span>
+                                <span style={{ textAlign: 'right' }}>{String(selectedTower.parcel.address)}</span>
+                            </Box>
                         )}
-                        <Typography variant="body2" sx={{ display: 'block' }}>
-                            <strong>Coordinates:</strong> {selectedTower.lat.toFixed(6)},{' '}
-                            {selectedTower.lon.toFixed(6)}
-                        </Typography>
-                        <Typography variant="body2" sx={{ display: 'block' }}>
-                            <strong>Status:</strong> {statusLabel(selectedTower.status)}
-                        </Typography>
-                        <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>
-                            Source: {selectedTower.source || 'Excel Import'}
-                        </Typography>
-                        <Button
-                            size="small"
-                            variant="contained"
-                            fullWidth
-                            sx={{ mt: 1, bgcolor: '#ff9800', '&:hover': { bgcolor: '#f57c00' } }}
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                onTowerSelect({ ...selectedTower, action: 'addOwner' } as MapTower);
-                            }}
-                        >
-                            Add Property Owner
-                        </Button>
+                        <Box className="mapcn-popup-row">
+                            <span>Status</span>
+                            <strong>{statusLabel(selectedTower.status)}</strong>
+                        </Box>
+                        <Box className="mapcn-popup-row">
+                            <span>Coordinates</span>
+                            <strong>
+                                {selectedTower.lat.toFixed(5)}, {selectedTower.lon.toFixed(5)}
+                            </strong>
+                        </Box>
+                        <Box className="mapcn-popup-row">
+                            <span>Source</span>
+                            <span>{selectedTower.source || 'Excel Import'}</span>
+                        </Box>
+                        <Box className="mapcn-popup-actions">
+                            <Button
+                                size="small"
+                                variant="contained"
+                                fullWidth
+                                sx={{
+                                    bgcolor: '#ff9800',
+                                    '&:hover': { bgcolor: '#f57c00' },
+                                    textTransform: 'none',
+                                    fontSize: 12,
+                                }}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onTowerSelect({ ...selectedTower, action: 'addOwner' } as MapTower);
+                                }}
+                            >
+                                Add Property Owner
+                            </Button>
+                        </Box>
                     </Box>
                 </MapPopup>
             )}
@@ -570,22 +576,23 @@ export default function TowerMap({
                     longitude={selectedBusinessCoords[1]}
                     latitude={selectedBusinessCoords[0]}
                     closeButton
-                    className="tower-map-popup"
+                    className="mapcn-popup"
                 >
-                    <Box sx={{ minWidth: 170, p: 0.5 }}>
-                        <Typography variant="subtitle2" sx={{ fontWeight: 700, display: 'block' }}>
-                            {selectedBusiness.name}
-                        </Typography>
-                        <Typography variant="body2" sx={{ display: 'block' }}>
-                            <strong>Type:</strong> Business
-                        </Typography>
-                        <Typography variant="body2" sx={{ display: 'block' }}>
-                            <strong>Distance:</strong> {Math.round(selectedBusiness.distance)}m
-                        </Typography>
+                    <Box sx={{ minWidth: 180 }}>
+                        <Typography className="mapcn-popup-title">{selectedBusiness.name}</Typography>
+                        <Box className="mapcn-popup-row">
+                            <span>Type</span>
+                            <span>Business</span>
+                        </Box>
+                        <Box className="mapcn-popup-row">
+                            <span>Distance</span>
+                            <strong>{Math.round(selectedBusiness.distance)}m</strong>
+                        </Box>
                         {selectedBusiness.phone && (
-                            <Typography variant="body2" sx={{ display: 'block' }}>
-                                <strong>Phone:</strong> {selectedBusiness.phone}
-                            </Typography>
+                            <Box className="mapcn-popup-row">
+                                <span>Phone</span>
+                                <strong>{selectedBusiness.phone}</strong>
+                            </Box>
                         )}
                     </Box>
                 </MapPopup>
@@ -599,16 +606,7 @@ export default function TowerMap({
                     draggable={false}
                 >
                     <MarkerContent>
-                        <Box
-                            sx={{
-                                width: 16,
-                                height: 16,
-                                borderRadius: '50%',
-                                bgcolor: '#42A5F5',
-                                border: '2px solid #1976d2',
-                                boxShadow: '0 0 0 6px rgba(66, 165, 245, 0.18)',
-                            }}
-                        />
+                        <Box className="mapcn-marker-user" />
                     </MarkerContent>
                 </MapMarker>
             )}
