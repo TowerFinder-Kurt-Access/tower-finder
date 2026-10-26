@@ -16,7 +16,9 @@ import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
 import type { GeoJSON } from 'geojson';
-import { toLngLat, type MapBounds } from '@/lib/map-viewport';
+import { toLngLat } from '@/lib/map-viewport';
+import { mapOverlaySx } from '@/lib/map-overlay';
+import { pinnedMapUrl } from '@/lib/google-maps';
 import {
     DEFAULT_MAP_MODES,
     DEFAULT_MAP_STYLE,
@@ -32,17 +34,21 @@ import {
     type MapStyleId,
 } from '@/components/ui/cluster-styles';
 
-/** Hysteresis pad. While the viewport stays inside the last reported area,
- *  no new bounds go out. Zooming in always satisfies this, so a cluster
- *  drill-in never triggers a refetch that would wipe markers. */
-const BOUNDS_PAD = 0.6;
-
 /** Zoom ceiling of the Esri basemap. Past this the tiles are blank. */
 const MAX_ZOOM = 18;
 
 /** Zoom a tower click settles at: close enough to read the parcel, not so
  *  close the popup covers the street. Never zooms out, only in. */
 const DETAIL_ZOOM = 16;
+
+/** Same steps for both cluster layers, so the arrays keep stable references. */
+const CLUSTER_THRESHOLDS: [number, number] = [100, 750];
+
+/** Longitude of the world copy nearest `currentLng`, so a jump never crosses
+ *  the map. A Mercator map repeats every 360°. */
+function nearestLng(lng: number, currentLng: number): number {
+    return lng + Math.round((currentLng - lng) / 360) * 360;
+}
 
 export interface MapTower {
     id: number;
@@ -53,6 +59,10 @@ export interface MapTower {
     carrier?: { name: string } | string;
     status?: string;
     source?: string;
+    /** Set on a tower-lead popup, not on a tower row. */
+    isLead?: boolean;
+    city?: string;
+    country?: string;
     parcel?: {
         address?: string;
         geometry?: unknown;
@@ -82,7 +92,6 @@ export interface MapBusiness {
 
 interface TowerFeatureProps {
     towerId: number;
-    selected: boolean;
     isLead: boolean;
 }
 
@@ -278,54 +287,87 @@ function MapModeEffects({ modes, styleId }: { modes: MapModeState; styleId: MapS
     return null;
 }
 
-/** Report bounds on moveend, with the same hysteresis the Leaflet stack used. */
-function BoundsReporter({ onBoundsChange }: { onBoundsChange?: (bounds: MapBounds) => void }) {
-    const map = useMap().map;
+/** Live camera readout, like the mapcn controlled-mode example. It owns its
+ *  state, so moving the map never re-renders the cluster tree. */
+function ViewportReadout() {
+    const { map } = useMap();
+    const [view, setView] = useState({ lng: 0, lat: 0, zoom: 0, bearing: 0, pitch: 0 });
 
     useEffect(() => {
-        if (!map || !onBoundsChange) return;
+        if (!map) return;
 
-        let reported: { north: number; south: number; east: number; west: number } | null = null;
-
-        const report = () => {
-            const viewport = map.getBounds();
+        let frame = 0;
+        const update = () => {
+            frame = 0;
+            const center = map.getCenter();
             const next = {
-                north: viewport.getNorth(),
-                south: viewport.getSouth(),
-                east: viewport.getEast(),
-                west: viewport.getWest(),
+                lng: center.lng,
+                lat: center.lat,
+                zoom: map.getZoom(),
+                bearing: map.getBearing(),
+                pitch: map.getPitch(),
             };
-            if (reported) {
-                // Inside the last reported area: keep quiet. Zooming in always
-                // fails this test, so a cluster drill-in still reports.
-                const inside =
-                    next.north <= reported.north &&
-                    next.south >= reported.south &&
-                    next.east <= reported.east &&
-                    next.west >= reported.west;
-                if (inside) return;
-            }
-            // Pad before storing, so the next comparison uses the same area.
-            const latPad = (next.north - next.south) * BOUNDS_PAD;
-            const lonPad = (next.east - next.west) * BOUNDS_PAD;
-            reported = {
-                north: next.north + latPad,
-                south: next.south - latPad,
-                east: next.east + lonPad,
-                west: next.west - lonPad,
-            };
-            onBoundsChange(reported);
+            setView(prev =>
+                prev.lng === next.lng &&
+                prev.lat === next.lat &&
+                prev.zoom === next.zoom &&
+                prev.bearing === next.bearing &&
+                prev.pitch === next.pitch
+                    ? prev
+                    : next,
+            );
+        };
+        const schedule = () => {
+            if (!frame) frame = requestAnimationFrame(update);
         };
 
-        map.on('moveend', report);
-        report();
+        map.on('move', schedule);
+        update();
 
         return () => {
-            map.off('moveend', report);
+            map.off('move', schedule);
+            if (frame) cancelAnimationFrame(frame);
         };
-    }, [map, onBoundsChange]);
+    }, [map]);
 
-    return null;
+    const fields = [
+        { name: 'lng', value: view.lng.toFixed(3) },
+        { name: 'lat', value: view.lat.toFixed(3) },
+        { name: 'zoom', value: view.zoom.toFixed(1) },
+        { name: 'bearing', value: `${view.bearing.toFixed(1)}°` },
+        { name: 'pitch', value: `${view.pitch.toFixed(1)}°` },
+    ];
+
+    return (
+        <Box
+            sx={{
+                ...mapOverlaySx,
+                position: 'absolute',
+                top: 8,
+                left: 8,
+                zIndex: 2,
+                display: 'flex',
+                flexWrap: 'wrap',
+                columnGap: 1.5,
+                rowGap: 0.25,
+                px: 1,
+                py: 0.75,
+                fontFamily: 'monospace',
+                fontSize: 11,
+                lineHeight: 1.4,
+                pointerEvents: 'none',
+            }}
+        >
+            {fields.map(field => (
+                <Box component="span" key={field.name}>
+                    <Box component="span" sx={{ color: 'text.secondary' }}>
+                        {field.name}:{' '}
+                    </Box>
+                    {field.value}
+                </Box>
+            ))}
+        </Box>
+    );
 }
 
 /**
@@ -411,12 +453,12 @@ export interface TowerMapProps {
     towerLeads?: MapLead[];
     businessesNearby?: MapBusiness[];
     onTowerSelect: (tower: MapTower | (MapLead & { isLead?: boolean; action?: string })) => void;
-    /** Called when the popup is closed, so the page can clear its selection. */
-    onTowerDeselect?: () => void;
+    /** Called when the popup is closed, so the page can clear its selection.
+     *  The id lets the page keep a newer selection that replaced this one. */
+    onTowerDeselect?: (id?: number) => void;
     selectedTower?: MapTower | null;
     selectedBusinessId?: number | null;
     onBusinessSelect?: (id: number) => void;
-    onBoundsChange?: (bounds: MapBounds) => void;
     /** Toggle GPS tracking from the map's locate control. */
     onLocate?: () => void;
     /** Basemap picked in the map details panel. */
@@ -438,7 +480,6 @@ export default function TowerMap({
     selectedTower,
     selectedBusinessId,
     onBusinessSelect,
-    onBoundsChange,
     onLocate,
     userPosition,
     mapStyle = DEFAULT_MAP_STYLE,
@@ -477,8 +518,9 @@ export default function TowerMap({
         // If only the centre changed (a tower click), pan at the live zoom so the
         // user's chosen zoom level survives.
         const pageChangedZoom = previous.zoom !== navTarget.zoom;
+        const current = map.getCenter();
         map.easeTo({
-            center: navTarget.center,
+            center: [nearestLng(navTarget.center[0], current.lng), navTarget.center[1]],
             zoom: pageChangedZoom ? navTarget.zoom : map.getZoom(),
             duration: 600,
         });
@@ -517,7 +559,8 @@ export default function TowerMap({
         const biz = businessesNearby.find((b) => b.id === selectedBusinessId);
         const c = biz ? businessCoords(biz) : null;
         if (!c) return;
-        map.easeTo({ center: [c[1], c[0]], duration: 600 });
+        const current = map.getCenter();
+        map.easeTo({ center: [nearestLng(c[1], current.lng), c[0]], duration: 600 });
     }, [selectedBusinessId, businessesNearby]);
 
     const towerFeatures = useMemo<TowerFeature[]>(
@@ -528,12 +571,11 @@ export default function TowerMap({
                     type: 'Feature',
                     properties: {
                         towerId: t.id,
-                        selected: selectedTower?.id === t.id,
                         isLead: false,
                     },
                     geometry: { type: 'Point', coordinates: [t.lon, t.lat] },
                 })),
-        [towers, selectedTower],
+        [towers],
     );
 
     const leadFeatures = useMemo<TowerFeature[]>(
@@ -544,12 +586,29 @@ export default function TowerMap({
                     type: 'Feature',
                     properties: {
                         towerId: l.id,
-                        selected: false,
                         isLead: true,
                     },
                     geometry: { type: 'Point', coordinates: [l.lon, l.lat] },
                 })),
         [towerLeads],
+    );
+
+    // Stable collections and palette arrays. The cluster layer calls setData
+    // whenever the collection identity changes, and setData re-clusters every
+    // point; a fresh literal per render would blank and rebuild all clusters.
+    const towerCollection = useMemo<GeoJSON.FeatureCollection<GeoJSON.Point, TowerFeatureProps>>(
+        () =>
+            towerFeatures.length > 0
+                ? { type: 'FeatureCollection', features: towerFeatures }
+                : EMPTY_FEATURE_COLLECTION,
+        [towerFeatures],
+    );
+    const leadCollection = useMemo<GeoJSON.FeatureCollection<GeoJSON.Point, TowerFeatureProps>>(
+        () =>
+            leadFeatures.length > 0
+                ? { type: 'FeatureCollection', features: leadFeatures }
+                : EMPTY_FEATURE_COLLECTION,
+        [leadFeatures],
     );
 
     const towerById = useMemo(
@@ -566,7 +625,24 @@ export default function TowerMap({
             const { towerId, isLead } = feature.properties;
             if (isLead) {
                 const lead = leadById.get(towerId);
-                if (lead) onTowerSelect({ ...lead, isLead: true });
+                if (!lead) return;
+
+                // Match a tower point: open the detail zoom, not just a popup.
+                const map = mapRef.current;
+                if (map && typeof lead.lat === 'number' && typeof lead.lon === 'number') {
+                    const targetZoom = Math.max(map.getZoom(), DETAIL_ZOOM);
+                    if (targetZoom > map.getZoom() + 0.01) {
+                        const current = map.getCenter();
+                        map.easeTo({
+                            center: [nearestLng(lead.lon, current.lng), lead.lat],
+                            zoom: Math.min(targetZoom, MAX_ZOOM),
+                            duration: 1000,
+                            easing: (t: number) => t * t * (3 - 2 * t),
+                        });
+                    }
+                }
+
+                onTowerSelect({ ...lead, isLead: true });
                 return;
             }
             const tower = towerById.get(towerId);
@@ -579,11 +655,14 @@ export default function TowerMap({
             if (map && typeof tower.lat === 'number' && typeof tower.lon === 'number') {
                 const targetZoom = Math.max(map.getZoom(), DETAIL_ZOOM);
                 if (targetZoom > map.getZoom() + 0.01) {
+                    const current = map.getCenter();
                     map.easeTo({
-                        center: [tower.lon, tower.lat],
+                        center: [nearestLng(tower.lon, current.lng), tower.lat],
                         zoom: Math.min(targetZoom, MAX_ZOOM),
-                        duration: 700,
-                        easing: (t: number) => 1 - Math.pow(1 - t, 3),
+                        duration: 1000,
+                        // Same smoothstep as a cluster click, so a point and a
+                        // cluster read the same way.
+                        easing: (t: number) => t * t * (3 - 2 * t),
                     });
                 }
             }
@@ -625,6 +704,14 @@ export default function TowerMap({
     );
     const towerClusterColors = dark ? TOWER_CLUSTER_COLORS_DARK : TOWER_CLUSTER_COLORS;
     const leadClusterColors = dark ? LEAD_CLUSTER_COLORS_DARK : LEAD_CLUSTER_COLORS;
+    const towerColors = useMemo<[string, string, string]>(
+        () => [towerClusterColors[0], towerClusterColors[1], towerClusterColors[2]],
+        [towerClusterColors],
+    );
+    const leadColors = useMemo<[string, string, string]>(
+        () => [leadClusterColors[0], leadClusterColors[1], leadClusterColors[2]],
+        [leadClusterColors],
+    );
 
     return (
         <Map
@@ -637,15 +724,17 @@ export default function TowerMap({
             projection={projection}
             viewport={initialViewport}
             maxZoom={MAX_ZOOM}
-            attributionControl={{ compact: true }}
+            attributionControl={false}
             style={{ height: '100%', width: '100%' }}
         >
-            <BoundsReporter onBoundsChange={onBoundsChange} />
+            <ViewportReadout />
             <MapModeEffects modes={mapModes} styleId={mapStyle} />
 
             <MapControls
                 position="bottom-right"
+                className="mapcn-controls-corner"
                 showZoom
+                showCompass
                 showLocate
                 showFullscreen
                 onLocate={() => onLocate?.()}
@@ -653,23 +742,26 @@ export default function TowerMap({
 
             {/* Tower clusters */}
             <MapClusterLayer<TowerFeatureProps>
-                data={towerFeatures.length > 0 ? { type: 'FeatureCollection', features: towerFeatures } : EMPTY_FEATURE_COLLECTION}
+                data={towerCollection}
                 clusterRadius={50}
-                clusterMaxZoom={MAX_ZOOM}
-                clusterColors={[...towerClusterColors]}
-                clusterThresholds={[100, 750]}
+                // Clusters must split before the map's zoom ceiling, or a
+                // cluster at max zoom can never be opened.
+                clusterMaxZoom={MAX_ZOOM - 1}
+                clusterColors={towerColors}
+                clusterThresholds={CLUSTER_THRESHOLDS}
                 pointColor={TOWER_POINT_COLOR}
                 onPointClick={handlePointClick}
             />
 
             {/* Tower lead clusters */}
             <MapClusterLayer<TowerFeatureProps>
-                data={leadFeatures.length > 0 ? { type: 'FeatureCollection', features: leadFeatures } : EMPTY_FEATURE_COLLECTION}
+                data={leadCollection}
                 clusterRadius={40}
-                clusterMaxZoom={MAX_ZOOM}
-                clusterColors={[...leadClusterColors]}
-                clusterThresholds={[100, 750]}
+                clusterMaxZoom={MAX_ZOOM - 1}
+                clusterColors={leadColors}
+                clusterThresholds={CLUSTER_THRESHOLDS}
                 pointColor={LEAD_POINT_COLOR}
+                dashedPointRing
                 onPointClick={handlePointClick}
             />
 
@@ -707,55 +799,128 @@ export default function TowerMap({
                     key={`tower-popup-${selectedTower.id}`}
                     longitude={selectedTower.lon}
                     latitude={selectedTower.lat}
+                    maxWidth="360px"
                     closeButton
                     className="mapcn-popup"
-                    onClose={() => onTowerDeselect?.()}
+                    onClose={() => onTowerDeselect?.(selectedTower.id)}
                 >
                     <Box className="mapcn-popup-body">
-                        <Typography className="mapcn-popup-title">{towerLabel(selectedTower.type)}</Typography>
-                        <Box className="mapcn-popup-row">
-                            <span>ID</span>
-                            <strong>{selectedTower.id}</strong>
-                        </Box>
-                        {selectedTower.parcel?.address && (
-                            <Box className="mapcn-popup-row">
-                                <span>Address</span>
-                                <span style={{ textAlign: 'right' }}>{String(selectedTower.parcel.address)}</span>
-                            </Box>
+                        {selectedTower.isLead ? (
+                            <>
+                                <Typography className="mapcn-popup-title">Tower Lead</Typography>
+                                <Box className="mapcn-popup-row">
+                                    <span>Source</span>
+                                    <strong>{selectedTower.source || 'Unknown'}</strong>
+                                </Box>
+                                <Box className="mapcn-popup-row">
+                                    <span>Type</span>
+                                    <strong>
+                                        {typeof selectedTower.type === 'object'
+                                            ? selectedTower.type?.name || 'Unknown'
+                                            : selectedTower.type || 'Unknown'}
+                                    </strong>
+                                </Box>
+                                <Box className="mapcn-popup-row">
+                                    <span>Coordinates</span>
+                                    <strong>
+                                        {selectedTower.lat.toFixed(6)}, {selectedTower.lon.toFixed(6)}
+                                    </strong>
+                                </Box>
+                                {(selectedTower.city || selectedTower.country) && (
+                                    <Box className="mapcn-popup-row">
+                                        <span>Location</span>
+                                        <span style={{ textAlign: 'right' }}>
+                                            {[selectedTower.city, selectedTower.country].filter(Boolean).join(', ')}
+                                        </span>
+                                    </Box>
+                                )}
+                                <Box className="mapcn-popup-actions">
+                                    <Button
+                                        size="small"
+                                        variant="outlined"
+                                        fullWidth
+                                        component="a"
+                                        href={pinnedMapUrl(selectedTower.lat, selectedTower.lon, {
+                                            satellite: true,
+                                            zoom: 18,
+                                        })}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        sx={{ textTransform: 'none', fontSize: 12 }}
+                                    >
+                                        View Satellite
+                                    </Button>
+                                    <Button
+                                        size="small"
+                                        variant="contained"
+                                        fullWidth
+                                        sx={{
+                                            bgcolor: '#4caf50',
+                                            '&:hover': { bgcolor: '#388e3c' },
+                                            textTransform: 'none',
+                                            fontSize: 12,
+                                        }}
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            onTowerSelect({
+                                                ...selectedTower,
+                                                isLead: true,
+                                                action: 'promote',
+                                            } as MapTower);
+                                        }}
+                                    >
+                                        Add to Towers
+                                    </Button>
+                                </Box>
+                            </>
+                        ) : (
+                            <>
+                                <Typography className="mapcn-popup-title">{towerLabel(selectedTower.type)}</Typography>
+                                <Box className="mapcn-popup-row">
+                                    <span>ID</span>
+                                    <strong>{selectedTower.id}</strong>
+                                </Box>
+                                {selectedTower.parcel?.address && (
+                                    <Box className="mapcn-popup-row">
+                                        <span>Address</span>
+                                        <span style={{ textAlign: 'right' }}>{String(selectedTower.parcel.address)}</span>
+                                    </Box>
+                                )}
+                                <Box className="mapcn-popup-row">
+                                    <span>Status</span>
+                                    <strong>{statusLabel(selectedTower.status)}</strong>
+                                </Box>
+                                <Box className="mapcn-popup-row">
+                                    <span>Coordinates</span>
+                                    <strong>
+                                        {selectedTower.lat.toFixed(5)}, {selectedTower.lon.toFixed(5)}
+                                    </strong>
+                                </Box>
+                                <Box className="mapcn-popup-row">
+                                    <span>Source</span>
+                                    <span>{selectedTower.source || 'Excel Import'}</span>
+                                </Box>
+                                <Box className="mapcn-popup-actions">
+                                    <Button
+                                        size="small"
+                                        variant="contained"
+                                        fullWidth
+                                        sx={{
+                                            bgcolor: '#ff9800',
+                                            '&:hover': { bgcolor: '#f57c00' },
+                                            textTransform: 'none',
+                                            fontSize: 12,
+                                        }}
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            onTowerSelect({ ...selectedTower, action: 'addOwner' } as MapTower);
+                                        }}
+                                    >
+                                        Add Property Owner
+                                    </Button>
+                                </Box>
+                            </>
                         )}
-                        <Box className="mapcn-popup-row">
-                            <span>Status</span>
-                            <strong>{statusLabel(selectedTower.status)}</strong>
-                        </Box>
-                        <Box className="mapcn-popup-row">
-                            <span>Coordinates</span>
-                            <strong>
-                                {selectedTower.lat.toFixed(5)}, {selectedTower.lon.toFixed(5)}
-                            </strong>
-                        </Box>
-                        <Box className="mapcn-popup-row">
-                            <span>Source</span>
-                            <span>{selectedTower.source || 'Excel Import'}</span>
-                        </Box>
-                        <Box className="mapcn-popup-actions">
-                            <Button
-                                size="small"
-                                variant="contained"
-                                fullWidth
-                                sx={{
-                                    bgcolor: '#ff9800',
-                                    '&:hover': { bgcolor: '#f57c00' },
-                                    textTransform: 'none',
-                                    fontSize: 12,
-                                }}
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    onTowerSelect({ ...selectedTower, action: 'addOwner' } as MapTower);
-                                }}
-                            >
-                                Add Property Owner
-                            </Button>
-                        </Box>
                     </Box>
                 </MapPopup>
             )}

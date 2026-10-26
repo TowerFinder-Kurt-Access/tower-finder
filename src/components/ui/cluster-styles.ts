@@ -1,7 +1,7 @@
 /**
  * Basemap styles, map modes, and cluster palettes for the mapcn map.
  *
- * Modelled on the Hazr map's "Map details" panel: four basemap styles plus two
+ * Modelled on the Hazr map's "Map details" panel: three basemap styles plus two
  * display modes. CARTO styles carry OpenStreetMap data and their own label
  * layers, including `place_country_1` and `place_country_2`, which is where the
  * country names come from. An Esri raster cannot supply those, because its
@@ -18,13 +18,13 @@ export interface MapStyleOptionEntry {
     url: MapStyleOption;
 }
 
-export type MapStyleId = 'light' | 'dark' | 'satellite';
+export type MapStyleId = 'voyager' | 'dark' | 'satellite';
 
 export const MAP_STYLES: Record<MapStyleId, MapStyleOptionEntry> = {
-    light: {
-        id: 'light',
-        label: 'Light',
-        url: 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json',
+    voyager: {
+        id: 'voyager',
+        label: 'Voyager',
+        url: 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json',
     },
     dark: {
         id: 'dark',
@@ -46,7 +46,11 @@ export const MAP_STYLES: Record<MapStyleId, MapStyleOptionEntry> = {
                         'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
                     ],
                     tileSize: 256,
-                    maxzoom: 19,
+                    // Rural areas have no imagery past zoom 17. Esri answers
+                    // those tiles with a grey "Map data not yet available"
+                    // image, which reads as missing towers. Stopping at 17 makes
+                    // MapLibre upscale the last real tile instead.
+                    maxzoom: 17,
                     attribution:
                         'Imagery &copy; <a href="https://www.esri.com/">Esri</a>, Maxar, Earthstar Geographics',
                 },
@@ -71,7 +75,7 @@ export const MAP_STYLES: Record<MapStyleId, MapStyleOptionEntry> = {
 };
 
 /** Basemap used before the user picks one. */
-export const DEFAULT_MAP_STYLE: MapStyleId = 'light';
+export const DEFAULT_MAP_STYLE: MapStyleId = 'voyager';
 
 /** Display modes from the same panel. */
 export interface MapModeState {
@@ -90,11 +94,11 @@ export const DEFAULT_MAP_MODES: MapModeState = { globe: false, buildings3d: fals
  * The dark and satellite basemaps need lighter cluster fills to stay legible,
  * so each style gets its own palette.
  */
-export const TOWER_CLUSTER_COLORS = ['#f44336', '#d32f2f', '#b71c1c'] as const;
+export const TOWER_CLUSTER_COLORS = ['#ef4444', '#ef4444', '#ef4444'] as const;
 export const LEAD_CLUSTER_COLORS = ['#4caf50', '#388e3c', '#1b5e20'] as const;
 
 /** Cluster palettes for a dark basemap, where the deep reds would disappear. */
-export const TOWER_CLUSTER_COLORS_DARK = ['#ff7961', '#f44336', '#d32f2f'] as const;
+export const TOWER_CLUSTER_COLORS_DARK = ['#f87171', '#f87171', '#f87171'] as const;
 export const LEAD_CLUSTER_COLORS_DARK = ['#81c784', '#4caf50', '#388e3c'] as const;
 
 /** Point colors, matching the current Leaflet marker fills. */

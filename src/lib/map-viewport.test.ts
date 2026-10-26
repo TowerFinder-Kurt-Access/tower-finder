@@ -10,7 +10,6 @@ import {
     toLngLat,
     toLatLng,
     centerToLatLng,
-    boundsToBbox,
 } from './map-viewport';
 
 const TOWER_LAT = 46.5;
@@ -23,13 +22,7 @@ assert.deepEqual(toLatLng(lngLat[0], lngLat[1]), [TOWER_LAT, TOWER_LON], 'round 
 
 assert.deepEqual(centerToLatLng(lngLat), [TOWER_LAT, TOWER_LON], 'a viewport center reads back in Leaflet order');
 
-assert.equal(
-    boundsToBbox({ north: 10, south: 5, east: -60, west: -70 }),
-    '-70,5,-60,10',
-    'bbox is west,south,east,north',
-);
-
 // A negative latitude would look plausible if the pair were swapped.
 assert.equal(lngLat[1], TOWER_LAT, 'latitude stays in the second slot');
 
-console.log('map-viewport: 5 checks passed');
+console.log('map-viewport: 4 checks passed');

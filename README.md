@@ -6,7 +6,7 @@
 
 ## ✨ Features
 
-- **Interactive Map** — Leaflet map with tower markers, marker clustering, and tower detail popups.
+- **Interactive Map** — MapLibre GL map (mapcn components) with clustered tower and lead markers, basemap and 3D modes, and tower detail popups.
 - **Tower Management** — Full tower CRUD with status tracking, sorting, and AI-assisted lead classification.
 - **Outreach Leads** — Call-sheet leads from the CellWaves workbook, grouped by stage and enriched with property owner data.
 - **Owner & Parcel Lookup** — Parcel records, owner details, and third-party data enrichment per tower.
@@ -21,7 +21,7 @@
 ## 🧱 Tech Stack
 
 - **Framework**: [Next.js 16](https://nextjs.org/) (App Router, Turbopack), [React 19](https://react.dev/)
-- **UI**: [Material UI 7](https://mui.com/), [MUI X Data Grid](https://mui.com/x/react-data-grid/), [Leaflet](https://leafletjs.com/) + [react-leaflet](https://github.com/PaulLeCam/react-leaflet)
+- **UI**: [Material UI 7](https://mui.com/), [MUI X Data Grid](https://mui.com/x/react-data-grid/), [MapLibre GL](https://maplibre.org/) with vendored [mapcn](https://mapcn.dev) components
 - **Data**: [Prisma ORM](https://www.prisma.io/) with PostgreSQL + Prisma Accelerate, [Supabase](https://supabase.com/)
 - **Auth**: [NextAuth v5](https://next-auth.js.org/) with 2FA and bcrypt
 - **Integrations**: [Geoapify](https://www.geoapify.com/) (places), FCC, ExcelJS, Sentry

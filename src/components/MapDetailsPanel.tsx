@@ -10,14 +10,15 @@ import LayersIcon from '@mui/icons-material/Layers';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import PublicIcon from '@mui/icons-material/Public';
 import ApartmentIcon from '@mui/icons-material/Apartment';
-import LightModeIcon from '@mui/icons-material/LightMode';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
 import SatelliteAltIcon from '@mui/icons-material/SatelliteAlt';
+import MapIcon from '@mui/icons-material/Map';
 import {
     MAP_STYLES,
     type MapModeState,
     type MapStyleId,
 } from '@/components/ui/cluster-styles';
+import { mapOverlaySx } from '@/lib/map-overlay';
 
 interface MapDetailsPanelProps {
     mapStyle: MapStyleId;
@@ -26,14 +27,14 @@ interface MapDetailsPanelProps {
     onMapModesChange: (modes: MapModeState) => void;
 }
 
-const STYLE_ORDER: MapStyleId[] = ['light', 'dark', 'satellite'];
+const STYLE_ORDER: MapStyleId[] = ['voyager', 'dark', 'satellite'];
 
 /**
  * One icon per basemap. A glyph reads faster than a color chip at this size,
  * and needs no image asset or per-style color plumbing.
  */
 const STYLE_ICONS: Record<MapStyleId, React.ReactNode> = {
-    light: <LightModeIcon fontSize="small" />,
+    voyager: <MapIcon fontSize="small" />,
     dark: <DarkModeIcon fontSize="small" />,
     satellite: <SatelliteAltIcon fontSize="small" />,
 };
@@ -91,14 +92,14 @@ export default function MapDetailsPanel({
 
     return (
         <Paper
-            elevation={3}
+            elevation={0}
             sx={{
+                ...mapOverlaySx,
                 position: 'absolute',
                 bottom: 40,
                 left: 20,
                 zIndex: 1000,
                 width: 216,
-                borderRadius: 2,
                 overflow: 'hidden',
             }}
         >

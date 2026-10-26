@@ -372,7 +372,9 @@ const Map = forwardRef<MapRef, MapProps>(function Map(
         const instance = new lib.Map({
           container: containerRef.current,
           style: initialStyle,
-          renderWorldCopies: false,
+          // Repeat the world to the sides, so dragging never hits a hard edge.
+          // The globe projection ignores this; it wraps on its own.
+          renderWorldCopies: true,
           attributionControl: {
             compact: true,
           },
@@ -1014,12 +1016,15 @@ function MapControls({
   }, [map, onLocate]);
 
   const handleFullscreen = useCallback(() => {
-    const container = map?.getContainer();
-    if (!container) return;
+    // Fullscreen the app shell, not the canvas, so the nav rail, sidebar and
+    // map overlays stay in the fullscreen element. Fall back to the canvas.
+    const mapContainer = map?.getContainer();
+    const target = mapContainer?.closest<HTMLElement>('.app-shell') ?? mapContainer;
+    if (!target) return;
     if (document.fullscreenElement) {
-      document.exitFullscreen();
+      void document.exitFullscreen();
     } else {
-      container.requestFullscreen();
+      void target.requestFullscreen();
     }
   }, [map]);
 
@@ -1515,6 +1520,8 @@ type MapClusterLayerProps<
   clusterThresholds?: [number, number];
   /** Color for unclustered individual points (default: "#3b82f6") */
   pointColor?: string;
+  /** Draw unclustered points with a dashed green ring, like the old leads. */
+  dashedPointRing?: boolean;
   /** Callback when an unclustered point is clicked */
   onPointClick?: (
     feature: GeoJSON.Feature<GeoJSON.Point, P>,
@@ -1544,15 +1551,19 @@ function MapClusterLayer<
   clusterColors = DEFAULT_CLUSTER_COLORS,
   clusterThresholds = DEFAULT_CLUSTER_THRESHOLDS,
   pointColor = "#3b82f6",
+  dashedPointRing = false,
   onPointClick,
   onClusterClick,
 }: MapClusterLayerProps<P>) {
   const { map, isLoaded, styleGeneration } = useMap();
   const id = useId();
   const sourceId = `cluster-source-${id}`;
+  const clusterShadowLayerId = `cluster-shadow-${id}`;
   const clusterLayerId = `clusters-${id}`;
   const clusterCountLayerId = `cluster-count-${id}`;
   const unclusteredLayerId = `unclustered-point-${id}`;
+  const pointRingLayerId = `point-ring-${id}`;
+  const pointRingImageId = `cluster-point-ring-${id}`;
 
   const stylePropsRef = useRef({
     clusterColors,
@@ -1573,6 +1584,32 @@ function MapClusterLayer<
       clusterRadius,
     });
 
+    // Shadow under the badge, a soft offset disc. MapLibre has no box-shadow,
+    // so a blurred circle below the fill stands in for shadow-xs.
+    map.addLayer({
+      id: clusterShadowLayerId,
+      type: "circle",
+      source: sourceId,
+      filter: ["has", "point_count"],
+      paint: {
+        "circle-color": "#000000",
+        "circle-radius": [
+          "step",
+          ["get", "point_count"],
+          22,
+          100,
+          28,
+          750,
+          36,
+          5000,
+          44,
+        ],
+        "circle-opacity": 0.12,
+        "circle-blur": 0.5,
+        "circle-translate": [0, 1],
+      },
+    });
+
     // Add cluster circles layer
     map.addLayer({
       id: clusterLayerId,
@@ -1589,18 +1626,23 @@ function MapClusterLayer<
           clusterThresholds[1],
           clusterColors[2],
         ],
+        // Bigger groups still read as bigger badges. A 5-digit count needs the
+        // room, so a fixed 20px badge cannot carry it.
         "circle-radius": [
           "step",
           ["get", "point_count"],
           20,
-          clusterThresholds[0],
-          30,
-          clusterThresholds[1],
-          40,
+          100,
+          26,
+          750,
+          34,
+          5000,
+          42,
         ],
-        "circle-stroke-width": 0.75,
-        "circle-stroke-color": "#fff",
-        "circle-opacity": 0.85,
+        "circle-opacity": 1,
+        // Ring border, a dark edge over the fill like the reference badges.
+        "circle-stroke-width": 2,
+        "circle-stroke-color": "rgba(0, 0, 0, 0.15)",
       },
     });
 
@@ -1611,9 +1653,10 @@ function MapClusterLayer<
       source: sourceId,
       filter: ["has", "point_count"],
       layout: {
+        // Counts stay abbreviated so a 27,240 cluster reads as 27.2k.
         "text-field": "{point_count_abbreviated}",
         "text-font": ["Open Sans Bold"],
-        "text-size": 12,
+        "text-size": 13,
       },
       paint: {
         "text-color": "#fff",
@@ -1626,13 +1669,57 @@ function MapClusterLayer<
       type: "circle",
       source: sourceId,
       filter: ["!", ["has", "point_count"]],
-      paint: {
-        "circle-color": pointColor,
-        "circle-radius": 5,
-        "circle-stroke-width": 2,
-        "circle-stroke-color": "#fff",
-      },
+      paint: dashedPointRing
+        ? {
+            "circle-color": pointColor,
+            "circle-radius": 6.5,
+          }
+        : {
+            "circle-color": pointColor,
+            "circle-radius": 7,
+            "circle-stroke-width": 2.5,
+            "circle-stroke-color": "#fff",
+          },
     });
+
+    // The old lead markers carried a dashed ring. MapLibre's circle layer has
+    // no dash property, so the ring is a generated canvas image over the dot.
+    if (dashedPointRing) {
+      const size = 20;
+      const ratio = 2;
+      const canvas = document.createElement("canvas");
+      canvas.width = size * ratio;
+      canvas.height = size * ratio;
+      const context = canvas.getContext("2d");
+      if (context) {
+        context.scale(ratio, ratio);
+        context.strokeStyle = "#2e7d32";
+        context.lineWidth = 2;
+        context.setLineDash([3, 2.5]);
+        context.beginPath();
+        context.arc(size / 2, size / 2, size / 2 - 1, 0, Math.PI * 2);
+        context.stroke();
+        if (!map.hasImage(pointRingImageId)) {
+          map.addImage(
+            pointRingImageId,
+            context.getImageData(0, 0, canvas.width, canvas.height),
+            { pixelRatio: ratio },
+          );
+        }
+      }
+      map.addLayer({
+        id: pointRingLayerId,
+        type: "symbol",
+        source: sourceId,
+        filter: ["!", ["has", "point_count"]],
+        layout: {
+          "icon-image": pointRingImageId,
+          "icon-size": 1,
+          "icon-allow-overlap": true,
+          "icon-ignore-placement": true,
+        },
+      });
+    }
 
     return () => {
       try {
@@ -1640,7 +1727,13 @@ function MapClusterLayer<
           map.removeLayer(clusterCountLayerId);
         if (map.getLayer(unclusteredLayerId))
           map.removeLayer(unclusteredLayerId);
+        if (map.getLayer(pointRingLayerId))
+          map.removeLayer(pointRingLayerId);
         if (map.getLayer(clusterLayerId)) map.removeLayer(clusterLayerId);
+        if (map.getLayer(clusterShadowLayerId))
+          map.removeLayer(clusterShadowLayerId);
+        if (map.hasImage(pointRingImageId))
+          map.removeImage(pointRingImageId);
         if (map.getSource(sourceId)) map.removeSource(sourceId);
       } catch {
         // ignore
@@ -1668,7 +1761,7 @@ function MapClusterLayer<
       prev.clusterColors !== clusterColors ||
       prev.clusterThresholds !== clusterThresholds;
 
-    // Update cluster layer colors and sizes
+    // Update cluster layer colors
     if (map.getLayer(clusterLayerId) && colorsChanged) {
       map.setPaintProperty(clusterLayerId, "circle-color", [
         "step",
@@ -1678,15 +1771,6 @@ function MapClusterLayer<
         clusterColors[1],
         clusterThresholds[1],
         clusterColors[2],
-      ]);
-      map.setPaintProperty(clusterLayerId, "circle-radius", [
-        "step",
-        ["get", "point_count"],
-        20,
-        clusterThresholds[0],
-        30,
-        clusterThresholds[1],
-        40,
       ]);
     }
 
@@ -1724,10 +1808,15 @@ function MapClusterLayer<
       const feature = features[0];
       const clusterId = feature.properties?.cluster_id as number;
       const pointCount = feature.properties?.point_count as number;
-      const coordinates = (feature.geometry as GeoJSON.Point).coordinates as [
-        number,
-        number,
-      ];
+      const coordinates = (
+        feature.geometry as GeoJSON.Point
+      ).coordinates.slice() as [number, number];
+
+      // Handle world copies, so the zoom targets the copy that was clicked
+      // instead of the same spot in the far-away original world.
+      while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
+        coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
+      }
 
       if (onClusterClick) {
         onClusterClick(clusterId, coordinates, pointCount);
@@ -1736,17 +1825,21 @@ function MapClusterLayer<
         const source = map.getSource(sourceId) as MapLibreGL.GeoJSONSource;
         const expansionZoom = await source.getClusterExpansionZoom(clusterId);
 
-        // Never zoom out on a cluster click. A large cluster can report an
-        // expansion zoom below the current one, which would pull the user back
-        // out of the detail they are looking at.
-        const targetZoom = Math.max(map.getZoom() + 1, expansionZoom);
+        // Two levels per click, never more than three. A dense cluster can
+        // report an expansion zoom many levels away, which reads as a jump.
+        // Both the tower and lead layers use this rule, so they match.
+        const currentZoom = map.getZoom();
+        const targetZoom = Math.min(
+          Math.max(expansionZoom, currentZoom + 2),
+          currentZoom + 3,
+        );
 
         map.easeTo({
           center: coordinates,
           zoom: Math.min(targetZoom, map.getMaxZoom()),
-          duration: 650,
-          // A gentle ease so a click reads as movement, not a jump cut.
-          easing: (t: number) => 1 - Math.pow(1 - t, 3),
+          duration: 1000,
+          // Smoothstep eases in and out, so the move reads as gliding.
+          easing: (t: number) => t * t * (3 - 2 * t),
         });
       }
     };
@@ -1799,6 +1892,13 @@ function MapClusterLayer<
     map.on("mouseleave", clusterLayerId, handleMouseLeaveCluster);
     map.on("mouseenter", unclusteredLayerId, handleMouseEnterPoint);
     map.on("mouseleave", unclusteredLayerId, handleMouseLeavePoint);
+    if (dashedPointRing) {
+      // The ring is drawn larger than the dot. Register the same handlers on
+      // it, so a click on the ring still opens the popup.
+      map.on("click", pointRingLayerId, handlePointClick);
+      map.on("mouseenter", pointRingLayerId, handleMouseEnterPoint);
+      map.on("mouseleave", pointRingLayerId, handleMouseLeavePoint);
+    }
 
     return () => {
       map.off("click", clusterLayerId, handleClusterClick);
@@ -1807,12 +1907,19 @@ function MapClusterLayer<
       map.off("mouseleave", clusterLayerId, handleMouseLeaveCluster);
       map.off("mouseenter", unclusteredLayerId, handleMouseEnterPoint);
       map.off("mouseleave", unclusteredLayerId, handleMouseLeavePoint);
+      if (dashedPointRing) {
+        map.off("click", pointRingLayerId, handlePointClick);
+        map.off("mouseenter", pointRingLayerId, handleMouseEnterPoint);
+        map.off("mouseleave", pointRingLayerId, handleMouseLeavePoint);
+      }
     };
   }, [
     isLoaded,
     map,
     clusterLayerId,
     unclusteredLayerId,
+    pointRingLayerId,
+    dashedPointRing,
     sourceId,
     onClusterClick,
     onPointClick,

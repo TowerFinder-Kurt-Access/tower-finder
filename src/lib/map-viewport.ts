@@ -13,14 +13,6 @@ export type LngLat = [number, number];
 /** Leaflet coordinate order, used by the rest of the app. */
 export type LatLng = [number, number];
 
-/** Map bounds, in the shape `/api/towers` expects for its `bbox` param. */
-export interface MapBounds {
-    north: number;
-    south: number;
-    east: number;
-    west: number;
-}
-
 /** Convert a Leaflet `[lat, lon]` pair to a MapLibre `[lng, lat]` pair. */
 export function toLngLat(lat: number, lon: number): LngLat {
     return [lon, lat];
@@ -34,9 +26,4 @@ export function toLatLng(lng: number, lat: number): LatLng {
 /** Read a viewport center back into Leaflet order. */
 export function centerToLatLng(center: LngLat): LatLng {
     return toLatLng(center[0], center[1]);
-}
-
-/** Serialize bounds into the `west,south,east,north` string the API takes. */
-export function boundsToBbox(bounds: MapBounds): string {
-    return `${bounds.west},${bounds.south},${bounds.east},${bounds.north}`;
 }

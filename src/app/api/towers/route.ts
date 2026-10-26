@@ -136,8 +136,6 @@ export async function GET(request: Request) {
 
         // Default limit to prevent sending too many towers at once (performance optimization)
         // Use 1000 as default limit if not specified, unless fetching by ID
-        // The map asks for a higher limit: it needs every tower in the viewport,
-        // or clusters under-report and land in the wrong place.
         const DEFAULT_LIMIT = 1000;
         const MAX_LIMIT = 20000;
         let limit: number | undefined = DEFAULT_LIMIT;
@@ -145,8 +143,13 @@ export async function GET(request: Request) {
         else if (id) limit = undefined;
         const page = pageStr ? parseInt(pageStr, 10) : undefined; // Only set page if explicitly provided
 
-        // Bounding box support
-        const bbox = searchParams.get('bbox'); // minLon,minLat,maxLon,maxLat
+        // `map=1` asks for every tower matching the filters, in the light shape
+        // the map clusters need. A viewport-sized page changes the point set
+        // whenever the camera moves, so clusters already on screen jump. The
+        // whole table is about 9 MB in this shape (roughly 1 MB gzipped); a
+        // 20k page with parcels, carriers and leads is about 35 MB.
+        const isMapMode = searchParams.get('map') === '1';
+        if (isMapMode) limit = undefined;
 
         // Distinct Queries
         if (distinct === 'countries') {
@@ -374,7 +377,7 @@ export async function GET(request: Request) {
             // Build an array of conditions to AND together
             const andConditions: Prisma.TowerWhereInput[] = [];
 
-            // Country filter (USA also matches parcel-less rows in the bbox, see countryCond).
+            // Country filter (USA also matches parcel-less rows inside the US box).
             if (country) {
                 if (country.toLowerCase() === 'usa') {
                     andConditions.push({
@@ -435,15 +438,6 @@ export async function GET(request: Request) {
                             }
                         }
                     ]
-                });
-            }
-
-            // Bounding box filter
-            if (bbox) {
-                const [minLon, minLat, maxLon, maxLat] = bbox.split(',').map(Number);
-                andConditions.push({
-                    lat: { gte: minLat, lte: maxLat },
-                    lon: { gte: minLon, lte: maxLon }
                 });
             }
 
@@ -626,18 +620,27 @@ export async function GET(request: Request) {
         // Apply role-based access control
         whereClause = buildTowerAccessFilter(user.id, user.role, whereClause);
 
+        // Map data: every matching tower, and only the fields the clusters and
+        // popups read. No parcel geometry, no carriers, no leads, so the full
+        // table stays small and the query does not join the heavy relations.
+        if (isMapMode) {
+            const mapTowers = await prisma.tower.findMany({
+                where: whereClause,
+                select: {
+                    id: true,
+                    lat: true,
+                    lon: true,
+                    source: true,
+                    type: { select: { name: true } },
+                    status: { select: { name: true } },
+                },
+            });
+            return NextResponse.json(mapTowers);
+        }
+
         // Calculate pagination
         const skip = page !== undefined && limit !== undefined ? page * limit : undefined;
         const take = limit;
-
-        // A map request asks for a bbox. When that bbox holds more towers than the
-        // limit, any field order returns one contiguous block of ids, which is one
-        // region of the country. The map would then draw a single cluster there and
-        // nothing anywhere else. Dropping the order lets Postgres return rows in
-        // heap order, which is spatially mixed, so the clusters match the real
-        // distribution. Filters and the access filter still apply: only the ORDER
-        // BY changes.
-        const isMapRequest = Boolean(bbox) && page === undefined;
 
         // If pagination is requested, also get total count
         const needsCount = page !== undefined && limit !== undefined;
@@ -668,22 +671,20 @@ export async function GET(request: Request) {
                         select: { notes: true }
                     }
                 },
-                orderBy: isMapRequest
-                    ? undefined
-                    : (() => {
-                        const sort = searchParams.get('sort');
-                        const order = (searchParams.get('order') || 'asc') as Prisma.SortOrder;
-                        const byField: Record<string, Prisma.TowerOrderByWithRelationInput> = {
-                            businessCount: { businessCount: order },
-                            avgBusinessDistance: { avgBusinessDistance: order },
-                            aiTowerScore: { aiTowerScore: { sort: order, nulls: 'last' } as Prisma.SortOrderInput },
-                            hasOwnerName: { parcel: { ownerId: order } },
-                            id: { id: order },
-                        };
-                        const primary = byField[sort ?? ''] ?? { id: 'asc' as Prisma.SortOrder };
-                        // Always an array: a single object breaks Prisma's findMany overload once relationLoadStrategy is set. The id tiebreaker keeps one row per page.
-                        return [primary, { id: order }] as Prisma.TowerOrderByWithRelationInput[];
-                    })(),
+                orderBy: (() => {
+                    const sort = searchParams.get('sort');
+                    const order = (searchParams.get('order') || 'asc') as Prisma.SortOrder;
+                    const byField: Record<string, Prisma.TowerOrderByWithRelationInput> = {
+                        businessCount: { businessCount: order },
+                        avgBusinessDistance: { avgBusinessDistance: order },
+                        aiTowerScore: { aiTowerScore: { sort: order, nulls: 'last' } as Prisma.SortOrderInput },
+                        hasOwnerName: { parcel: { ownerId: order } },
+                        id: { id: order },
+                    };
+                    const primary = byField[sort ?? ''] ?? { id: 'asc' as Prisma.SortOrder };
+                    // Always an array: a single object breaks Prisma's findMany overload once relationLoadStrategy is set. The id tiebreaker keeps one row per page.
+                    return [primary, { id: order }] as Prisma.TowerOrderByWithRelationInput[];
+                })(),
                 skip,
                 take
             }),
