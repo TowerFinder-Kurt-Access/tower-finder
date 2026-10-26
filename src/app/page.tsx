@@ -107,6 +107,10 @@ function HomeContent() {
 
     // 0. Handle selectTower param — fetch tower and center map on it
     if (selectTowerParam) {
+      // `isViewingSpecificTower` only gates the very first fetch, so the map
+      // does not overwrite the targeted tower with a viewport result. It must
+      // be released once that tower has loaded, or every later pan and zoom
+      // stays frozen and the map never loads clusters again.
       setIsViewingSpecificTower(true);
       const towerId = parseInt(selectTowerParam);
       if (!isNaN(towerId)) {
@@ -120,6 +124,9 @@ function HomeContent() {
             setSelectedTower(t);
             // Pre-seed the map with this tower so it renders immediately
             setTowers([t]);
+            // Release the lock: the targeted tower is on the map now, so the
+            // next pan or zoom may fetch normally.
+            setIsViewingSpecificTower(false);
 
             // Update filters so sidebar reflects the tower's location
             if (t.parcel) {
@@ -135,6 +142,8 @@ function HomeContent() {
           }
         }).catch(err => {
           console.error('Failed to fetch tower for selectTower param:', err);
+          // Never leave the map locked after a failed lookup.
+          setIsViewingSpecificTower(false);
         });
       }
       return; // Don't process other params when selectTower is set
@@ -222,7 +231,10 @@ function HomeContent() {
     }, 500);
 
     return () => clearTimeout(timeoutId);
-  }, [mapBounds, selectedCountry, selectedProvince, selectedCity, selectedZip, selectedType, selectedCarrier, searchQuery, shouldFitBounds, towers.length, isViewingSpecificTower]);
+    // `towers.length` must never join these deps. This effect calls setTowers,
+    // so a length dep would re-run the effect after every fetch and refetch
+    // forever. The length is not read in the body either.
+  }, [mapBounds, selectedCountry, selectedProvince, selectedCity, selectedZip, selectedType, selectedCarrier, searchQuery, shouldFitBounds, isViewingSpecificTower]);
 
   // Fit bounds using Geocoding API when filter changes
   useEffect(() => {
