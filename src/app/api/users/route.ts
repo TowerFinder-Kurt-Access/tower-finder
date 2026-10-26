@@ -107,6 +107,7 @@ export async function POST(request: Request) {
                 password: hashedPassword,
                 role: role || 'CALLER',
                 isActive: isActive !== undefined ? isActive : true,
+                twoFactorEnabled: true,
                 passwordChangedAt: new Date()
             },
             select: {

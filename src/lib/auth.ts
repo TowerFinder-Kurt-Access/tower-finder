@@ -111,16 +111,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             twoFactorEnabled: user.twoFactorEnabled,
           }
 
-          // Single-step login unless the user opted into the OTP second factor
-          // on their profile. twoFactorEnabled defaults false — nobody is
-          // forced into the code step.
-          if (!user.twoFactorEnabled) {
-            await recordLoginEvent({ email, userId: user.id, type: LoginEventType.LOGIN_SUCCESS, ip, userAgent, metadata: { method: "password_only" } }).catch(() => {})
-            await prisma.user.update({ where: { id: user.id }, data: { lastLogin: new Date() } })
-            return sessionUser
-          }
-
-          // -------- Second factor: email OTP (opt-in) --------
+          // -------- Second factor: email OTP, required for every account --------
+          // There is no password-only path. Enabling the flag is informational;
+          // the code step runs even for rows that were never opted in.
           if (!otp) {
             // Step 1: password passed — email a one-time code.
             let issued

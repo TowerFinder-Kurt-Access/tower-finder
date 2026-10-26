@@ -18,14 +18,16 @@ async function createAdmin() {
             where: { email },
             update: {
                 password: hashedPassword, // Update password if admin exists
-                isActive: true
+                isActive: true,
+                twoFactorEnabled: true
             },
             create: {
                 email,
                 name: 'System Admin',
                 password: hashedPassword,
                 role: 'ADMIN',
-                isActive: true
+                isActive: true,
+                twoFactorEnabled: true
             }
         });
 

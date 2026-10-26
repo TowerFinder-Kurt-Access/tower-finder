@@ -124,23 +124,36 @@ export async function sendEmail(
     }
     const from =
         process.env.EMAIL_FROM ?? 'Tower Finder <no-reply@towerfinder.com>';
-    const res = await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: {
-            Authorization: `Bearer ${apiKey}`,
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(
-            templateId
-                ? {
-                      from,
-                      to,
-                      subject,
-                      template: { id: templateId, variables },
-                  }
-                : { from, to, subject, html },
-        ),
-    });
+    let res: Response;
+    try {
+        res = await fetch('https://api.resend.com/emails', {
+            method: 'POST',
+            headers: {
+                Authorization: `Bearer ${apiKey}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(
+                templateId
+                    ? {
+                          from,
+                          to,
+                          subject,
+                          template: { id: templateId, variables },
+                      }
+                    : { from, to, subject, html },
+            ),
+            // Every sign-in now waits on this call. A stuck provider must not
+            // hold the login open.
+            signal: AbortSignal.timeout(5000),
+        });
+    } catch (error) {
+        const detail = String(error).slice(0, 200);
+        if (process.env.NODE_ENV !== 'production') {
+            console.error(`[dev-email] Resend unreachable: ${detail} — using console fallback`);
+            return { ok: true, devFallback: true, resendDetail: detail };
+        }
+        return { ok: false, resendError: 'network_error', resendDetail: detail };
+    }
     if (!res.ok) {
         const detail = (await res.text()).slice(0, 200);
         // Dev: an unverified Resend domain (403) must not block the OTP flow —
