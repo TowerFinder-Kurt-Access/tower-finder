@@ -197,10 +197,36 @@ function LoginPageContent() {
                 // Code sent — transition to the reset-code step.
                 setForgotStep(false);
                 setResetCodeStep(true);
+                setResendSecondsLeft(60);
                 showSnackbar('Reset code sent! Check your email.', 'success');
             }
         } catch {
             setError('An error occurred. Please try again.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // ---- Reset code resend ----
+    const handleResendResetCode = async () => {
+        setError('');
+        setLoading(true);
+        try {
+            const res = await fetch('/api/auth/forgot-password', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: email.trim().toLowerCase() }),
+            });
+            const data = await res.json();
+            if (!res.ok) {
+                setError(data.error || 'Could not resend the code. Please try again.');
+            } else {
+                setResetCode('');
+                setResendSecondsLeft(60);
+                showSnackbar('A new reset code was sent. Check your email.', 'success');
+            }
+        } catch {
+            setError('Could not resend the code. Please try again.');
         } finally {
             setLoading(false);
         }
@@ -361,6 +387,18 @@ function LoginPageContent() {
                         </Button>
 
                         <Box sx={{ mt: 2, textAlign: 'center' }}>
+                            <Button
+                                size="small"
+                                onClick={handleResendResetCode}
+                                disabled={loading || resendSecondsLeft > 0}
+                            >
+                                {resendSecondsLeft > 0
+                                    ? `Resend code in ${resendSecondsLeft}s`
+                                    : "Didn't receive the code? Resend code"}
+                            </Button>
+                        </Box>
+
+                        <Box sx={{ mt: 1, textAlign: 'center' }}>
                             <Link
                                 component="button"
                                 type="button"
