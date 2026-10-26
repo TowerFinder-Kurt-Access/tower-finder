@@ -411,6 +411,8 @@ export interface TowerMapProps {
     towerLeads?: MapLead[];
     businessesNearby?: MapBusiness[];
     onTowerSelect: (tower: MapTower | (MapLead & { isLead?: boolean; action?: string })) => void;
+    /** Called when the popup is closed, so the page can clear its selection. */
+    onTowerDeselect?: () => void;
     selectedTower?: MapTower | null;
     selectedBusinessId?: number | null;
     onBusinessSelect?: (id: number) => void;
@@ -432,6 +434,7 @@ export default function TowerMap({
     towerLeads = [],
     businessesNearby = [],
     onTowerSelect,
+    onTowerDeselect,
     selectedTower,
     selectedBusinessId,
     onBusinessSelect,
@@ -706,7 +709,7 @@ export default function TowerMap({
                     latitude={selectedTower.lat}
                     closeButton
                     className="mapcn-popup"
-                    onClose={() => onTowerSelect(selectedTower)}
+                    onClose={() => onTowerDeselect?.()}
                 >
                     <Box className="mapcn-popup-body">
                         <Typography className="mapcn-popup-title">{towerLabel(selectedTower.type)}</Typography>

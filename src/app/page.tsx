@@ -284,6 +284,12 @@ function HomeContent() {
     fetchTowerLeads();
   }, [showLeads, selectedCity, selectedCountry, searchQuery]);
 
+  // Closing the map popup clears the selection, so the sidebar and the map
+  // agree. Without this the popup closes but the tower stays selected.
+  const handleTowerDeselect = useCallback(() => {
+    setSelectedTower(null);
+  }, []);
+
   const handleTowerSelect = (tower: any) => {
     if (tower.action === 'promote') {
       handlePromoteClick(tower);
@@ -341,6 +347,8 @@ function HomeContent() {
     setIsViewingSpecificTower(false); // Unset explicit target
     setTowerLeads([]);
     setTowers([]);
+    // The old result set is gone, so its selected tower must go too.
+    setSelectedTower(null);
   };
 
   const handleCityChange = (newCity: string) => {
@@ -351,6 +359,8 @@ function HomeContent() {
     setIsViewingSpecificTower(false); // Unset explicit target
     setTowerLeads([]);
     setTowers([]);
+    // The old result set is gone, so its selected tower must go too.
+    setSelectedTower(null);
   };
 
   const handleZipChange = (newZip: string) => {
@@ -360,6 +370,8 @@ function HomeContent() {
     setIsViewingSpecificTower(false); // Unset explicit target
     setTowerLeads([]);
     setTowers([]);
+    // The old result set is gone, so its selected tower must go too.
+    setSelectedTower(null);
   };
 
   const handleLookupOwner = async (tower: Tower) => {
@@ -480,6 +492,7 @@ function HomeContent() {
             bounds={boundsToFit}
             onBoundsChange={handleBoundsChange}
             onTowerSelect={handleTowerSelect}
+            onTowerDeselect={handleTowerDeselect}
             selectedTower={selectedTower}
             towerLeads={showLeads ? towerLeads : []}
             userPosition={isTrackingLocation ? userPosition : null}
