@@ -21,6 +21,10 @@ import { PasswordField } from '@/components/PasswordField';
 export default function ProfilePage() {
     const { data: session, update } = useSession();
     const [profile, setProfile] = useState({ name: '', email: '' });
+    const [emailPassword, setEmailPassword] = useState('');
+    const [emailCode, setEmailCode] = useState('');
+    const [emailCodeSent, setEmailCodeSent] = useState(false);
+    const [emailCodeBusy, setEmailCodeBusy] = useState(false);
     const [passwordData, setPasswordData] = useState({
         currentPassword: '',
         newPassword: '',
@@ -38,6 +42,8 @@ export default function ProfilePage() {
     // Re-seed the draft when the signed-in user changes (state adjusted during render).
     const [seededUserId, setSeededUserId] = useState<string | null>(null);
     const signedInUserId = session?.user?.id ?? null;
+    const emailChanged = profile.email.trim().toLowerCase()
+        !== (session?.user?.email || '').trim().toLowerCase();
     if (signedInUserId && signedInUserId !== seededUserId) {
         setSeededUserId(signedInUserId);
         setProfile({
@@ -50,11 +56,25 @@ export default function ProfilePage() {
         setLoading(true);
         setMessage('');
         try {
-            await axios.patch(`/api/users/${session?.user.id}`, profile);
+            const emailChanged = profile.email.trim().toLowerCase()
+                !== (session?.user?.email || '').trim().toLowerCase();
+            const response = await axios.patch(`/api/users/${session?.user.id}`, {
+                name: profile.name,
+                email: profile.email,
+                ...(emailChanged ? { currentPassword: emailPassword, emailChangeCode: emailCode } : {}),
+            });
+            if (response.data?.emailChanged) {
+                // The API revoked all sessions on an email change.
+                await signOut({ callbackUrl: '/login?success=email-changed' });
+                return;
+            }
             setMessageType('success');
             setMessage('Profile updated successfully');
-            // Update session with new data
-            await update({ name: profile.name, email: profile.email });
+            setEmailPassword('');
+            setEmailCode('');
+            setEmailCodeSent(false);
+            // Refresh the display name in the session.
+            await update({ name: profile.name });
         } catch (error: unknown) {
             setMessageType('error');
             const message = error instanceof AxiosError
@@ -63,6 +83,31 @@ export default function ProfilePage() {
             setMessage(message);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleSendEmailCode = async () => {
+        if (!emailPassword) {
+            setMessageType('error');
+            setMessage('Enter your current password first');
+            return;
+        }
+        setEmailCodeBusy(true);
+        setMessage('');
+        try {
+            await axios.post(`/api/users/${session?.user.id}/email-change-code`, {
+                currentPassword: emailPassword,
+            });
+            setEmailCodeSent(true);
+            setMessageType('success');
+            setMessage(`Confirmation code sent to ${session?.user?.email ?? 'your current email'}`);
+        } catch (error: unknown) {
+            setMessageType('error');
+            setMessage(error instanceof AxiosError
+                ? error.response?.data?.error || 'Could not send the code'
+                : 'Could not send the code');
+        } finally {
+            setEmailCodeBusy(false);
         }
     };
 
@@ -157,10 +202,41 @@ export default function ProfilePage() {
                         onChange={(e) => setProfile({ ...profile, email: e.target.value })}
                         fullWidth
                     />
+                    {emailChanged && (
+                        <>
+                            <TextField
+                                label="Current password"
+                                type="password"
+                                value={emailPassword}
+                                onChange={(e) => setEmailPassword(e.target.value)}
+                                helperText="Required to change your email. You will sign in again."
+                                autoComplete="current-password"
+                                fullWidth
+                            />
+                            <Button
+                                variant="outlined"
+                                onClick={handleSendEmailCode}
+                                disabled={emailCodeBusy || !emailPassword}
+                            >
+                                {emailCodeBusy ? 'Sending...' : 'Send confirmation code'}
+                            </Button>
+                            {emailCodeSent && (
+                                <TextField
+                                    label="Confirmation code"
+                                    value={emailCode}
+                                    onChange={(e) => setEmailCode(e.target.value.replace(/\D/g, '').slice(0, 8))}
+                                    helperText={`8-digit code sent to ${session?.user?.email ?? 'your current email'}`}
+                                    inputProps={{ inputMode: 'numeric', maxLength: 8 }}
+                                    autoComplete="one-time-code"
+                                    fullWidth
+                                />
+                            )}
+                        </>
+                    )}
                     <Button
                         variant="contained"
                         onClick={handleUpdateProfile}
-                        disabled={loading}
+                        disabled={loading || (emailChanged && (!emailPassword || !emailCodeSent || emailCode.length !== 8))}
                     >
                         {loading ? 'Updating...' : 'Update Profile'}
                     </Button>
@@ -171,7 +247,7 @@ export default function ProfilePage() {
             <Paper sx={{ p: 3, mb: 3 }}>
                 <Typography variant="h6" sx={{ mb: 1 }}>Two-Factor Authentication</Typography>
                 <Typography variant="body2" color="text.secondary">
-                    Required for every account. Each sign-in emails a 6-digit code to{' '}
+                    Required for every account. Each sign-in emails an 8-digit code to{' '}
                     {session?.user?.email ?? 'your email'}; you enter it after your password.
                 </Typography>
                 <Typography variant="body2" color="success.main" sx={{ mt: 2, fontWeight: 600 }}>
@@ -220,6 +296,15 @@ export default function ProfilePage() {
                     >
                         {loading ? 'Changing...' : 'Change Password'}
                     </Button>
+                    <Box sx={{ textAlign: 'center' }}>
+                        <Button
+                            variant="text"
+                            onClick={() => signOut({ callbackUrl: '/login?forgot=1' })}
+                            sx={{ textTransform: 'none' }}
+                        >
+                            Forgot your current password? Reset it by email
+                        </Button>
+                    </Box>
                 </Box>
             </Paper>
 
@@ -235,9 +320,7 @@ export default function ProfilePage() {
                 </Button>
             </Paper>
 
-            {/* Two-factor feedback toast: code sent to [email], enable/disable
-                results, and any server error (cooldown / send failed / wrong
-                code) surfaces here. */}
+            {/* Feedback for profile and password actions. */}
             <Snackbar
                 open={snackbar.open}
                 autoHideDuration={6000}

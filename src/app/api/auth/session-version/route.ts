@@ -5,7 +5,7 @@ import { getAuthUser } from '@/lib/auth-helpers';
 /** A successful check is reused for this long. Middleware calls this endpoint
  *  on every request, and the pool is small, so a check per request exhausted
  *  it. A revoked session is still rejected within this window. */
-const OK_TTL_MS = 10_000;
+const OK_TTL_MS = 1_000;
 
 const okUntil = new Map<string, number>();
 

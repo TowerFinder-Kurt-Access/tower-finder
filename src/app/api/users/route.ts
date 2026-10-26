@@ -70,9 +70,10 @@ export async function POST(request: Request) {
 
         const body = await request.json();
         const { email, name, password, role, isActive } = body;
+        const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
 
         // Validation
-        if (!email || !name || !password) {
+        if (!normalizedEmail || !name || !password) {
             return NextResponse.json(
                 { error: 'Email, name, and password are required' },
                 { status: 400 }
@@ -84,9 +85,9 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: policyError }, { status: 400 });
         }
 
-        // Check if user already exists
-        const existingUser = await prisma.user.findUnique({
-            where: { email }
+        // Check if user already exists (case-insensitive).
+        const existingUser = await prisma.user.findFirst({
+            where: { email: { equals: normalizedEmail, mode: 'insensitive' } }
         });
 
         if (existingUser) {
@@ -102,12 +103,12 @@ export async function POST(request: Request) {
         // Create user
         const user = await prisma.user.create({
             data: {
-                email,
+                email: normalizedEmail,
                 name,
                 password: hashedPassword,
                 role: role || 'CALLER',
                 isActive: isActive !== undefined ? isActive : true,
-                twoFactorEnabled: true,
+                twoFactorEnabled: false,
                 passwordChangedAt: new Date()
             },
             select: {

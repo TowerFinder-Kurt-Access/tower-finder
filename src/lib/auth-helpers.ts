@@ -25,7 +25,7 @@ export async function getAuthUser(): Promise<AuthUser> {
 
   const dbUser = await prisma.user.findUnique({
     where: { id: parseInt(session.user.id) },
-    select: { sessionVersion: true, isActive: true },
+    select: { sessionVersion: true, isActive: true, role: true, email: true, name: true },
   })
 
   if (!dbUser || !dbUser.isActive || dbUser.sessionVersion !== session.user.sessionVersion) {
@@ -34,9 +34,9 @@ export async function getAuthUser(): Promise<AuthUser> {
 
   return {
     id: parseInt(session.user.id),
-    email: session.user.email,
-    name: session.user.name,
-    role: session.user.role
+    email: dbUser.email,
+    name: dbUser.name,
+    role: dbUser.role
   }
 }
 
@@ -51,26 +51,6 @@ export async function requireAdmin(): Promise<AuthUser> {
   }
 
   return user
-}
-
-/**
- * Get user from request headers (set by middleware)
- */
-export function getUserFromHeaders(request: Request): AuthUser | null {
-  const headers = request.headers
-  const userId = headers.get('x-user-id')
-  const userRole = headers.get('x-user-role')
-
-  if (!userId || !userRole) {
-    return null
-  }
-
-  return {
-    id: parseInt(userId),
-    role: userRole as Role,
-    email: '', // Not available from headers
-    name: ''   // Not available from headers
-  }
 }
 
 /**

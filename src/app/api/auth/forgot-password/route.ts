@@ -1,8 +1,8 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, after } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { createHash, randomInt } from 'crypto';
 import { sendEmail } from '@/lib/email';
-import { isIpRateLimited, recordLoginEvent, requestIp } from '@/lib/login-security';
+import { isIpRateLimited, isResetAttemptBudgetExhausted, isResetSendBudgetExhausted, recordLoginEvent, requestIp } from '@/lib/login-security';
 const CODE_TTL_MS = 10 * 60 * 1000; // 10 minutes
 const CODE_RESEND_COOLDOWN_MS = 60 * 1000; // 1 minute between sends
 const CODE_MAX_ATTEMPTS = 5;
@@ -12,7 +12,7 @@ function sha256(value: string): string {
 }
 
 function generateCode(): string {
-    return randomInt(0, 1_000_000).toString().padStart(6, '0');
+    return randomInt(0, 100_000_000).toString().padStart(8, '0');
 }
 
 function resetCodeEmailHtml(code: string): string {
@@ -65,6 +65,12 @@ export async function POST(request: Request) {
             message: 'If an account with that email exists, you will receive a reset code shortly.',
         });
 
+        // Durable per-address budget: stops code-email floods and long
+        // guessing campaigns even when the IP limiter is bypassed.
+        if (await isResetSendBudgetExhausted(email) || await isResetAttemptBudgetExhausted(email)) {
+            return successResponse;
+        }
+
         const user = await prisma.user.findFirst({ where: { email: { equals: email, mode: 'insensitive' } } });
         if (!user || !user.isActive) {
             return successResponse;
@@ -78,17 +84,15 @@ export async function POST(request: Request) {
         if (existing) {
             const cooldown = CODE_RESEND_COOLDOWN_MS - (Date.now() - existing.createdAt.getTime());
             if (cooldown > 0) {
-                return NextResponse.json({
-                    message: 'If an account with that email exists, you will receive a reset code shortly.',
-                    cooldownRemainingSeconds: Math.ceil(cooldown / 1000),
-                });
+                // Same body as every other outcome: no account-existence oracle.
+                return successResponse;
             }
         }
 
         // Invalidate any previous reset codes for this email.
         await prisma.passwordResetToken.deleteMany({ where: { email } }).catch(() => {});
 
-        // Generate a 6-digit code and store only the hash.
+        // Generate an 8-digit code and store only the hash.
         const code = generateCode();
         const codeHash = sha256(code);
         const expiresAt = new Date(Date.now() + CODE_TTL_MS);
@@ -97,30 +101,42 @@ export async function POST(request: Request) {
             data: { email, codeHash, expiresAt },
         });
 
-        // Send the code via inline HTML — bypass the Resend template so the
-        // actual 6-digit code renders in the email body.
-        const delivery = await sendEmail(
-            email,
-            'Your Tower Finder password reset code',
-            resetCodeEmailHtml(code),
-            undefined,
-            { forceInline: true },
-        );
-        // ip already captured at top for rate limit, reuse
-        await recordLoginEvent({
+        // Record the send request before responding so the durable budget sees
+        // it, then deliver the email after the response.
+        const userAgent = request.headers.get('user-agent');
+        const requestEvent = await recordLoginEvent({
             email,
             userId: user.id,
             type: 'PASSWORD_RESET',
             ip,
-            userAgent: request.headers.get('user-agent'),
-            metadata: {
-                action: 'forgot_password_requested',
-                resendStatus: delivery.resendStatus,
-                resendId: delivery.resendId,
-                resendError: delivery.resendError,
-                devFallback: delivery.devFallback ?? false,
-            },
-        }).catch(() => {});
+            userAgent,
+            metadata: { action: 'forgot_password_requested' },
+        }).catch(() => null);
+
+        after(async () => {
+            // Inline HTML so the actual 8-digit code renders in the body.
+            const delivery = await sendEmail(
+                email,
+                'Your Tower Finder password reset code',
+                resetCodeEmailHtml(code),
+                undefined,
+                { forceInline: true },
+            );
+            if (requestEvent) {
+                await prisma.loginEvent.update({
+                    where: { id: requestEvent.id },
+                    data: {
+                        metadata: {
+                            action: 'forgot_password_requested',
+                            resendStatus: delivery.resendStatus,
+                            resendId: delivery.resendId,
+                            resendError: delivery.resendError,
+                            devFallback: delivery.devFallback ?? false,
+                        },
+                    },
+                }).catch(() => {});
+            }
+        });
 
         return successResponse;
     } catch (err) {

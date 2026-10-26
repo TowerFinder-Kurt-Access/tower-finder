@@ -11,6 +11,7 @@ import SuperpowersSidebar from './SuperpowersSidebar';
 import ContentArea from './ContentArea';
 import { PasswordChangeReminder } from './PasswordChangeReminder';
 import { PasswordPolicyReminder } from './PasswordPolicyReminder';
+import { TwoFactorEnrollment } from './TwoFactorEnrollment';
 
 const PUBLIC_ROUTES = ['/login', '/forgot-password', '/reset-password'];
 
@@ -20,8 +21,9 @@ export default function SuperpowersShell({ children }: { children: React.ReactNo
     const onSuperpowers = pathname?.startsWith('/superpowers') ?? false;
     const onPublicRoute = PUBLIC_ROUTES.some((r) => pathname === r || pathname?.startsWith(`${r}/`));
 
-    // Public routes render bare: no NavRail/sidebar chrome around the auth card.
-    if (onPublicRoute) {
+    // Public routes and the forced password screen render bare: no
+    // NavRail/sidebar chrome around the auth card.
+    if (onPublicRoute || pathname === '/change-password') {
         return <>{children}</>;
     }
 
@@ -41,6 +43,13 @@ export default function SuperpowersShell({ children }: { children: React.ReactNo
                 <CircularProgress />
             </Box>
         );
+    }
+
+    // 2FA is activated first, enforced second. Until the email code proves the
+    // address, every protected page is replaced by the setup screen. Password
+    // changes go first, so that route stays reachable.
+    if (session?.user?.twoFactorEnabled === false && pathname !== '/change-password') {
+        return <TwoFactorEnrollment />;
     }
 
     if (onSuperpowers) {

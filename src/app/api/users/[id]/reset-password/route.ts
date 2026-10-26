@@ -62,7 +62,9 @@ export async function POST(request: Request, { params }: RouteParams) {
 
         // Clean up any pending OTP codes for this email so stale rows
         // don't interfere with the next login attempt.
-        await prisma.loginOtp.deleteMany({ where: { email: user.email } }).catch(() => {});
+        await prisma.loginOtp.deleteMany({
+            where: { email: { in: [user.email, `${user.email.toLowerCase()}#email-change`] } },
+        }).catch(() => {});
 
         // Clear the lockout counter by deleting recent failed-login events.
         // This gives the user a fresh start after the admin override.

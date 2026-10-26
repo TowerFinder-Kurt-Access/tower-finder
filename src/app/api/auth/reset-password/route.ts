@@ -5,7 +5,7 @@ import bcrypt from 'bcryptjs';
 import { validatePassword } from '@/lib/password-policy';
 import { markPasswordPolicyCurrent } from '@/lib/password-policy-server';
 import { LOCKOUT_WINDOW_MS } from '@/lib/security-policy';
-import { recordLoginEvent, requestIp } from '@/lib/login-security';
+import { recordLoginEvent, requestIp, isIpRateLimited, isResetAttemptBudgetExhausted } from '@/lib/login-security';
 
 const MAX_CODE_ATTEMPTS = 5;
 
@@ -16,6 +16,11 @@ function sha256(value: string): string {
 // POST /api/auth/reset-password — { email, code, password, confirmPassword }
 export async function POST(request: Request) {
     try {
+        const clientIp = requestIp(request);
+        if (isIpRateLimited(clientIp, 10, 60_000)) {
+            return NextResponse.json({ error: 'Too many attempts. Try again later.' }, { status: 429 });
+        }
+
         let body: { email?: string; code?: string; password?: string; confirmPassword?: string };
         try {
             body = await request.json();
@@ -29,8 +34,8 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Email, code, password, and confirmation are required' }, { status: 400 });
         }
 
-        if (!/^\d{6}$/.test(code)) {
-            return NextResponse.json({ error: 'Code must be 6 digits' }, { status: 400 });
+        if (!/^\d{8}$/.test(code)) {
+            return NextResponse.json({ error: 'Code must be 8 digits' }, { status: 400 });
         }
 
         if (password !== confirmPassword) {
@@ -40,6 +45,11 @@ export async function POST(request: Request) {
         const policyError = validatePassword(password);
         if (policyError) {
             return NextResponse.json({ error: policyError }, { status: 400 });
+        }
+
+        const normalizedEmail = email.trim().toLowerCase();
+        if (await isResetAttemptBudgetExhausted(normalizedEmail)) {
+            return NextResponse.json({ error: 'Too many failed attempts. Try again later.' }, { status: 429 });
         }
 
         // Find the most recent reset code for this email.
@@ -53,12 +63,36 @@ export async function POST(request: Request) {
         }
 
         if (resetToken.expiresAt.getTime() < Date.now()) {
-            await prisma.passwordResetToken.delete({ where: { id: resetToken.id } }).catch(() => {});
+            // Keep the row so the forgot-password cooldown still applies.
+            await recordLoginEvent({
+                email: normalizedEmail,
+                type: 'PASSWORD_RESET',
+                ip: clientIp,
+                userAgent: request.headers.get('user-agent'),
+                metadata: { action: 'reset_code_exhausted', reason: 'expired' },
+            }).catch(() => {});
             return NextResponse.json({ error: 'Code expired. Please request a new one.' }, { status: 400 });
         }
 
-        if (resetToken.attempts >= MAX_CODE_ATTEMPTS) {
-            await prisma.passwordResetToken.delete({ where: { id: resetToken.id } }).catch(() => {});
+        // Claim one attempt atomically before comparing. A burst of guesses
+        // can no longer all read attempts=0; only MAX_CODE_ATTEMPTS claims win.
+        const claimed = await prisma.passwordResetToken.updateMany({
+            where: { id: resetToken.id, attempts: { lt: MAX_CODE_ATTEMPTS } },
+            data: { attempts: { increment: 1 } },
+        });
+
+        if (claimed.count === 0) {
+            const stillExists = await prisma.passwordResetToken.findUnique({ where: { id: resetToken.id } });
+            if (!stillExists) {
+                return NextResponse.json({ error: 'No reset code found. Please request a new one.' }, { status: 400 });
+            }
+            await recordLoginEvent({
+                email: normalizedEmail,
+                type: 'PASSWORD_RESET',
+                ip: clientIp,
+                userAgent: request.headers.get('user-agent'),
+                metadata: { action: 'reset_code_exhausted', reason: 'max_attempts' },
+            }).catch(() => {});
             return NextResponse.json({ error: 'Too many failed attempts. Please request a new code.' }, { status: 400 });
         }
 
@@ -68,11 +102,14 @@ export async function POST(request: Request) {
         const valid = provided.length === stored.length && timingSafeEqual(provided, stored);
 
         if (!valid) {
-            await prisma.passwordResetToken.update({
-                where: { id: resetToken.id },
-                data: { attempts: { increment: 1 } },
-            });
-            const remaining = MAX_CODE_ATTEMPTS - (resetToken.attempts + 1);
+            const remaining = Math.max(0, MAX_CODE_ATTEMPTS - (resetToken.attempts + 1));
+            await recordLoginEvent({
+                email: normalizedEmail,
+                type: 'PASSWORD_RESET',
+                ip: clientIp,
+                userAgent: request.headers.get('user-agent'),
+                metadata: { action: 'reset_code_failed' },
+            }).catch(() => {});
             return NextResponse.json({
                 error: remaining > 0
                     ? `Incorrect code. ${remaining} attempt${remaining === 1 ? '' : 's'} remaining.`
@@ -115,8 +152,10 @@ export async function POST(request: Request) {
         // Clean up: delete this code and any others for this email.
         await prisma.passwordResetToken.deleteMany({ where: { email: email.trim().toLowerCase() } }).catch(() => {});
 
-        // Clean up stale OTP rows.
-        await prisma.loginOtp.deleteMany({ where: { email: email.trim().toLowerCase() } }).catch(() => {});
+        // Clean up stale OTP rows, including the email-change namespace.
+        await prisma.loginOtp.deleteMany({
+            where: { email: { in: [normalizedEmail, `${normalizedEmail}#email-change`] } },
+        }).catch(() => {});
 
         await markPasswordPolicyCurrent(user.id);
 

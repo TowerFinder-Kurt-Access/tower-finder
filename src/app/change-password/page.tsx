@@ -105,6 +105,16 @@ export default function ChangePasswordPage() {
                     >
                         {loading ? 'Changing...' : 'Change Password'}
                     </Button>
+
+                    <Box sx={{ mt: 2, textAlign: 'center' }}>
+                        <Button
+                            variant="text"
+                            onClick={() => signOut({ callbackUrl: '/login?forgot=1' })}
+                            sx={{ textTransform: 'none' }}
+                        >
+                            Forgot your current password? Reset it by email
+                        </Button>
+                    </Box>
                 </form>
             </Paper>
 
