@@ -13,8 +13,11 @@ export interface LoginEventInput {
     metadata?: Record<string, unknown> | null;
 }
 
-/** Best-effort client IP from request headers (Vercel sets x-forwarded-for). */
+/** Best-effort client IP from request headers. Prefer the proxy-set
+ *  header; fall back to the leftmost X-Forwarded-For hop. */
 export function requestIp(request: Request | null | undefined): string | null {
+    const real = request?.headers.get('x-real-ip');
+    if (real) return real.trim();
     const fwd = request?.headers.get('x-forwarded-for');
     return fwd ? fwd.split(',')[0].trim() : null;
 }
@@ -80,4 +83,71 @@ export async function getLockoutRemainingSeconds(email: string): Promise<number>
     if (recent.length < MAX_FAILED_ATTEMPTS) return 0;
     const unlockAt = recent[MAX_FAILED_ATTEMPTS - 1].createdAt.getTime() + LOCKOUT_WINDOW_MS;
     return Math.max(0, Math.ceil((unlockAt - Date.now()) / 1000));
+}
+
+/** Durable login throttle: too many failed logins from one IP address. */
+export async function isLoginIpBudgetExhausted(ip: string | null): Promise<boolean> {
+    if (!ip) return false;
+    const failures = await prisma.loginEvent.count({
+        where: {
+            ip,
+            type: LoginEventType.LOGIN_FAILED,
+            createdAt: { gte: new Date(Date.now() - 10 * 60 * 1000) },
+        },
+    });
+    return failures >= 30;
+}
+
+/** Durable send throttle: no more than 10 OTP emails per address per hour. */
+export async function isOtpSendBudgetExhausted(email: string): Promise<boolean> {
+    const sent = await prisma.loginEvent.count({
+        where: {
+            email: email.trim().toLowerCase(),
+            type: LoginEventType.OTP_SENT,
+            createdAt: { gte: new Date(Date.now() - 60 * 60 * 1000) },
+        },
+    });
+    return sent >= 10;
+}
+
+/** Durable guessing throttle: 20 failed OTP checks per address per day. */
+export async function isOtpAttemptBudgetExhausted(email: string): Promise<boolean> {
+    const failures = await prisma.loginEvent.count({
+        where: {
+            email: email.trim().toLowerCase(),
+            type: { in: [LoginEventType.OTP_FAILED, LoginEventType.OTP_MAX_ATTEMPTS] },
+            createdAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) },
+        },
+    });
+    return failures >= 20;
+}
+
+/** Durable send throttle: no more than 10 reset codes per address per hour.
+ *  Counts only actual sends, not failed guesses. */
+export async function isResetSendBudgetExhausted(email: string): Promise<boolean> {
+    const events = await prisma.loginEvent.count({
+        where: {
+            email: email.trim().toLowerCase(),
+            type: LoginEventType.PASSWORD_RESET,
+            createdAt: { gte: new Date(Date.now() - 60 * 60 * 1000) },
+            metadata: { path: ['action'], equals: 'forgot_password_requested' },
+        },
+    });
+    return events >= 10;
+}
+
+/** Durable guessing throttle for reset codes: 20 failed checks per hour. */
+export async function isResetAttemptBudgetExhausted(email: string): Promise<boolean> {
+    const failures = await prisma.loginEvent.count({
+        where: {
+            email: email.trim().toLowerCase(),
+            type: LoginEventType.PASSWORD_RESET,
+            createdAt: { gte: new Date(Date.now() - 60 * 60 * 1000) },
+            OR: [
+                { metadata: { path: ['action'], equals: 'reset_code_failed' } },
+                { metadata: { path: ['action'], equals: 'reset_code_exhausted' } },
+            ],
+        },
+    });
+    return failures >= 20;
 }

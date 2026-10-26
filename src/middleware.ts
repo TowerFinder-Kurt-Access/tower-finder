@@ -17,6 +17,7 @@ export default auth(async (req: any) => {
     //    directly, so we ask the server-side session endpoint with our cookies.
     //    Skipped on /login itself so a slow check never traps users there.
     let revoked = false;
+    let revocationCheckFailed = false;
     if (isLoggedIn && pathname !== '/login') {
         try {
             const res = await fetch(new URL('/api/auth/session-version', req.url), {
@@ -25,9 +26,10 @@ export default auth(async (req: any) => {
             });
             revoked = res.status === 401;
         } catch {
-            // Fail open on network/timeout: a slow dev compile or brief DB
-            // blip must not log everyone out. Explicit 401s above still revoke.
+            // Fail open for reads so a slow dev compile or brief DB blip does
+            // not log everyone out. State-changing API calls fail closed below.
             revoked = false;
+            revocationCheckFailed = true;
         }
     }
 
@@ -54,6 +56,44 @@ export default auth(async (req: any) => {
         return Response.redirect(new URL('/change-password', req.url));
     }
 
+    // A failed revocation check is not a licence to write. Reads keep working;
+    // state-changing API calls get a retryable 503.
+    if (revocationCheckFailed && isLoggedIn && pathname.startsWith('/api/')
+        && req.method !== 'GET' && req.method !== 'HEAD') {
+        return Response.json(
+            { error: 'Session check unavailable. Try again.', code: 'session_check_unavailable' },
+            { status: 503 },
+        );
+    }
+
+    // 2c. Forced password change also blocks API traffic, except the password
+    //     endpoint itself (and auth routes, which returned above).
+    if (isLoggedIn && forcedChange && pathname.startsWith('/api/')) {
+        const allowed = /^\/api\/users\/[^/]+\/password\/?$/.test(pathname);
+        if (!allowed) {
+            return Response.json(
+                { error: 'Password change required.', code: 'password_change_required' },
+                { status: 403 },
+            );
+        }
+    }
+
+    // 2c. 2FA activation is enforced for API traffic too, not just the shell.
+    //     The JWT carries the flag, so this costs no DB round trip. Auth and
+    //     enrollment endpoints stay open; the password page needs its own
+    //     endpoint before the setup screen can be cleared.
+    if (isLoggedIn && req.auth?.user?.twoFactorEnabled === false && pathname.startsWith('/api/')) {
+        const allowed =
+            pathname === '/api/profile/two-factor' ||
+            /^\/api\/users\/[^/]+\/password\/?$/.test(pathname);
+        if (!allowed) {
+            return Response.json(
+                { error: 'Two-factor authentication setup required.', code: 'two_factor_required' },
+                { status: 403 },
+            );
+        }
+    }
+
     // 3. Valid sessions visiting /login go home. A revoked session also arrives
     //    here holding a valid JWT, so sending it home would bounce straight back.
     const sessionRevoked = req.nextUrl.searchParams.get('error') === 'session-revoked';
@@ -75,5 +115,8 @@ export default auth(async (req: any) => {
 });
 
 export const config = {
-    matcher: ['/((?!_next/static|_next/image|favicon.ico|favicon.svg).*)'],
+    // The MapLibre worker is a static asset that the browser fetches directly.
+    // Middleware must let it through, or it gets redirected to /login and the
+    // map never paints.
+    matcher: ['/((?!_next/static|_next/image|favicon.ico|favicon.svg|maplibre-gl-worker.mjs).*)'],
 };

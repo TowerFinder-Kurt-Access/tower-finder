@@ -10,8 +10,6 @@ import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
 import TextField from '@mui/material/TextField';
 import Button from '@mui/material/Button';
-import Switch from '@mui/material/Switch';
-import FormControlLabel from '@mui/material/FormControlLabel';
 import Alert from '@mui/material/Alert';
 import Snackbar from '@mui/material/Snackbar';
 import Divider from '@mui/material/Divider';
@@ -23,6 +21,10 @@ import { PasswordField } from '@/components/PasswordField';
 export default function ProfilePage() {
     const { data: session, update } = useSession();
     const [profile, setProfile] = useState({ name: '', email: '' });
+    const [emailPassword, setEmailPassword] = useState('');
+    const [emailCode, setEmailCode] = useState('');
+    const [emailCodeSent, setEmailCodeSent] = useState(false);
+    const [emailCodeBusy, setEmailCodeBusy] = useState(false);
     const [passwordData, setPasswordData] = useState({
         currentPassword: '',
         newPassword: '',
@@ -31,12 +33,6 @@ export default function ProfilePage() {
     const [message, setMessage] = useState('');
     const [messageType, setMessageType] = useState<'success' | 'error'>('success');
     const [loading, setLoading] = useState(false);
-    const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
-    const [pendingEnableCode, setPendingEnableCode] = useState(false);
-    const [enableCode, setEnableCode] = useState('');
-    const [pendingDisableCode, setPendingDisableCode] = useState(false);
-    const [disableCode, setDisableCode] = useState('');
-    const [twoFactorBusy, setTwoFactorBusy] = useState(false);
     const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
         open: false,
         message: '',
@@ -46,6 +42,8 @@ export default function ProfilePage() {
     // Re-seed the draft when the signed-in user changes (state adjusted during render).
     const [seededUserId, setSeededUserId] = useState<string | null>(null);
     const signedInUserId = session?.user?.id ?? null;
+    const emailChanged = profile.email.trim().toLowerCase()
+        !== (session?.user?.email || '').trim().toLowerCase();
     if (signedInUserId && signedInUserId !== seededUserId) {
         setSeededUserId(signedInUserId);
         setProfile({
@@ -54,24 +52,29 @@ export default function ProfilePage() {
         });
     }
 
-    useEffect(() => {
-        if (session?.user) {
-            axios
-                .get('/api/profile/two-factor')
-                .then((res) => setTwoFactorEnabled(res.data?.twoFactorEnabled === true))
-                .catch(() => { /* keep the switch off on failure */ });
-        }
-    }, [session]);
-
     const handleUpdateProfile = async () => {
         setLoading(true);
         setMessage('');
         try {
-            await axios.patch(`/api/users/${session?.user.id}`, profile);
+            const emailChanged = profile.email.trim().toLowerCase()
+                !== (session?.user?.email || '').trim().toLowerCase();
+            const response = await axios.patch(`/api/users/${session?.user.id}`, {
+                name: profile.name,
+                email: profile.email,
+                ...(emailChanged ? { currentPassword: emailPassword, emailChangeCode: emailCode } : {}),
+            });
+            if (response.data?.emailChanged) {
+                // The API revoked all sessions on an email change.
+                await signOut({ callbackUrl: '/login?success=email-changed' });
+                return;
+            }
             setMessageType('success');
             setMessage('Profile updated successfully');
-            // Update session with new data
-            await update({ name: profile.name, email: profile.email });
+            setEmailPassword('');
+            setEmailCode('');
+            setEmailCodeSent(false);
+            // Refresh the display name in the session.
+            await update({ name: profile.name });
         } catch (error: unknown) {
             setMessageType('error');
             const message = error instanceof AxiosError
@@ -80,6 +83,31 @@ export default function ProfilePage() {
             setMessage(message);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleSendEmailCode = async () => {
+        if (!emailPassword) {
+            setMessageType('error');
+            setMessage('Enter your current password first');
+            return;
+        }
+        setEmailCodeBusy(true);
+        setMessage('');
+        try {
+            await axios.post(`/api/users/${session?.user.id}/email-change-code`, {
+                currentPassword: emailPassword,
+            });
+            setEmailCodeSent(true);
+            setMessageType('success');
+            setMessage(`Confirmation code sent to ${session?.user?.email ?? 'your current email'}`);
+        } catch (error: unknown) {
+            setMessageType('error');
+            setMessage(error instanceof AxiosError
+                ? error.response?.data?.error || 'Could not send the code'
+                : 'Could not send the code');
+        } finally {
+            setEmailCodeBusy(false);
         }
     };
 
@@ -109,7 +137,7 @@ export default function ProfilePage() {
             setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
             // Logout after password change
             setTimeout(() => {
-                signOut({ callbackUrl: '/login' });
+                signOut({ callbackUrl: '/login?success=password-changed' });
             }, 2000);
         } catch (error: unknown) {
             setMessageType('error');
@@ -122,85 +150,6 @@ export default function ProfilePage() {
         }
     };
 
-    const handleEnableTwoFactor = async () => {
-        setTwoFactorBusy(true);
-        setMessage('');
-        try {
-            await axios.post('/api/profile/two-factor', { action: 'enable' });
-            setPendingEnableCode(true);
-            setEnableCode('');
-            setSnackbar({
-                open: true,
-                message: `We've sent a 6-digit code to ${session?.user?.email ?? 'your email'} — check your inbox.`,
-                severity: 'success'
-            });
-        } catch (error: unknown) {
-            // Server errors (cooldown, send failure, network) land here.
-            const errMessage = error instanceof AxiosError
-                ? error.response?.data?.error || 'Could not send the code. Please try again.'
-                : 'Could not send the code. Please try again.';
-            setSnackbar({ open: true, message: errMessage, severity: 'error' });
-        } finally {
-            setTwoFactorBusy(false);
-        }
-    };
-
-    const handleVerifyEnableTwoFactor = async () => {
-        setTwoFactorBusy(true);
-        setMessage('');
-        try {
-            const res = await axios.post('/api/profile/two-factor', { action: 'verify', code: enableCode });
-            setTwoFactorEnabled(res.data?.twoFactorEnabled === true);
-            setPendingEnableCode(false);
-            setEnableCode('');
-            setSnackbar({ open: true, message: 'Two-factor authentication enabled.', severity: 'success' });
-        } catch (error: unknown) {
-            // Wrong / expired / exhausted codes come back from the server here.
-            const errMessage = error instanceof AxiosError
-                ? error.response?.data?.error || 'Could not verify the code. Try again.'
-                : 'Could not verify the code. Try again.';
-            setSnackbar({ open: true, message: errMessage, severity: 'error' });
-        } finally {
-            setTwoFactorBusy(false);
-        }
-    };
-
-    const handleDisableTwoFactor = async () => {
-        setTwoFactorBusy(true);
-        setMessage('');
-        try {
-            await axios.post('/api/profile/two-factor', { action: 'disable' });
-            setPendingDisableCode(true);
-            setDisableCode('');
-            setSnackbar({
-                open: true,
-                message: `We've sent a 6-digit code to ${session?.user?.email ?? 'your email'} — enter it to confirm disabling.`,
-                severity: 'success',
-            });
-        } catch (error: unknown) {
-            const errMessage = error instanceof AxiosError ? error.response?.data?.error || 'Could not send the code. Please try again.' : 'Could not send the code. Please try again.';
-            setSnackbar({ open: true, message: errMessage, severity: 'error' });
-        } finally {
-            setTwoFactorBusy(false);
-        }
-    };
-
-    const handleVerifyDisableTwoFactor = async () => {
-        setTwoFactorBusy(true);
-        setMessage('');
-        try {
-            const res = await axios.post('/api/profile/two-factor', { action: 'disable', code: disableCode });
-            setTwoFactorEnabled(res.data?.twoFactorEnabled === true);
-            setPendingDisableCode(false);
-            setDisableCode('');
-            setSnackbar({ open: true, message: 'Two-factor authentication disabled.', severity: 'success' });
-        } catch (error: unknown) {
-            const errMessage = error instanceof AxiosError ? error.response?.data?.error || 'Could not verify the code. Try again.' : 'Could not verify the code. Try again.';
-            setSnackbar({ open: true, message: errMessage, severity: 'error' });
-        } finally {
-            setTwoFactorBusy(false);
-        }
-    };
     return (
         <Box sx={{ p: 3, maxWidth: 800, mx: 'auto' }}>
             <Typography variant="h4" sx={{ mb: 3, fontWeight: 600 }}>Profile Settings</Typography>
@@ -253,10 +202,41 @@ export default function ProfilePage() {
                         onChange={(e) => setProfile({ ...profile, email: e.target.value })}
                         fullWidth
                     />
+                    {emailChanged && (
+                        <>
+                            <TextField
+                                label="Current password"
+                                type="password"
+                                value={emailPassword}
+                                onChange={(e) => setEmailPassword(e.target.value)}
+                                helperText="Required to change your email. You will sign in again."
+                                autoComplete="current-password"
+                                fullWidth
+                            />
+                            <Button
+                                variant="outlined"
+                                onClick={handleSendEmailCode}
+                                disabled={emailCodeBusy || !emailPassword}
+                            >
+                                {emailCodeBusy ? 'Sending...' : 'Send confirmation code'}
+                            </Button>
+                            {emailCodeSent && (
+                                <TextField
+                                    label="Confirmation code"
+                                    value={emailCode}
+                                    onChange={(e) => setEmailCode(e.target.value.replace(/\D/g, '').slice(0, 8))}
+                                    helperText={`8-digit code sent to ${session?.user?.email ?? 'your current email'}`}
+                                    inputProps={{ inputMode: 'numeric', maxLength: 8 }}
+                                    autoComplete="one-time-code"
+                                    fullWidth
+                                />
+                            )}
+                        </>
+                    )}
                     <Button
                         variant="contained"
                         onClick={handleUpdateProfile}
-                        disabled={loading}
+                        disabled={loading || (emailChanged && (!emailPassword || !emailCodeSent || emailCode.length !== 8))}
                     >
                         {loading ? 'Updating...' : 'Update Profile'}
                     </Button>
@@ -266,89 +246,13 @@ export default function ProfilePage() {
             {/* Two-Factor Authentication Section */}
             <Paper sx={{ p: 3, mb: 3 }}>
                 <Typography variant="h6" sx={{ mb: 1 }}>Two-Factor Authentication</Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                    Optional: require a 6-digit code emailed to you each time you sign in.
-                    You will verify email delivery once when turning it on.
+                <Typography variant="body2" color="text.secondary">
+                    Required for every account. Each sign-in emails an 8-digit code to{' '}
+                    {session?.user?.email ?? 'your email'}; you enter it after your password.
                 </Typography>
-                <FormControlLabel
-                    control={
-                        <Switch
-                            checked={twoFactorEnabled || pendingEnableCode}
-                            disabled={twoFactorBusy}
-                            onChange={(e) => {
-                                if (e.target.checked) {
-                                    handleEnableTwoFactor();
-                                } else {
-                                    handleDisableTwoFactor();
-                                }
-                            }}
-                        />
-                    }
-                    label={twoFactorEnabled || pendingEnableCode ? 'On' : 'Off'}
-                />
-                {pendingEnableCode && (
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2 }}>
-                        <TextField
-                            label="One-time code"
-                            value={enableCode}
-                            onChange={(e) => setEnableCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                            inputMode="numeric"
-                            autoComplete="one-time-code"
-                            fullWidth
-                            autoFocus
-                        />
-                        <Box sx={{ display: 'flex', gap: 1 }}>
-                            <Button
-                                variant="contained"
-                                onClick={handleVerifyEnableTwoFactor}
-                                disabled={enableCode.length !== 6 || twoFactorBusy}
-                            >
-                                {twoFactorBusy ? 'Verifying...' : 'Verify & Enable'}
-                            </Button>
-                            <Button
-                                variant="text"
-                                disabled={twoFactorBusy}
-                                onClick={() => {
-                                    setPendingEnableCode(false);
-                                    setEnableCode('');
-                                }}
-                            >
-                                Cancel
-                            </Button>
-                        </Box>
-                    </Box>
-                )}
-                {pendingDisableCode && (
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2 }}>
-                        <Typography variant="body2" color="text.secondary">
-                            Enter the 6-digit code sent to {session?.user?.email ?? 'your email'} to confirm disabling.
-                        </Typography>
-                        <TextField
-                            label="One-time code"
-                            value={disableCode}
-                            onChange={(e) => setDisableCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                            inputMode="numeric"
-                            autoComplete="one-time-code"
-                            fullWidth
-                            autoFocus
-                        />
-                        <Box sx={{ display: 'flex', gap: 1 }}>
-                            <Button variant="contained" color="error" onClick={handleVerifyDisableTwoFactor} disabled={disableCode.length !== 6 || twoFactorBusy}>
-                                {twoFactorBusy ? 'Verifying...' : 'Verify & Disable'}
-                            </Button>
-                            <Button
-                                variant="text"
-                                disabled={twoFactorBusy}
-                                onClick={() => {
-                                    setPendingDisableCode(false);
-                                    setDisableCode('');
-                                }}
-                            >
-                                Cancel
-                            </Button>
-                        </Box>
-                    </Box>
-                )}
+                <Typography variant="body2" color="success.main" sx={{ mt: 2, fontWeight: 600 }}>
+                    Status: required
+                </Typography>
             </Paper>
 
             {/* Password Change Section */}
@@ -392,6 +296,15 @@ export default function ProfilePage() {
                     >
                         {loading ? 'Changing...' : 'Change Password'}
                     </Button>
+                    <Box sx={{ textAlign: 'center' }}>
+                        <Button
+                            variant="text"
+                            onClick={() => signOut({ callbackUrl: '/login?forgot=1' })}
+                            sx={{ textTransform: 'none' }}
+                        >
+                            Forgot your current password? Reset it by email
+                        </Button>
+                    </Box>
                 </Box>
             </Paper>
 
@@ -407,9 +320,7 @@ export default function ProfilePage() {
                 </Button>
             </Paper>
 
-            {/* Two-factor feedback toast: code sent to [email], enable/disable
-                results, and any server error (cooldown / send failed / wrong
-                code) surfaces here. */}
+            {/* Feedback for profile and password actions. */}
             <Snackbar
                 open={snackbar.open}
                 autoHideDuration={6000}

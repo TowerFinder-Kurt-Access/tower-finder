@@ -2,7 +2,9 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getAuthUser, requireAdmin } from '@/lib/auth-helpers';
 import { LoginEventType } from '@prisma/client';
+import bcrypt from 'bcryptjs';
 import { recordLoginEvent, requestIp } from '@/lib/login-security';
+import { verifyLoginOtp } from '@/lib/otp';
 
 interface RouteParams {
     params: Promise<{ id: string }>;
@@ -107,7 +109,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
         }
 
         const body = await request.json();
-        const { name, email, role, isActive } = body;
+        const { name, email, role, isActive, currentPassword, emailChangeCode } = body;
 
         // Check if user exists
         const existingUser = await prisma.user.findUnique({
@@ -122,11 +124,42 @@ export async function PATCH(request: Request, { params }: RouteParams) {
         const updateData: any = {};
 
         if (name !== undefined) updateData.name = name;
-        if (email !== undefined) {
-            // Check if email is already taken by another user
+
+        const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : undefined;
+        const emailChanged = normalizedEmail !== undefined
+            && normalizedEmail !== existingUser.email.toLowerCase();
+
+        if (emailChanged) {
+            // Only the account owner can change the email, and only with the
+            // current password. An admin must never repoint a peer's address.
+            if (currentUser.id !== userId) {
+                return NextResponse.json(
+                    { error: 'You can only change your own email address' },
+                    { status: 403 }
+                );
+            }
+            if (!currentPassword || !(await bcrypt.compare(currentPassword, existingUser.password))) {
+                return NextResponse.json(
+                    { error: 'Current password is required to change your email' },
+                    { status: 400 }
+                );
+            }
+            if (!emailChangeCode || !/^\d{8}$/.test(emailChangeCode)) {
+                return NextResponse.json(
+                    { error: 'Enter the 8-digit code sent to your current email' },
+                    { status: 400 }
+                );
+            }
+            const codeCheck = await verifyLoginOtp(existingUser.email, emailChangeCode, 'email-change');
+            if (codeCheck.ok === false) {
+                return NextResponse.json(
+                    { error: 'That confirmation code is invalid or expired' },
+                    { status: 400 }
+                );
+            }
             const emailTaken = await prisma.user.findFirst({
                 where: {
-                    email,
+                    email: { equals: normalizedEmail, mode: 'insensitive' },
                     id: { not: userId }
                 }
             });
@@ -136,14 +169,21 @@ export async function PATCH(request: Request, { params }: RouteParams) {
                     { status: 409 }
                 );
             }
-            updateData.email = email;
+            updateData.email = normalizedEmail;
         }
 
         // Only admins can change role and isActive
         const deactivating = currentUser.role === 'ADMIN' && isActive === false && existingUser.isActive === true;
+        const roleChanged = currentUser.role === 'ADMIN' && role !== undefined && role !== existingUser.role;
+        const activeChanged = currentUser.role === 'ADMIN' && isActive !== undefined && isActive !== existingUser.isActive;
         if (currentUser.role === 'ADMIN') {
             if (role !== undefined) updateData.role = role;
             if (isActive !== undefined) updateData.isActive = isActive;
+        }
+
+        // Every security-relevant identity change revokes existing sessions.
+        if (emailChanged || roleChanged || activeChanged) {
+            updateData.sessionVersion = { increment: 1 };
         }
 
         const updatedUser = await prisma.user.update({
@@ -161,12 +201,12 @@ export async function PATCH(request: Request, { params }: RouteParams) {
             }
         });
 
-        // Deactivating a user signs them out everywhere within minutes.
+        if (emailChanged) {
+            await prisma.loginOtp.deleteMany({ where: { email: existingUser.email } }).catch(() => {});
+            await prisma.passwordResetToken.deleteMany({ where: { email: existingUser.email.toLowerCase() } }).catch(() => {});
+        }
+
         if (deactivating) {
-            await prisma.user.update({
-                where: { id: userId },
-                data: { sessionVersion: { increment: 1 } }
-            });
             const ip = requestIp(request);
             await recordLoginEvent({
                 email: existingUser.email,
@@ -177,7 +217,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
             });
         }
 
-        return NextResponse.json(updatedUser);
+        return NextResponse.json({ ...updatedUser, emailChanged });
     } catch (error) {
         if (error instanceof Error && error.message === 'Unauthorized') {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

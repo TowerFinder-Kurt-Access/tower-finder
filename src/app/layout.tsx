@@ -1,5 +1,6 @@
 import ThemeRegistry from './ThemeRegistry';
 import './globals.css';
+import './mapcn.css';
 import type { Metadata } from 'next';
 import { auth } from '@/lib/auth';
 import SuperpowersShell from '@/components/SuperpowersShell';

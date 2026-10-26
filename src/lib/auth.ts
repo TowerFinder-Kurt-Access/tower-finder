@@ -6,6 +6,10 @@ import { authConfig } from "./auth.config"
 import { LoginEventType } from "@prisma/client"
 import {
   isLockedOut,
+  isIpRateLimited,
+  isLoginIpBudgetExhausted,
+  isOtpAttemptBudgetExhausted,
+  isOtpSendBudgetExhausted,
   recordLoginEvent,
   requestIp,
 } from "@/lib/login-security"
@@ -52,7 +56,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         otp: { label: "One-time code", type: "text" }
       },
       async authorize(credentials, request) {
-        const email = credentials?.email as string | undefined
+        const email = (credentials?.email as string | undefined)?.trim()
         const password = credentials?.password as string | undefined
         const otp = credentials?.otp as string | undefined
         if (!email || !password) return null
@@ -61,6 +65,17 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const userAgent = request?.headers.get("user-agent") ?? null
 
         try {
+          // Per-IP throttle. Lockout below is per email; this bounds password
+          // spraying across many accounts.
+          if (isIpRateLimited(ip, 20, 60_000)) {
+            await recordLoginEvent({ email, type: LoginEventType.LOGIN_LOCKED, ip, userAgent, metadata: { reason: "ip_rate_limit" } }).catch(() => {})
+            return null
+          }
+          if (await isLoginIpBudgetExhausted(ip)) {
+            await recordLoginEvent({ email, type: LoginEventType.LOGIN_LOCKED, ip, userAgent, metadata: { reason: "ip_budget" } }).catch(() => {})
+            return null
+          }
+
           // Lock accounts for 15 minutes after 5 wrong attempts.
           if (await isLockedOut(email)) {
             await recordLoginEvent({ email, type: LoginEventType.LOGIN_LOCKED, ip, userAgent }).catch(() => {})
@@ -111,18 +126,22 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             twoFactorEnabled: user.twoFactorEnabled,
           }
 
-          // Single-step login unless the user opted into the OTP second factor
-          // on their profile. twoFactorEnabled defaults false — nobody is
-          // forced into the code step.
+          // Password-only until the account activates 2FA. Accounts that have
+          // not activated are pushed to the setup screen, not challenged with
+          // a code they never opted into.
           if (!user.twoFactorEnabled) {
             await recordLoginEvent({ email, userId: user.id, type: LoginEventType.LOGIN_SUCCESS, ip, userAgent, metadata: { method: "password_only" } }).catch(() => {})
             await prisma.user.update({ where: { id: user.id }, data: { lastLogin: new Date() } })
             return sessionUser
           }
 
-          // -------- Second factor: email OTP (opt-in) --------
+          // -------- Second factor: email OTP, for activated accounts --------
           if (!otp) {
             // Step 1: password passed — email a one-time code.
+            if (await isOtpSendBudgetExhausted(user.email)) {
+              await recordLoginEvent({ email, userId: user.id, type: LoginEventType.OTP_COOLDOWN, ip, userAgent, metadata: { reason: "send_budget" } }).catch(() => {})
+              throw new OtpCooldownError()
+            }
             let issued
             try {
               issued = await issueLoginOtp(user.email)
@@ -146,19 +165,25 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                 resendError: dr.resendError,
                 resendDetail: dr.resendDetail,
               } }).catch(() => {})
-            } else {
-              await recordLoginEvent({ email, userId: user.id, type: LoginEventType.OTP_SENT, ip, userAgent, metadata: {
-                resendStatus: dr?.resendStatus,
-                resendId: dr?.resendId,
-                devFallback: dr?.devFallback ?? false,
-                noApiKey: dr?.noApiKey ?? false,
-              } }).catch(() => {})
+              // No code reached the user. Do not show a code box that cannot
+              // be satisfied; surface the failure instead.
+              throw new OtpSendFailedError()
             }
+            await recordLoginEvent({ email, userId: user.id, type: LoginEventType.OTP_SENT, ip, userAgent, metadata: {
+              resendStatus: dr?.resendStatus,
+              resendId: dr?.resendId,
+              devFallback: dr?.devFallback ?? false,
+              noApiKey: dr?.noApiKey ?? false,
+            } }).catch(() => {})
 
             throw new OtpRequiredError()
           }
 
           // Step 2: verify the code (constant-time, consumes attempts).
+          if (await isOtpAttemptBudgetExhausted(user.email)) {
+            await recordLoginEvent({ email, userId: user.id, type: LoginEventType.OTP_MAX_ATTEMPTS, ip, userAgent, metadata: { reason: "daily_budget" } }).catch(() => {})
+            throw new OtpMaxAttemptsError()
+          }
           const verified = await verifyLoginOtp(user.email, otp)
           if (verified.ok === false) {
             if (verified.reason === "max_attempts") {

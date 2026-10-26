@@ -17,19 +17,28 @@ export type OtpVerifyResult =
     | { ok: true }
     | { ok: false; reason: 'not_found' | 'expired' | 'max_attempts' | 'invalid' };
 
+export type OtpPurpose = 'login' | 'email-change';
+
+function otpKey(email: string, purpose: OtpPurpose): string {
+    return purpose === 'email-change'
+        ? `${email.trim().toLowerCase()}#email-change`
+        : email;
+}
+
 function sha256(value: string): string {
     return createHash('sha256').update(value).digest('hex');
 }
 
-/** 6-digit code — crypto-random, not Math.random. */
+/** 8-digit code — crypto-random, not Math.random. */
 export function generateOtp(): string {
-    return randomInt(0, 1_000_000).toString().padStart(6, '0');
+    return randomInt(0, 100_000_000).toString().padStart(8, '0');
 }
 
 /** Creates (or rotates) the OTP for an email. Enforces the 60s resend
  *  cooldown; returns the plaintext code only so the caller can email it. */
-export async function issueLoginOtp(email: string): Promise<OtpIssueResult> {
-    const existing = await prisma.loginOtp.findUnique({ where: { email } });
+export async function issueLoginOtp(email: string, purpose: OtpPurpose = 'login'): Promise<OtpIssueResult> {
+    const key = otpKey(email, purpose);
+    const existing = await prisma.loginOtp.findUnique({ where: { email: key } });
     if (existing) {
         const cooldown = OTP_RESEND_COOLDOWN_MS - (Date.now() - existing.createdAt.getTime());
         if (cooldown > 0) {
@@ -41,9 +50,9 @@ export async function issueLoginOtp(email: string): Promise<OtpIssueResult> {
     const now = new Date();
     const expiresAt = new Date(now.getTime() + OTP_TTL_MS);
     await prisma.loginOtp.upsert({
-        where: { email },
+        where: { email: key },
         create: {
-            email,
+            email: key,
             otpHash: sha256(code),
             expiresAt,
             createdAt: now,
@@ -56,35 +65,53 @@ export async function issueLoginOtp(email: string): Promise<OtpIssueResult> {
         },
     });
 
+    const isEmailChange = purpose === 'email-change';
     const deliveryResult = await sendEmail(
         email,
-        'Your Tower Finder sign-in code',
+        isEmailChange ? 'Confirm your Tower Finder email change' : 'Your Tower Finder sign-in code',
         signInCodeEmailHtml({
             code,
             expiresInMinutes: OTP_TTL_MS / 60_000,
             expiresAt,
+            heading: isEmailChange ? 'Confirm your email change' : undefined,
+            intro: isEmailChange
+                ? "Use this code to confirm the email change on your Cell Waves | Tower Finder account. It's single-use — a fresh code replaces it each time you ask for one."
+                : undefined,
+            preheader: isEmailChange
+                ? `Use this code to confirm your email change — it expires in ${OTP_TTL_MS / 60_000} minutes.`
+                : undefined,
         }),
         {
             code,
             expiresInMinutes: String(OTP_TTL_MS / 60_000),
             expiryTime: formatExpiryTime(expiresAt),
             year: String(new Date().getFullYear()),
-        }
+        },
+        isEmailChange ? { forceInline: true } : undefined,
     );
     return { code, cooldownRemainingSeconds: 0, deliveryResult };
 }
 
 /** Verifies a code, constant-time. Consumes attempts; on success the row is
  *  deleted so a code can never be reused. */
-export async function verifyLoginOtp(email: string, code: string): Promise<OtpVerifyResult> {
-    const row = await prisma.loginOtp.findUnique({ where: { email } });
+export async function verifyLoginOtp(email: string, code: string, purpose: OtpPurpose = 'login'): Promise<OtpVerifyResult> {
+    const key = otpKey(email, purpose);
+    const row = await prisma.loginOtp.findUnique({ where: { email: key } });
     if (!row) return { ok: false, reason: 'not_found' };
     if (row.expiresAt.getTime() < Date.now()) {
-        await prisma.loginOtp.delete({ where: { email } });
+        // Keep the row so the resend cooldown still applies.
         return { ok: false, reason: 'expired' };
     }
-    if (row.attempts >= OTP_MAX_ATTEMPTS) {
-        await prisma.loginOtp.delete({ where: { email } });
+
+    // Claim one attempt atomically before comparing. A burst of guesses can
+    // no longer all read attempts=0 and slip past the limit.
+    const claimed = await prisma.loginOtp.updateMany({
+        where: { email: key, attempts: { lt: OTP_MAX_ATTEMPTS } },
+        data: { attempts: { increment: 1 } },
+    });
+    if (claimed.count === 0) {
+        const stillExists = await prisma.loginOtp.findUnique({ where: { email: key } });
+        if (!stillExists) return { ok: false, reason: 'not_found' };
         return { ok: false, reason: 'max_attempts' };
     }
 
@@ -93,13 +120,9 @@ export async function verifyLoginOtp(email: string, code: string): Promise<OtpVe
     const valid = provided.length === stored.length && timingSafeEqual(provided, stored);
 
     if (valid) {
-        await prisma.loginOtp.delete({ where: { email } });
+        await prisma.loginOtp.delete({ where: { email: key } });
         return { ok: true };
     }
 
-    await prisma.loginOtp.update({
-        where: { email },
-        data: { attempts: { increment: 1 } },
-    });
     return { ok: false, reason: 'invalid' };
 }

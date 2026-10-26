@@ -22,6 +22,9 @@ export interface SignInCodeEmailOptions {
     code: string;
     expiresInMinutes: number;
     expiresAt: Date;
+    heading?: string;
+    intro?: string;
+    preheader?: string;
 }
 
 export interface ResetPasswordEmailOptions {
@@ -40,18 +43,25 @@ export function formatExpiryTime(expiresAt: Date): string {
 
 /** Branded sign-in-code email. Inline styles only (email clients strip
  *  <style> blocks). Footer year is dynamic. */
-export function signInCodeEmailHtml({ code, expiresInMinutes, expiresAt }: SignInCodeEmailOptions): string {
+export function signInCodeEmailHtml({
+    code,
+    expiresInMinutes,
+    expiresAt,
+    heading = 'Your sign-in code',
+    intro = "Use this code to finish signing in to Cell Waves | Tower Finder. It's single-use — a fresh code replaces it each time you ask for one.",
+    preheader = `Use this code to finish signing in to Cell Waves | Tower Finder — it expires in ${expiresInMinutes} minutes.`,
+}: SignInCodeEmailOptions): string {
     const year = new Date().getFullYear();
     const expiryTime = formatExpiryTime(expiresAt);
     return `<div style="font-family:Arial,Helvetica,sans-serif;background:#f2f5f8;padding:24px 16px">
-  <div style="display:none;font-size:1px;color:#f2f5f8;line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;mso-hide:all">Use this code to finish signing in to Cell Waves | Tower Finder — it expires in ${expiresInMinutes} minutes.</div>
+  <div style="display:none;font-size:1px;color:#f2f5f8;line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;mso-hide:all">${preheader}</div>
   <div style="max-width:520px;margin:0 auto;background:#ffffff;border-radius:10px;overflow:hidden;border:1px solid #e2e8ef">
     <div style="background:#0f2a43;padding:20px 28px">
       <span style="color:#ffffff;font-size:18px;font-weight:700">Cell Waves <span style="color:#7cc4f0">|</span> Tower Finder</span>
     </div>
     <div style="padding:28px">
-      <p style="margin:0 0 4px;font-size:17px;color:#0f2a43;font-weight:700">Your sign-in code</p>
-      <p style="margin:0 0 18px;font-size:13px;color:#5b6b7c;line-height:1.5">Use this code to finish signing in to Cell Waves | Tower Finder. It's single-use — a fresh code replaces it each time you ask for one.</p>
+      <p style="margin:0 0 4px;font-size:17px;color:#0f2a43;font-weight:700">${heading}</p>
+      <p style="margin:0 0 18px;font-size:13px;color:#5b6b7c;line-height:1.5">${intro}</p>
       <div style="background:#f1f6fb;border:1px dashed #9db4c8;border-radius:8px;padding:14px;text-align:center;margin-bottom:18px">
         <span style="font-size:30px;font-weight:700;letter-spacing:8px;color:#0f2a43;font-family:Menlo,Consolas,monospace">${code}</span>
       </div>
@@ -120,27 +130,43 @@ export async function sendEmail(
         );
     }
     if (!apiKey) {
+        if (process.env.NODE_ENV === 'production') {
+            return { ok: false, resendError: 'no_api_key' };
+        }
         return { ok: true, noApiKey: true };
     }
     const from =
         process.env.EMAIL_FROM ?? 'Tower Finder <no-reply@towerfinder.com>';
-    const res = await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: {
-            Authorization: `Bearer ${apiKey}`,
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(
-            templateId
-                ? {
-                      from,
-                      to,
-                      subject,
-                      template: { id: templateId, variables },
-                  }
-                : { from, to, subject, html },
-        ),
-    });
+    let res: Response;
+    try {
+        res = await fetch('https://api.resend.com/emails', {
+            method: 'POST',
+            headers: {
+                Authorization: `Bearer ${apiKey}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(
+                templateId
+                    ? {
+                          from,
+                          to,
+                          subject,
+                          template: { id: templateId, variables },
+                      }
+                    : { from, to, subject, html },
+            ),
+            // Every sign-in now waits on this call. A stuck provider must not
+            // hold the login open.
+            signal: AbortSignal.timeout(5000),
+        });
+    } catch (error) {
+        const detail = String(error).slice(0, 200);
+        if (process.env.NODE_ENV !== 'production') {
+            console.error(`[dev-email] Resend unreachable: ${detail} — using console fallback`);
+            return { ok: true, devFallback: true, resendDetail: detail };
+        }
+        return { ok: false, resendError: 'network_error', resendDetail: detail };
+    }
     if (!res.ok) {
         const detail = (await res.text()).slice(0, 200);
         // Dev: an unverified Resend domain (403) must not block the OTP flow —

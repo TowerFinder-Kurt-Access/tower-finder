@@ -18,7 +18,6 @@ import { useState, useEffect, useMemo, use, useSyncExternalStore } from 'react';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
 import dynamic from 'next/dynamic';
-import 'leaflet/dist/leaflet.css';
 import {
     Box,
     Paper,
@@ -61,12 +60,19 @@ import SaveIcon from '@mui/icons-material/Save';
 import CancelIcon from '@mui/icons-material/Cancel';
 import NotesPanel from '@/components/NotesPanel';
 import AddOwnerDialog from '@/components/AddOwnerDialog';
+import MapDetailsPanel from '@/components/MapDetailsPanel';
+import {
+    DEFAULT_MAP_MODES,
+    DEFAULT_MAP_STYLE,
+    type MapModeState,
+    type MapStyleId,
+} from '@/components/ui/cluster-styles';
 import { getRadiusTiers } from '@/lib/nearby-business';
 import { pinnedMapUrl, towerToPlaceUrl } from '@/lib/google-maps';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
 
-// Dynamically import Map to avoid SSR issues with Leaflet
-const Map = dynamic(() => import('@/components/Map'), {
+// Dynamically import Map to avoid SSR issues
+const Map = dynamic(() => import('@/components/TowerMap'), {
     ssr: false,
     loading: () => <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}><CircularProgress /></Box>
 });
@@ -193,6 +199,9 @@ export default function TowerDetailPage({ params }: PageProps) {
     const [streetViewUrl, setStreetViewUrl] = useState('');
     const [isEditingStreetView, setIsEditingStreetView] = useState(false);
     const [selectedBizId, setSelectedBizId] = useState<number | null>(null);
+    const [mapSelectedTower, setMapSelectedTower] = useState<Tower | null>(null);
+    const [mapStyle, setMapStyle] = useState<MapStyleId>(DEFAULT_MAP_STYLE);
+    const [mapModes, setMapModes] = useState<MapModeState>(DEFAULT_MAP_MODES);
     const [bizPage, setBizPage] = useState(0);
     const [mapCenter, setMapCenter] = useState<[number, number] | null>(null);
     const [isSavingStreetView, setIsSavingStreetView] = useState(false);
@@ -256,6 +265,7 @@ export default function TowerDetailPage({ params }: PageProps) {
             const res = await axios.get(`/api/towers/${towerId}`);
             const t = res.data;
             setTower(t);
+            setMapSelectedTower(t);
             setStatus(t.status?.name || t.legacyStatus || '');
             setSelectedStatusId(getId(t.status) || t.statusId || '');
             setNotes(t.notes || []);
@@ -1611,17 +1621,29 @@ export default function TowerDetailPage({ params }: PageProps) {
                                 Location Map
                             </Typography>
                         </Box>
-                        <Box id="tower-location-map" sx={{ height: 400, position: 'relative' }}>
+                        <Box id="tower-location-map" sx={{ height: 560, position: 'relative' }}>
                             {mounted ? (
-                                <Map
-                                    center={mapCenter ?? [tower.lat, tower.lon]}
-                                    zoom={selectedBizId ? 17 : 15}
-                                    towers={[tower]}
-                                    businessesNearby={tower.businessesNearby || []}
-                                    onTowerSelect={() => { }}
-                                    selectedTower={tower}
-                                    selectedBusinessId={selectedBizId}
-                                />
+                                <>
+                                    <Map
+                                        center={mapCenter ?? [tower.lat, tower.lon]}
+                                        zoom={selectedBizId ? 17 : 13}
+                                        towers={[tower]}
+                                        businessesNearby={tower.businessesNearby || []}
+                                        onTowerSelect={(selected) => setMapSelectedTower(selected as Tower)}
+                                        onTowerDeselect={() => setMapSelectedTower(null)}
+                                        selectedTower={mapSelectedTower}
+                                        selectedBusinessId={selectedBizId}
+                                        onBusinessSelect={setSelectedBizId}
+                                        mapStyle={mapStyle}
+                                        mapModes={mapModes}
+                                    />
+                                    <MapDetailsPanel
+                                        mapStyle={mapStyle}
+                                        onMapStyleChange={setMapStyle}
+                                        mapModes={mapModes}
+                                        onMapModesChange={setMapModes}
+                                    />
+                                </>
                             ) : (
                                 <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
                                     <CircularProgress />

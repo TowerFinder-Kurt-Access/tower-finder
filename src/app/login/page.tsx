@@ -24,15 +24,19 @@ function LoginPageContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const { showSnackbar } = useSnackbar();
+    const SUCCESS_MESSAGES: Record<string, string> = {
+        'password-reset': 'Password reset successfully! Please sign in with your new password.',
+        'password-changed': 'Password changed successfully. Please sign in again with your new password.',
+        'email-changed': 'Email changed successfully. Please sign in again with your new email address.',
+        '2fa-enabled': 'Two-factor authentication enabled. Please sign in again with your password and email code.',
+    };
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState(searchParams.get('error') === 'session-revoked'
         ? 'Your session has ended. Please sign in again.'
         : '');
     const [success, setSuccess] = useState(
-        searchParams.get('success') === 'password-reset'
-            ? 'Password reset successfully! Please sign in with your new password.'
-            : ''
+        SUCCESS_MESSAGES[searchParams.get('success') ?? ''] ?? ''
     );
     const [loading, setLoading] = useState(false);
     const [lockSecondsLeft, setLockSecondsLeft] = useState<number | null>(null);
@@ -43,7 +47,7 @@ function LoginPageContent() {
     const [resendSecondsLeft, setResendSecondsLeft] = useState(0);
 
     // Forgot-password step: email only → sends code.
-    const [forgotStep, setForgotStep] = useState(false);
+    const [forgotStep, setForgotStep] = useState(searchParams.get('forgot') === '1');
 
     // Reset-code step: code + new password + confirm.
     const [resetCodeStep, setResetCodeStep] = useState(false);
@@ -267,20 +271,20 @@ function LoginPageContent() {
                     /* ---- OTP second-factor step ---- */
                     <form onSubmit={handleOtpSubmit}>
                         <Typography sx={{ mb: 2 }}>
-                            Enter the 6-digit code sent to <strong>{email}</strong>.
+                            Enter the 8-digit code sent to <strong>{email}</strong>.
                         </Typography>
 
                         <TextField
                             fullWidth
                             label="One-time code"
                             value={otp}
-                            onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                            onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 8))}
                             sx={{ mb: 2 }}
                             required
                             autoFocus
                             inputMode="numeric"
                             autoComplete="one-time-code"
-                            slotProps={{ htmlInput: { maxLength: 6, style: { letterSpacing: 8, fontSize: 20, textAlign: 'center' } } }}
+                            slotProps={{ htmlInput: { maxLength: 8, style: { letterSpacing: 8, fontSize: 20, textAlign: 'center' } } }}
                         />
 
                         <Button
@@ -288,7 +292,7 @@ function LoginPageContent() {
                             type="submit"
                             variant="contained"
                             size="large"
-                            disabled={loading || otp.length !== 6}
+                            disabled={loading || otp.length !== 8}
                         >
                             {loading ? 'Verifying...' : 'Verify & Sign In'}
                         </Button>
@@ -310,20 +314,20 @@ function LoginPageContent() {
                     /* ---- Reset password: code + new password + confirm ---- */
                     <form onSubmit={handleResetCodeSubmit}>
                         <Typography sx={{ mb: 1, color: 'text.secondary' }}>
-                            Enter the 6-digit code sent to <strong>{email}</strong>, then choose a new password.
+                            Enter the 8-digit code sent to <strong>{email}</strong>, then choose a new password.
                         </Typography>
 
                         <TextField
                             fullWidth
                             label="Reset code"
                             value={resetCode}
-                            onChange={(e) => setResetCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                            onChange={(e) => setResetCode(e.target.value.replace(/\D/g, '').slice(0, 8))}
                             sx={{ mb: 2, mt: 2 }}
                             required
                             autoFocus
                             inputMode="numeric"
                             autoComplete="one-time-code"
-                            slotProps={{ htmlInput: { maxLength: 6, style: { letterSpacing: 8, fontSize: 20, textAlign: 'center' } } }}
+                            slotProps={{ htmlInput: { maxLength: 8, style: { letterSpacing: 8, fontSize: 20, textAlign: 'center' } } }}
                         />
 
                         <PasswordField
@@ -351,7 +355,7 @@ function LoginPageContent() {
                             type="submit"
                             variant="contained"
                             size="large"
-                            disabled={loading || resetCode.length !== 6}
+                            disabled={loading || resetCode.length !== 8}
                         >
                             {loading ? 'Resetting...' : 'Reset Password'}
                         </Button>
@@ -456,10 +460,6 @@ function LoginPageContent() {
                         </Button>
                     </form>
                 )}
-
-                <Typography variant="caption" sx={{ display: 'block', mt: 2, textAlign: 'center', color: 'text.secondary' }}>
-                    Default admin: admin@tower-finder.com
-                </Typography>
             </Paper>
 
             <Snackbar

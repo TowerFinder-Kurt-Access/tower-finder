@@ -137,13 +137,19 @@ export async function GET(request: Request) {
         // Default limit to prevent sending too many towers at once (performance optimization)
         // Use 1000 as default limit if not specified, unless fetching by ID
         const DEFAULT_LIMIT = 1000;
+        const MAX_LIMIT = 20000;
         let limit: number | undefined = DEFAULT_LIMIT;
-        if (limitStr) limit = parseInt(limitStr, 10);
+        if (limitStr) limit = Math.min(parseInt(limitStr, 10), MAX_LIMIT);
         else if (id) limit = undefined;
         const page = pageStr ? parseInt(pageStr, 10) : undefined; // Only set page if explicitly provided
 
-        // Bounding box support
-        const bbox = searchParams.get('bbox'); // minLon,minLat,maxLon,maxLat
+        // `map=1` asks for every tower matching the filters, in the light shape
+        // the map clusters need. A viewport-sized page changes the point set
+        // whenever the camera moves, so clusters already on screen jump. The
+        // whole table is about 9 MB in this shape (roughly 1 MB gzipped); a
+        // 20k page with parcels, carriers and leads is about 35 MB.
+        const isMapMode = searchParams.get('map') === '1';
+        if (isMapMode) limit = undefined;
 
         // Distinct Queries
         if (distinct === 'countries') {
@@ -371,7 +377,7 @@ export async function GET(request: Request) {
             // Build an array of conditions to AND together
             const andConditions: Prisma.TowerWhereInput[] = [];
 
-            // Country filter (USA also matches parcel-less rows in the bbox, see countryCond).
+            // Country filter (USA also matches parcel-less rows inside the US box).
             if (country) {
                 if (country.toLowerCase() === 'usa') {
                     andConditions.push({
@@ -432,15 +438,6 @@ export async function GET(request: Request) {
                             }
                         }
                     ]
-                });
-            }
-
-            // Bounding box filter
-            if (bbox) {
-                const [minLon, minLat, maxLon, maxLat] = bbox.split(',').map(Number);
-                andConditions.push({
-                    lat: { gte: minLat, lte: maxLat },
-                    lon: { gte: minLon, lte: maxLon }
                 });
             }
 
@@ -622,6 +619,24 @@ export async function GET(request: Request) {
 
         // Apply role-based access control
         whereClause = buildTowerAccessFilter(user.id, user.role, whereClause);
+
+        // Map data: every matching tower, and only the fields the clusters and
+        // popups read. No parcel geometry, no carriers, no leads, so the full
+        // table stays small and the query does not join the heavy relations.
+        if (isMapMode) {
+            const mapTowers = await prisma.tower.findMany({
+                where: whereClause,
+                select: {
+                    id: true,
+                    lat: true,
+                    lon: true,
+                    source: true,
+                    type: { select: { name: true } },
+                    status: { select: { name: true } },
+                },
+            });
+            return NextResponse.json(mapTowers);
+        }
 
         // Calculate pagination
         const skip = page !== undefined && limit !== undefined ? page * limit : undefined;

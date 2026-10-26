@@ -1,0 +1,971 @@
+'use client';
+
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { MapRef, MapViewport } from '@/components/ui/map';
+import {
+    Map,
+    MapClusterLayer,
+    MapControls,
+    MapGeoJSON,
+    MapMarker,
+    MarkerContent,
+    MapPopup,
+    useMap,
+} from '@/components/ui/map';
+import Box from '@mui/material/Box';
+import Typography from '@mui/material/Typography';
+import Button from '@mui/material/Button';
+import type { GeoJSON } from 'geojson';
+import { toLngLat } from '@/lib/map-viewport';
+import { mapOverlaySx } from '@/lib/map-overlay';
+import { pinnedMapUrl } from '@/lib/google-maps';
+import {
+    DEFAULT_MAP_MODES,
+    DEFAULT_MAP_STYLE,
+    MAP_STYLES,
+    TOWER_CLUSTER_COLORS,
+    TOWER_CLUSTER_COLORS_DARK,
+    TOWER_POINT_COLOR,
+    LEAD_CLUSTER_COLORS,
+    LEAD_CLUSTER_COLORS_DARK,
+    LEAD_POINT_COLOR,
+    isDarkBasemap,
+    type MapModeState,
+    type MapStyleId,
+} from '@/components/ui/cluster-styles';
+
+/** Zoom ceiling of the Esri basemap. Past this the tiles are blank. */
+const MAX_ZOOM = 18;
+
+/** Zoom a tower click settles at: close enough to read the parcel, not so
+ *  close the popup covers the street. Never zooms out, only in. */
+const DETAIL_ZOOM = 16;
+
+/** Same steps for both cluster layers, so the arrays keep stable references. */
+const CLUSTER_THRESHOLDS: [number, number] = [100, 750];
+
+/** Longitude of the world copy nearest `currentLng`, so a jump never crosses
+ *  the map. A Mercator map repeats every 360°. */
+function nearestLng(lng: number, currentLng: number): number {
+    return lng + Math.round((currentLng - lng) / 360) * 360;
+}
+
+export interface MapTower {
+    id: number;
+    type?: { name: string } | string;
+    subType?: string;
+    lat: number;
+    lon: number;
+    carrier?: { name: string } | string;
+    status?: string;
+    source?: string;
+    /** Set on a tower-lead popup, not on a tower row. */
+    isLead?: boolean;
+    city?: string;
+    country?: string;
+    parcel?: {
+        address?: string;
+        geometry?: unknown;
+        [key: string]: unknown;
+    };
+    details?: unknown;
+}
+
+export interface MapLead {
+    id: number;
+    lat: number;
+    lon: number;
+    source?: string;
+    type?: string;
+    city?: string;
+    country?: string;
+    promotedToTowerId?: number | null;
+}
+
+export interface MapBusiness {
+    id: number;
+    name: string;
+    phone: string | null;
+    distance: number;
+    rawData?: unknown;
+}
+
+interface TowerFeatureProps {
+    towerId: number;
+    isLead: boolean;
+}
+
+type TowerFeature = GeoJSON.Feature<GeoJSON.Point, TowerFeatureProps>;
+
+/** Shared empty collection, so an empty dataset keeps a stable reference. */
+const EMPTY_FEATURE_COLLECTION: GeoJSON.FeatureCollection<GeoJSON.Point, TowerFeatureProps> = {
+    type: 'FeatureCollection',
+    features: [],
+};
+
+/** Read a business coordinate out of its stored GeoJSON or properties. */
+function businessCoords(biz: MapBusiness): [number, number] | null {
+    const raw = biz.rawData as { geometry?: { coordinates?: unknown } } | undefined;
+    const coords = raw?.geometry?.coordinates;
+    if (Array.isArray(coords) && coords.length >= 2) {
+        const lon = coords[0] as number;
+        const lat = coords[1] as number;
+        if (typeof lon === 'number' && typeof lat === 'number') return [lat, lon];
+    }
+    const props = (biz.rawData as { properties?: { lat?: number; lon?: number } } | undefined)?.properties;
+    if (props && typeof props.lat === 'number' && typeof props.lon === 'number') {
+        return [props.lat, props.lon];
+    }
+    return null;
+}
+
+/** Business coordinates as a GeoJSON point, in MapLibre order. */
+function businessPoint(biz: MapBusiness): GeoJSON.Feature<GeoJSON.Point> | null {
+    const c = businessCoords(biz);
+    if (!c) return null;
+    return {
+        type: 'Feature',
+        properties: { id: biz.id },
+        geometry: { type: 'Point', coordinates: [c[1], c[0]] },
+    };
+}
+
+/**
+ * Convert ArcGIS ring or GeoJSON polygon geometry into a GeoJSON polygon.
+ *
+ * ArcGIS rings are `[[lon, lat], ...]` and already match GeoJSON order. GeoJSON
+ * polygons are `[[[lon, lat], ...]]`, so the outer ring is taken as-is.
+ */
+export function geometryToGeoJSON(geometry: unknown): GeoJSON.Feature<GeoJSON.Polygon> | null {
+    if (!geometry || typeof geometry !== 'object') return null;
+
+    const g = geometry as { rings?: unknown; coordinates?: unknown; type?: unknown };
+    const empty = (): GeoJSON.Feature<GeoJSON.Polygon> => ({
+        type: 'Feature',
+        properties: {},
+        geometry: { type: 'Polygon', coordinates: [] },
+    });
+
+    try {
+        if (Array.isArray(g.rings) && g.rings.length > 0) {
+            const ring = g.rings[0];
+            if (!Array.isArray(ring)) return empty();
+            return {
+                type: 'Feature',
+                properties: {},
+                geometry: { type: 'Polygon', coordinates: [ring as number[][]] },
+            };
+        }
+
+        if (g.type === 'Polygon' && Array.isArray(g.coordinates)) {
+            return {
+                type: 'Feature',
+                properties: {},
+                geometry: { type: 'Polygon', coordinates: [g.coordinates[0] as number[][]] },
+            };
+        }
+        if (g.type === 'MultiPolygon' && Array.isArray(g.coordinates)) {
+            const first = (g.coordinates as number[][][][])[0];
+            if (!first) return empty();
+            return {
+                type: 'Feature',
+                properties: {},
+                geometry: { type: 'Polygon', coordinates: [first[0]] },
+            };
+        }
+    } catch (error) {
+        console.error('[TowerMap] Error converting geometry:', error);
+    }
+
+    return null;
+}
+
+function towerLabel(type: MapTower['type']): string {
+    if (typeof type === 'object' && type) return type.name || 'Tower';
+    return (type as string | undefined) || 'Tower';
+}
+
+function statusLabel(status: MapTower['status']): string {
+    if (typeof status === 'object' && status) {
+        return (status as { name?: string }).name || 'Unknown';
+    }
+    return status || 'Unknown';
+}
+
+/**
+ * Applies the display modes that MapLibre cannot express as props: the fog that
+ * makes a globe read as a globe, and the extruded buildings for 3D mode.
+ */
+function MapModeEffects({ modes, styleId }: { modes: MapModeState; styleId: MapStyleId }) {
+    const { map, isLoaded } = useMap();
+
+    // Atmosphere for the globe projection. Without it a globe looks like a flat
+    // map that happens to curve at the edges.
+    useEffect(() => {
+        if (!map || !isLoaded) return;
+        try {
+            if (modes.globe) {
+                map.setSky({ 'atmosphere-blend': 1 });
+            } else {
+                map.setSky({ 'atmosphere-blend': 0 });
+            }
+        } catch {
+            // The style may be mid-reload.
+        }
+    }, [map, isLoaded, modes.globe]);
+
+    // Tilt the camera for 3D. Extruded buildings are invisible from directly
+    // overhead, so the mode is useless without pitch. Only tilt when zoomed in
+    // far enough for buildings to exist, and leave a globe view alone.
+    useEffect(() => {
+        if (!map || !isLoaded) return;
+        if (modes.globe) return;
+        if (map.getZoom() < 10) return;
+        map.easeTo({
+            pitch: modes.buildings3d ? 55 : 0,
+            duration: modes.buildings3d ? 800 : 600,
+            easing: (t: number) => 1 - Math.pow(1 - t, 3),
+        });
+    }, [map, isLoaded, modes.buildings3d, modes.globe]);
+
+    // Extruded buildings. The satellite basemap has no building layer, so the
+    // mode is a no-op there rather than an error.
+    useEffect(() => {
+        if (!map || !isLoaded) return;
+        const layerId = 'tower-map-3d-buildings';
+
+        const removeLayer = () => {
+            try {
+                if (map.getLayer(layerId)) map.removeLayer(layerId);
+            } catch {
+                // The style may be mid-reload.
+            }
+        };
+
+        if (!modes.buildings3d) {
+            removeLayer();
+            return;
+        }
+
+        const style = map.getStyle();
+        const source = style?.sources?.protomaps;
+        if (!source) {
+            // A raster basemap: no vector buildings to extrude.
+            removeLayer();
+            return;
+        }
+
+        // Insert under the first label layer so labels stay on top.
+        const beforeId = (style.layers ?? []).find((l) => l.type === 'symbol')?.id;
+
+        try {
+            if (!map.getLayer(layerId)) {
+                map.addLayer(
+                    {
+                        id: layerId,
+                        type: 'fill-extrusion',
+                        source: 'protomaps',
+                        'source-layer': 'buildings',
+                        minzoom: 14,
+                        paint: {
+                            'fill-extrusion-color': '#d6d6d6',
+                            'fill-extrusion-height': ['coalesce', ['get', 'render_height'], 8],
+                            'fill-extrusion-base': ['coalesce', ['get', 'render_min_height'], 0],
+                            'fill-extrusion-opacity': 0.75,
+                        },
+                    },
+                    beforeId,
+                );
+            }
+        } catch {
+            // The style may be mid-reload.
+        }
+
+        return removeLayer;
+    }, [map, isLoaded, modes.buildings3d, styleId]);
+
+    return null;
+}
+
+/** Live camera readout, like the mapcn controlled-mode example. It owns its
+ *  state, so moving the map never re-renders the cluster tree. */
+function ViewportReadout() {
+    const { map } = useMap();
+    const [view, setView] = useState({ lng: 0, lat: 0, zoom: 0, bearing: 0, pitch: 0 });
+
+    useEffect(() => {
+        if (!map) return;
+
+        let frame = 0;
+        const update = () => {
+            frame = 0;
+            const center = map.getCenter();
+            const next = {
+                lng: center.lng,
+                lat: center.lat,
+                zoom: map.getZoom(),
+                bearing: map.getBearing(),
+                pitch: map.getPitch(),
+            };
+            setView(prev =>
+                prev.lng === next.lng &&
+                prev.lat === next.lat &&
+                prev.zoom === next.zoom &&
+                prev.bearing === next.bearing &&
+                prev.pitch === next.pitch
+                    ? prev
+                    : next,
+            );
+        };
+        const schedule = () => {
+            if (!frame) frame = requestAnimationFrame(update);
+        };
+
+        map.on('move', schedule);
+        update();
+
+        return () => {
+            map.off('move', schedule);
+            if (frame) cancelAnimationFrame(frame);
+        };
+    }, [map]);
+
+    const fields = [
+        { name: 'lng', value: view.lng.toFixed(3) },
+        { name: 'lat', value: view.lat.toFixed(3) },
+        { name: 'zoom', value: view.zoom.toFixed(1) },
+        { name: 'bearing', value: `${view.bearing.toFixed(1)}°` },
+        { name: 'pitch', value: `${view.pitch.toFixed(1)}°` },
+    ];
+
+    return (
+        <Box
+            sx={{
+                ...mapOverlaySx,
+                position: 'absolute',
+                top: 8,
+                left: 8,
+                zIndex: 2,
+                display: 'flex',
+                flexWrap: 'wrap',
+                columnGap: 1.5,
+                rowGap: 0.25,
+                px: 1,
+                py: 0.75,
+                fontFamily: 'monospace',
+                fontSize: 11,
+                lineHeight: 1.4,
+                pointerEvents: 'none',
+            }}
+        >
+            {fields.map(field => (
+                <Box component="span" key={field.name}>
+                    <Box component="span" sx={{ color: 'text.secondary' }}>
+                        {field.name}:{' '}
+                    </Box>
+                    {field.value}
+                </Box>
+            ))}
+        </Box>
+    );
+}
+
+/**
+ * Nearby businesses as a plain circle layer.
+ *
+ * These are few (a few dozen at most), so a cluster is not needed. `MapGeoJSON`
+ * only draws fill and line layers, which cannot render a point, so the circle
+ * layer is managed directly through `useMap`.
+ */
+function BusinessPointsLayer({
+    data,
+    onSelect,
+}: {
+    data: GeoJSON.FeatureCollection<GeoJSON.Point>;
+    onSelect?: (id: number) => void;
+}) {
+    const { map, isLoaded } = useMap();
+    const sourceId = 'nearby-businesses-source';
+    const layerId = 'nearby-businesses-layer';
+
+    useEffect(() => {
+        if (!isLoaded || !map) return;
+
+        map.addSource(sourceId, { type: 'geojson', data, promoteId: 'id' });
+        map.addLayer({
+            id: layerId,
+            type: 'circle',
+            source: sourceId,
+            paint: {
+                'circle-color': '#9c27b0',
+                'circle-radius': 5,
+                'circle-stroke-width': 1,
+                'circle-stroke-color': '#ffffff',
+            },
+        });
+
+        return () => {
+            try {
+                if (map.getLayer(layerId)) map.removeLayer(layerId);
+                if (map.getSource(sourceId)) map.removeSource(sourceId);
+            } catch {
+                // The style may be mid-reload.
+            }
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isLoaded, map]);
+
+    useEffect(() => {
+        if (!isLoaded || !map) return;
+        const source = map.getSource(sourceId);
+        if (source && 'setData' in source) (source as { setData: (d: unknown) => void }).setData(data);
+    }, [isLoaded, map, data, sourceId]);
+
+    useEffect(() => {
+        if (!isLoaded || !map || !onSelect) return;
+
+        const handleClick = (e: { features?: Array<{ properties?: Record<string, unknown> }> }) => {
+            const id = e.features?.[0]?.properties?.id;
+            if (typeof id === 'number') onSelect(id);
+        };
+
+        map.on('click', layerId, handleClick as never);
+        map.on('mouseenter', layerId, () => {
+            map.getCanvas().style.cursor = 'pointer';
+        });
+        map.on('mouseleave', layerId, () => {
+            map.getCanvas().style.cursor = '';
+        });
+
+        return () => {
+            map.off('click', layerId, handleClick as never);
+        };
+    }, [isLoaded, map, layerId, onSelect]);
+
+    return null;
+}
+
+export interface TowerMapProps {
+    center: [number, number];
+    zoom: number;
+    bounds?: [[number, number], [number, number]];
+    towers: MapTower[];
+    towerLeads?: MapLead[];
+    businessesNearby?: MapBusiness[];
+    onTowerSelect: (tower: MapTower | (MapLead & { isLead?: boolean; action?: string })) => void;
+    /** Called when the popup is closed, so the page can clear its selection.
+     *  The id lets the page keep a newer selection that replaced this one. */
+    onTowerDeselect?: (id?: number) => void;
+    selectedTower?: MapTower | null;
+    selectedBusinessId?: number | null;
+    onBusinessSelect?: (id: number) => void;
+    /** Toggle GPS tracking from the map's locate control. */
+    onLocate?: () => void;
+    /** Basemap picked in the map details panel. */
+    mapStyle?: MapStyleId;
+    /** Display modes picked in the same panel. */
+    mapModes?: MapModeState;
+    userPosition?: { lat: number; lon: number; accuracy?: number } | null;
+}
+
+export default function TowerMap({
+    center,
+    zoom,
+    bounds,
+    towers,
+    towerLeads = [],
+    businessesNearby = [],
+    onTowerSelect,
+    onTowerDeselect,
+    selectedTower,
+    selectedBusinessId,
+    onBusinessSelect,
+    onLocate,
+    userPosition,
+    mapStyle = DEFAULT_MAP_STYLE,
+    mapModes = DEFAULT_MAP_MODES,
+}: TowerMapProps) {
+    const mapRef = useRef<MapRef | null>(null);
+
+    // The map is uncontrolled after the first paint. The page's `center` and
+    // `zoom` props say where to start and where to jump when the user picks a
+    // tower. If they stayed authoritative, every re-render would snap the map
+    // back to a stale zoom and fight the user's own zooming.
+    //
+    // `navTarget` is the only thing that moves the map after mount: a new tower
+    // selection or an explicit centre change from the page.
+    const navTarget = useMemo(
+        () => ({ center: toLngLat(center[0], center[1]), zoom }),
+        [center, zoom],
+    );
+
+    const lastNavRef = useRef(navTarget);
+
+    useEffect(() => {
+        const map = mapRef.current;
+        if (!map) return;
+        if (lastNavRef.current === navTarget) return;
+
+        const previous = lastNavRef.current;
+        lastNavRef.current = navTarget;
+
+        // A point click already started its own fly-in. Letting this effect run
+        // too would start a second animation that cancels the first, and the
+        // map would end up panning at the old zoom instead of zooming in.
+        if (map.isMoving()) return;
+
+        // The page changed `zoom` on purpose (a URL param, a GPS fix): honour it.
+        // If only the centre changed (a tower click), pan at the live zoom so the
+        // user's chosen zoom level survives.
+        const pageChangedZoom = previous.zoom !== navTarget.zoom;
+        const current = map.getCenter();
+        map.easeTo({
+            center: [nearestLng(navTarget.center[0], current.lng), navTarget.center[1]],
+            zoom: pageChangedZoom ? navTarget.zoom : map.getZoom(),
+            duration: 600,
+        });
+    }, [navTarget]);
+
+    // Only the initial viewport is controlled. After mount the map owns its own
+    // camera, so user zoom and pan are never reverted. Computed once, not per
+    // render, because `Map` reads this on mount only.
+    const [initialViewport] = useState<Partial<MapViewport>>(() => ({
+        center: toLngLat(center[0], center[1]),
+        zoom,
+        bearing: 0,
+        pitch: 0,
+    }));
+
+    // `bounds` asks the map to fit a rectangle. The page sets it when a province
+    // or a country is chosen, then clears it.
+    useEffect(() => {
+        const map = mapRef.current;
+        if (!map || !bounds) return;
+        const [[south, west], [north, east]] = bounds;
+        map.fitBounds(
+            [
+                [west, south],
+                [east, north],
+            ],
+            { padding: 50, duration: 800 },
+        );
+    }, [bounds]);
+
+    // The selected business opens its popup by centering on it. The popup
+    // itself is rendered from `selectedBusinessId` below.
+    useEffect(() => {
+        const map = mapRef.current;
+        if (!map || selectedBusinessId == null) return;
+        const biz = businessesNearby.find((b) => b.id === selectedBusinessId);
+        const c = biz ? businessCoords(biz) : null;
+        if (!c) return;
+        const current = map.getCenter();
+        map.easeTo({ center: [nearestLng(c[1], current.lng), c[0]], duration: 600 });
+    }, [selectedBusinessId, businessesNearby]);
+
+    const towerFeatures = useMemo<TowerFeature[]>(
+        () =>
+            towers
+                .filter((t) => typeof t.lat === 'number' && typeof t.lon === 'number')
+                .map((t) => ({
+                    type: 'Feature',
+                    properties: {
+                        towerId: t.id,
+                        isLead: false,
+                    },
+                    geometry: { type: 'Point', coordinates: [t.lon, t.lat] },
+                })),
+        [towers],
+    );
+
+    const leadFeatures = useMemo<TowerFeature[]>(
+        () =>
+            towerLeads
+                .filter((l) => !l.promotedToTowerId && typeof l.lat === 'number' && typeof l.lon === 'number')
+                .map((l) => ({
+                    type: 'Feature',
+                    properties: {
+                        towerId: l.id,
+                        isLead: true,
+                    },
+                    geometry: { type: 'Point', coordinates: [l.lon, l.lat] },
+                })),
+        [towerLeads],
+    );
+
+    // Stable collections and palette arrays. The cluster layer calls setData
+    // whenever the collection identity changes, and setData re-clusters every
+    // point; a fresh literal per render would blank and rebuild all clusters.
+    const towerCollection = useMemo<GeoJSON.FeatureCollection<GeoJSON.Point, TowerFeatureProps>>(
+        () =>
+            towerFeatures.length > 0
+                ? { type: 'FeatureCollection', features: towerFeatures }
+                : EMPTY_FEATURE_COLLECTION,
+        [towerFeatures],
+    );
+    const leadCollection = useMemo<GeoJSON.FeatureCollection<GeoJSON.Point, TowerFeatureProps>>(
+        () =>
+            leadFeatures.length > 0
+                ? { type: 'FeatureCollection', features: leadFeatures }
+                : EMPTY_FEATURE_COLLECTION,
+        [leadFeatures],
+    );
+
+    const towerById = useMemo(
+        () => new globalThis.Map<number, MapTower>(towers.map((t) => [t.id, t])),
+        [towers],
+    );
+    const leadById = useMemo(
+        () => new globalThis.Map<number, MapLead>(towerLeads.map((l) => [l.id, l])),
+        [towerLeads],
+    );
+
+    const handlePointClick = useCallback(
+        (feature: GeoJSON.Feature<GeoJSON.Point, TowerFeatureProps>) => {
+            const { towerId, isLead } = feature.properties;
+            if (isLead) {
+                const lead = leadById.get(towerId);
+                if (!lead) return;
+
+                // Match a tower point: open the detail zoom, not just a popup.
+                const map = mapRef.current;
+                if (map && typeof lead.lat === 'number' && typeof lead.lon === 'number') {
+                    const targetZoom = Math.max(map.getZoom(), DETAIL_ZOOM);
+                    if (targetZoom > map.getZoom() + 0.01) {
+                        const current = map.getCenter();
+                        map.easeTo({
+                            center: [nearestLng(lead.lon, current.lng), lead.lat],
+                            zoom: Math.min(targetZoom, MAX_ZOOM),
+                            duration: 1000,
+                            easing: (t: number) => t * t * (3 - 2 * t),
+                        });
+                    }
+                }
+
+                onTowerSelect({ ...lead, isLead: true });
+                return;
+            }
+            const tower = towerById.get(towerId);
+            if (!tower) return;
+
+            // Fly into the detail rather than only opening a popup, so a click
+            // on a point reads the same as a click on a cluster. The page also
+            // centres on the tower; this animation carries the zoom.
+            const map = mapRef.current;
+            if (map && typeof tower.lat === 'number' && typeof tower.lon === 'number') {
+                const targetZoom = Math.max(map.getZoom(), DETAIL_ZOOM);
+                if (targetZoom > map.getZoom() + 0.01) {
+                    const current = map.getCenter();
+                    map.easeTo({
+                        center: [nearestLng(tower.lon, current.lng), tower.lat],
+                        zoom: Math.min(targetZoom, MAX_ZOOM),
+                        duration: 1000,
+                        // Same smoothstep as a cluster click, so a point and a
+                        // cluster read the same way.
+                        easing: (t: number) => t * t * (3 - 2 * t),
+                    });
+                }
+            }
+
+            onTowerSelect(tower);
+        },
+        [leadById, towerById, onTowerSelect],
+    );
+
+    // Clicking a cluster drills in. The default MapLibre expansion zoom is
+    // correct, so no custom rule is needed here.
+    const parcel = useMemo<GeoJSON.FeatureCollection<GeoJSON.Polygon> | null>(() => {
+        if (!selectedTower?.parcel?.geometry) return null;
+        const feature = geometryToGeoJSON(selectedTower.parcel.geometry);
+        if (!feature) return null;
+        return { type: 'FeatureCollection', features: [feature] };
+    }, [selectedTower]);
+
+    const businessFeatures = useMemo<GeoJSON.FeatureCollection<GeoJSON.Point> | null>(() => {
+        const features = businessesNearby
+            .map(businessPoint)
+            .filter((f): f is GeoJSON.Feature<GeoJSON.Point> => f !== null);
+        return features.length > 0 ? { type: 'FeatureCollection', features } : null;
+    }, [businessesNearby]);
+
+    const selectedBusiness = useMemo(
+        () => businessesNearby.find((b) => b.id === selectedBusinessId) ?? null,
+        [businessesNearby, selectedBusinessId],
+    );
+    const selectedBusinessCoords = selectedBusiness ? businessCoords(selectedBusiness) : null;
+
+    // Cluster palettes lighten on a dark basemap, where the deep reds vanish.
+    const dark = isDarkBasemap(mapStyle);
+    // Stable reference: a fresh object literal each render would re-run the
+    // projection effect on every paint.
+    const projection = useMemo(
+        () => ({ type: mapModes.globe ? ('globe' as const) : ('mercator' as const) }),
+        [mapModes.globe],
+    );
+    const towerClusterColors = dark ? TOWER_CLUSTER_COLORS_DARK : TOWER_CLUSTER_COLORS;
+    const leadClusterColors = dark ? LEAD_CLUSTER_COLORS_DARK : LEAD_CLUSTER_COLORS;
+    const towerColors = useMemo<[string, string, string]>(
+        () => [towerClusterColors[0], towerClusterColors[1], towerClusterColors[2]],
+        [towerClusterColors],
+    );
+    const leadColors = useMemo<[string, string, string]>(
+        () => [leadClusterColors[0], leadClusterColors[1], leadClusterColors[2]],
+        [leadClusterColors],
+    );
+
+    return (
+        <Map
+            ref={mapRef}
+            theme={dark ? 'dark' : 'light'}
+            styles={{
+                light: MAP_STYLES[mapStyle].url,
+                dark: MAP_STYLES[mapStyle].url,
+            }}
+            projection={projection}
+            viewport={initialViewport}
+            maxZoom={MAX_ZOOM}
+            attributionControl={false}
+            style={{ height: '100%', width: '100%' }}
+        >
+            <ViewportReadout />
+            <MapModeEffects modes={mapModes} styleId={mapStyle} />
+
+            <MapControls
+                position="bottom-right"
+                className="mapcn-controls-corner"
+                showZoom
+                showCompass
+                showLocate
+                showFullscreen
+                onLocate={() => onLocate?.()}
+            />
+
+            {/* Tower clusters */}
+            <MapClusterLayer<TowerFeatureProps>
+                data={towerCollection}
+                clusterRadius={50}
+                // Clusters must split before the map's zoom ceiling, or a
+                // cluster at max zoom can never be opened.
+                clusterMaxZoom={MAX_ZOOM - 1}
+                clusterColors={towerColors}
+                clusterThresholds={CLUSTER_THRESHOLDS}
+                pointColor={TOWER_POINT_COLOR}
+                onPointClick={handlePointClick}
+            />
+
+            {/* Tower lead clusters */}
+            <MapClusterLayer<TowerFeatureProps>
+                data={leadCollection}
+                clusterRadius={40}
+                clusterMaxZoom={MAX_ZOOM - 1}
+                clusterColors={leadColors}
+                clusterThresholds={CLUSTER_THRESHOLDS}
+                pointColor={LEAD_POINT_COLOR}
+                dashedPointRing
+                onPointClick={handlePointClick}
+            />
+
+            {/* Nearby businesses. They are few and small, so a plain circle layer
+                beats a cluster. */}
+            {businessFeatures && (
+                <BusinessPointsLayer data={businessFeatures} onSelect={onBusinessSelect} />
+            )}
+
+            {/* Selected tower parcel outline */}
+            {parcel && (
+                <MapGeoJSON
+                    id="selected-parcel"
+                    data={parcel}
+                    fillPaint={{ 'fill-color': '#2196f3', 'fill-opacity': 0.2 }}
+                    linePaint={{ 'line-color': '#2196f3', 'line-width': 2 }}
+                />
+            )}
+
+            {/* Selected tower marker and popup */}
+            {selectedTower && typeof selectedTower.lat === 'number' && (
+                <MapMarker
+                    longitude={selectedTower.lon}
+                    latitude={selectedTower.lat}
+                    onClick={() => onTowerSelect(selectedTower)}
+                >
+                    <MarkerContent>
+                        <Box className="mapcn-marker-selected" />
+                    </MarkerContent>
+                </MapMarker>
+            )}
+
+            {selectedTower && (
+                <MapPopup
+                    key={`tower-popup-${selectedTower.id}`}
+                    longitude={selectedTower.lon}
+                    latitude={selectedTower.lat}
+                    maxWidth="420px"
+                    closeButton
+                    className="mapcn-popup"
+                    onClose={() => onTowerDeselect?.(selectedTower.id)}
+                >
+                    <Box className="mapcn-popup-body">
+                        {selectedTower.isLead ? (
+                            <>
+                                <Typography className="mapcn-popup-title">Tower Lead</Typography>
+                                <Box className="mapcn-popup-row">
+                                    <span>Source</span>
+                                    <strong>{selectedTower.source || 'Unknown'}</strong>
+                                </Box>
+                                <Box className="mapcn-popup-row">
+                                    <span>Type</span>
+                                    <strong>
+                                        {typeof selectedTower.type === 'object'
+                                            ? selectedTower.type?.name || 'Unknown'
+                                            : selectedTower.type || 'Unknown'}
+                                    </strong>
+                                </Box>
+                                <Box className="mapcn-popup-row">
+                                    <span>Coordinates</span>
+                                    <strong>
+                                        {selectedTower.lat.toFixed(6)}, {selectedTower.lon.toFixed(6)}
+                                    </strong>
+                                </Box>
+                                {(selectedTower.city || selectedTower.country) && (
+                                    <Box className="mapcn-popup-row">
+                                        <span>Location</span>
+                                        <span style={{ textAlign: 'right' }}>
+                                            {[selectedTower.city, selectedTower.country].filter(Boolean).join(', ')}
+                                        </span>
+                                    </Box>
+                                )}
+                                <Box className="mapcn-popup-actions">
+                                    <Button
+                                        size="small"
+                                        variant="outlined"
+                                        fullWidth
+                                        component="a"
+                                        href={pinnedMapUrl(selectedTower.lat, selectedTower.lon, {
+                                            satellite: true,
+                                            zoom: 18,
+                                        })}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        sx={{ textTransform: 'none', fontSize: 12 }}
+                                    >
+                                        View Satellite
+                                    </Button>
+                                    <Button
+                                        size="small"
+                                        variant="contained"
+                                        fullWidth
+                                        sx={{
+                                            bgcolor: '#4caf50',
+                                            '&:hover': { bgcolor: '#388e3c' },
+                                            textTransform: 'none',
+                                            fontSize: 12,
+                                        }}
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            onTowerSelect({
+                                                ...selectedTower,
+                                                isLead: true,
+                                                action: 'promote',
+                                            } as MapTower);
+                                        }}
+                                    >
+                                        Add to Towers
+                                    </Button>
+                                </Box>
+                            </>
+                        ) : (
+                            <>
+                                <Typography className="mapcn-popup-title">{towerLabel(selectedTower.type)}</Typography>
+                                <Box className="mapcn-popup-row">
+                                    <span>ID</span>
+                                    <strong>{selectedTower.id}</strong>
+                                </Box>
+                                {selectedTower.parcel?.address && (
+                                    <Box className="mapcn-popup-row">
+                                        <span>Address</span>
+                                        <span style={{ textAlign: 'left' }}>{String(selectedTower.parcel.address)}</span>
+                                    </Box>
+                                )}
+                                <Box className="mapcn-popup-row">
+                                    <span>Status</span>
+                                    <strong>{statusLabel(selectedTower.status)}</strong>
+                                </Box>
+                                <Box className="mapcn-popup-row">
+                                    <span>Coordinates</span>
+                                    <strong>
+                                        {selectedTower.lat.toFixed(5)}, {selectedTower.lon.toFixed(5)}
+                                    </strong>
+                                </Box>
+                                <Box className="mapcn-popup-row">
+                                    <span>Source</span>
+                                    <span>{selectedTower.source || 'Excel Import'}</span>
+                                </Box>
+                                <Box className="mapcn-popup-actions">
+                                    <Button
+                                        size="small"
+                                        variant="contained"
+                                        fullWidth
+                                        sx={{
+                                            bgcolor: '#ff9800',
+                                            '&:hover': { bgcolor: '#f57c00' },
+                                            textTransform: 'none',
+                                            fontSize: 12,
+                                        }}
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            onTowerSelect({ ...selectedTower, action: 'addOwner' } as MapTower);
+                                        }}
+                                    >
+                                        Add Property Owner
+                                    </Button>
+                                </Box>
+                            </>
+                        )}
+                    </Box>
+                </MapPopup>
+            )}
+
+            {/* Selected business popup */}
+            {selectedBusiness && selectedBusinessCoords && (
+                <MapPopup
+                    key={`biz-popup-${selectedBusiness.id}`}
+                    longitude={selectedBusinessCoords[1]}
+                    latitude={selectedBusinessCoords[0]}
+                    closeButton
+                    className="mapcn-popup"
+                >
+                    <Box className="mapcn-popup-body">
+                        <Typography className="mapcn-popup-title">{selectedBusiness.name}</Typography>
+                        <Box className="mapcn-popup-row">
+                            <span>Type</span>
+                            <span>Business</span>
+                        </Box>
+                        <Box className="mapcn-popup-row">
+                            <span>Distance</span>
+                            <strong>{Math.round(selectedBusiness.distance)}m</strong>
+                        </Box>
+                        {selectedBusiness.phone && (
+                            <Box className="mapcn-popup-row">
+                                <span>Phone</span>
+                                <strong>{selectedBusiness.phone}</strong>
+                            </Box>
+                        )}
+                    </Box>
+                </MapPopup>
+            )}
+
+            {/* GPS position */}
+            {userPosition && (
+                <MapMarker
+                    longitude={userPosition.lon}
+                    latitude={userPosition.lat}
+                    draggable={false}
+                >
+                    <MarkerContent>
+                        <Box className="mapcn-marker-user" />
+                    </MarkerContent>
+                </MapMarker>
+            )}
+        </Map>
+    );
+}

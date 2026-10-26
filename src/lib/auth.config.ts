@@ -21,7 +21,7 @@ export const authConfig = {
         maxAge: 7 * 24 * 60 * 60, // inactive sessions expire after 7 days (was 30)
     },
     callbacks: {
-        async jwt({ token, user }) {
+        async jwt({ token, user, trigger, session }) {
             // Runs once at sign-in with the user returned by authorize().
             if (user) {
                 const signInUser = user as unknown as SignInUser;
@@ -34,6 +34,14 @@ export const authConfig = {
                         token.forcedPasswordChange = signInUser.mustChangePassword;
                         token.passwordPolicyOutdated = signInUser.passwordPolicyOutdated;
                         token.twoFactorEnabled = signInUser.twoFactorEnabled;
+            }
+            // Display-name refresh only. Identity fields stay sign-in owned;
+            // email changes revoke the session instead of mutating the token.
+            if (trigger === 'update') {
+                const nextName = (session as { user?: { name?: string } } | undefined)?.user?.name;
+                if (typeof nextName === 'string' && nextName.trim()) {
+                    token.name = nextName.trim();
+                }
             }
             return token;
         },

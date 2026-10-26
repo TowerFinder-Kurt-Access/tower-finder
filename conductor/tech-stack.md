@@ -9,7 +9,7 @@
 - **Database:** PostgreSQL
 
 ## Key Libraries & Tools
-- **Maps:** Leaflet & React-Leaflet
+- **Maps:** MapLibre GL with vendored mapcn components
 - **Normalization:** OpenStreetMap (Nominatim)
 - **Authentication:** NextAuth.js (v5)
 - **Phone Validation:** NumVerify API & Multi-level sequential logic (Format, Active, Ring [Pending Robocaller API]).

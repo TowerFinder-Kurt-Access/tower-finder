@@ -341,6 +341,8 @@ export default function AdminUserDetailPage({ params }: PageProps) {
                         type="email"
                         value={formData.email}
                         onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                        helperText="Email changes are self-service only. The account owner updates it in Profile."
+                        disabled
                         fullWidth
                     />
                     <FormControl fullWidth>

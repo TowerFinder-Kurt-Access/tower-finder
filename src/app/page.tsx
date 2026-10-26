@@ -11,13 +11,17 @@ import MapIcon from '@mui/icons-material/Map';
 import MyLocationIcon from '@mui/icons-material/MyLocation';
 import AddLocationIcon from '@mui/icons-material/AddLocation';
 import { useGeolocation } from '@/hooks/useGeolocation';
-// Dynamically import Map to avoid SSR issues with Leaflet
-const Map = dynamic(() => import('@/components/Map'), {
+// Dynamically import the map client-side only: MapLibre needs a DOM canvas
+// and window, which the server render does not have.
+const Map = dynamic(() => import('@/components/TowerMap'), {
   ssr: false,
   loading: () => <p>Loading Map...</p>
 });
 import AddOwnerDialog from '@/components/AddOwnerDialog';
 import PromoteLeadDialog from '@/components/PromoteLeadDialog';
+import MapDetailsPanel from '@/components/MapDetailsPanel';
+import { DEFAULT_MAP_MODES, DEFAULT_MAP_STYLE, type MapModeState, type MapStyleId } from '@/components/ui/cluster-styles';
+import { mapOverlaySx } from '@/lib/map-overlay';
 
 interface Tower {
   id: number;
@@ -42,7 +46,11 @@ interface OwnerResult {
   } | null;
 }
 
-
+/**
+ * Map data is the whole filtered set, so a filter that was loaded before can be
+ * restored from memory. Keyed by the API query, never by the viewport.
+ */
+const towerCache = new globalThis.Map<string, Tower[]>();
 
 function HomeContent() {
   const router = useRouter();
@@ -51,7 +59,6 @@ function HomeContent() {
   const [showLeads, setShowLeads] = useState<boolean>(false);
   const [mapCenter, setMapCenter] = useState<[number, number]>([46.5, -64.0]); // Default to Moncton area
   const [zoom, setZoom] = useState<number>(7);
-  const [mapBounds, setMapBounds] = useState<any>(null);
   const [boundsToFit, setBoundsToFit] = useState<[[number, number], [number, number]] | undefined>(undefined);
   const [shouldFitBounds, setShouldFitBounds] = useState<boolean>(false);
 
@@ -67,12 +74,14 @@ function HomeContent() {
   const [mounted, setMounted] = useState(false);
   const [leadToPromote, setLeadToPromote] = useState<any>(null);
   const [addOwnerTower, setAddOwnerTower] = useState<any>(null);
-  const [isViewingSpecificTower, setIsViewingSpecificTower] = useState<boolean>(false);
   const [isTrackingLocation, setIsTrackingLocation] = useState<boolean>(false);
+  const [mapStyle, setMapStyle] = useState<MapStyleId>(DEFAULT_MAP_STYLE);
+  const [mapModes, setMapModes] = useState<MapModeState>(DEFAULT_MAP_MODES);
   const [isDroppingTower, setIsDroppingTower] = useState<boolean>(false);
   const { position: userPosition, error: geoError, start: startGeo, stop: stopGeo } = useGeolocation();
 
   const isMounted = useRef(true);
+  const fetchSeq = useRef(0);
   useEffect(() => {
     isMounted.current = true;
     return () => {
@@ -103,7 +112,6 @@ function HomeContent() {
 
     // 0. Handle selectTower param — fetch tower and center map on it
     if (selectTowerParam) {
-      setIsViewingSpecificTower(true);
       const towerId = parseInt(selectTowerParam);
       if (!isNaN(towerId)) {
         axios.get(`/api/towers/${towerId}`).then(res => {
@@ -114,8 +122,6 @@ function HomeContent() {
             setShouldFitBounds(false);
             setBoundsToFit(undefined);
             setSelectedTower(t);
-            // Pre-seed the map with this tower so it renders immediately
-            setTowers([t]);
 
             // Update filters so sidebar reflects the tower's location
             if (t.parcel) {
@@ -134,8 +140,6 @@ function HomeContent() {
         });
       }
       return; // Don't process other params when selectTower is set
-    } else {
-      setIsViewingSpecificTower(false);
     }
 
     // 1. Sync Country Context from URL
@@ -164,51 +168,50 @@ function HomeContent() {
     }
   }, [searchParams, selectedCountry, setCountry]);
 
-  // Handle map bounds change
-  const handleBoundsChange = useCallback((bounds: any) => {
-    if (isMounted.current) {
-      setMapBounds(bounds);
-      // Optional: track current zoom to prevent snapbacks if needed
-      // but flyTo with stable state should be fine.
-    }
-  }, []);
-
-  // Fetch Towers based on filters and map bounds
-  // ... (lines 114-162 unchanged but I'll include the relevant parts)
+  // Fetch every tower matching the filters. The map clusters the full set
+  // itself, so the points never depend on the viewport: panning and zooming
+  // cannot move a cluster that was already on screen.
   useEffect(() => {
     const fetchTowers = async () => {
-      // Don't refetch all towers in the bounds if we explicitly targeted one tower from the URL redirect
-      if (!isMounted.current || isViewingSpecificTower) return;
+      if (!isMounted.current) return;
+      const seq = ++fetchSeq.current;
+
+      const params: Record<string, string> = { map: '1' };
+
+      // Filters
+      if (selectedCountry) params.country = selectedCountry;
+      if (selectedProvince) params.state = selectedProvince;
+      if (selectedCity) params.city = selectedCity;
+      if (selectedZip) params.zip = selectedZip;
+
+      if (selectedType) params.type = selectedType;
+      if (selectedCarrier) params.carrier = selectedCarrier;
+      if (searchQuery) params.search = searchQuery;
+
+      // Reuse a filter set that was loaded before. Zooming and panning never
+      // refetch, and going back to an earlier filter is instant.
+      const cacheKey = JSON.stringify(params);
+      const cached = towerCache.get(cacheKey);
+      if (cached) {
+        setTowers(cached);
+        setIsLoading(false);
+        return;
+      }
+
       setIsLoading(true);
       try {
-        const params: any = {};
-
-        // Filters
-        if (selectedCountry) params.country = selectedCountry;
-        if (selectedProvince) params.state = selectedProvince;
-        if (selectedCity) params.city = selectedCity;
-        if (selectedZip) params.zip = selectedZip;
-
-        if (selectedType) params.type = selectedType;
-        if (selectedCarrier) params.carrier = selectedCarrier;
-        if (searchQuery) params.search = searchQuery;
-
-        // BBox (only if allowed / needed)
-        if (mapBounds && !shouldFitBounds && !((selectedCity || selectedProvince) && towers.length === 0)) {
-          const { north, south, east, west } = mapBounds;
-          params.bbox = `${west},${south},${east},${north}`;
-        }
-
-        if (shouldFitBounds) {
-          delete params.bbox;
-        }
-
         const { data } = await axios.get('/api/towers', { params });
-        if (isMounted.current) setTowers(data);
+        // A slower, older request must never overwrite a newer filter result.
+        if (isMounted.current && seq === fetchSeq.current) {
+          towerCache.set(cacheKey, data);
+          // Bound the cache: every entry is the full filtered set.
+          if (towerCache.size > 8) towerCache.delete(towerCache.keys().next().value as string);
+          setTowers(data);
+        }
       } catch (error) {
         console.error('Error fetching towers:', error);
       } finally {
-        if (isMounted.current) setIsLoading(false);
+        if (isMounted.current && seq === fetchSeq.current) setIsLoading(false);
       }
     };
 
@@ -217,7 +220,7 @@ function HomeContent() {
     }, 500);
 
     return () => clearTimeout(timeoutId);
-  }, [mapBounds, selectedCountry, selectedProvince, selectedCity, selectedZip, selectedType, selectedCarrier, searchQuery, shouldFitBounds, towers.length, isViewingSpecificTower]);
+  }, [selectedCountry, selectedProvince, selectedCity, selectedZip, selectedType, selectedCarrier, searchQuery]);
 
   // Fit bounds using Geocoding API when filter changes
   useEffect(() => {
@@ -262,7 +265,7 @@ function HomeContent() {
       if (!isMounted.current) return;
       setIsLeadsLoading(true);
       try {
-        const params: any = { limit: 500 };
+        const params: any = { limit: 500, promoted: 'false' };
         if (selectedCountry) params.country = selectedCountry;
         if (selectedCity) params.city = selectedCity;
         if (searchQuery) params.search = searchQuery;
@@ -279,6 +282,14 @@ function HomeContent() {
     fetchTowerLeads();
   }, [showLeads, selectedCity, selectedCountry, searchQuery]);
 
+  // Closing the map popup clears the selection, so the sidebar and the map
+  // agree. Without this the popup closes but the tower stays selected.
+  const handleTowerDeselect = useCallback((id?: number) => {
+    // A replaced popup closes after the new selection is in place. Compare the
+    // id, or the old popup would clear the tower/lead just clicked.
+    setSelectedTower(prev => (id == null || prev?.id === id ? null : prev));
+  }, []);
+
   const handleTowerSelect = (tower: any) => {
     if (tower.action === 'promote') {
       handlePromoteClick(tower);
@@ -286,7 +297,19 @@ function HomeContent() {
       setAddOwnerTower(tower);
     } else {
       setSelectedTower(tower);
-      setIsViewingSpecificTower(false); // They clicked a new tower or clicked space, so unlock fetching
+      // Map rows are light: fetch the full record so the parcel outline and the
+      // address arrive. A late reply for an older selection is ignored.
+      if (!tower.isLead && typeof tower.id === 'number' && !tower.parcel?.geometry) {
+        axios.get(`/api/towers/${tower.id}`)
+          .then(({ data }) => {
+            if (!isMounted.current) return;
+            setSelectedTower(prev => (prev && prev.id === tower.id ? { ...prev, ...data } : prev));
+          })
+          .catch(err => {
+            // The light row still renders its popup; the detail is an extra.
+            console.error('Failed to fetch tower details:', err);
+          });
+      }
       // Pan to the newly selected tower if it has coordinates
       if (tower.lat && tower.lon) {
         setMapCenter([tower.lat, tower.lon]);
@@ -324,7 +347,6 @@ function HomeContent() {
 
     setShowLeads(false);
     setTowerLeads([]);
-    setTowers([]);
   }, [selectedCountry, searchParams]);
 
   const handleProvinceChange = (newProvince: string) => {
@@ -333,9 +355,9 @@ function HomeContent() {
     setSelectedZip('');
     setShouldFitBounds(true);
     setShowLeads(false);
-    setIsViewingSpecificTower(false); // Unset explicit target
     setTowerLeads([]);
-    setTowers([]);
+    // The selection belongs to the previous filter set.
+    setSelectedTower(null);
   };
 
   const handleCityChange = (newCity: string) => {
@@ -343,18 +365,18 @@ function HomeContent() {
     setSelectedZip('');
     setShouldFitBounds(true);
     setShowLeads(false);
-    setIsViewingSpecificTower(false); // Unset explicit target
     setTowerLeads([]);
-    setTowers([]);
+    // The selection belongs to the previous filter set.
+    setSelectedTower(null);
   };
 
   const handleZipChange = (newZip: string) => {
     setSelectedZip(newZip);
     setShouldFitBounds(true);
     setShowLeads(false);
-    setIsViewingSpecificTower(false); // Unset explicit target
     setTowerLeads([]);
-    setTowers([]);
+    // The selection belongs to the previous filter set.
+    setSelectedTower(null);
   };
 
   const handleLookupOwner = async (tower: Tower) => {
@@ -371,7 +393,6 @@ function HomeContent() {
   };
 
   const handleFilterChange = (filters: FilterState) => {
-    setIsViewingSpecificTower(false); // Unset explicit target
     if (filters.city !== undefined && filters.city !== selectedCity) handleCityChange(filters.city);
     if (filters.zip !== undefined && filters.zip !== selectedZip) handleZipChange(filters.zip);
     if (filters.type !== undefined) setSelectedType(filters.type);
@@ -420,6 +441,8 @@ function HomeContent() {
         source: 'field'
       });
       if (!isMounted.current) return;
+      // The new row must not be missing from a cached filter set.
+      towerCache.clear();
       setTowers(prev => {
         const idx = prev.findIndex(t => t.id === newTower.id);
         if (idx >= 0) {
@@ -473,24 +496,26 @@ function HomeContent() {
             center={mapCenter}
             zoom={zoom}
             bounds={boundsToFit}
-            onBoundsChange={handleBoundsChange}
             onTowerSelect={handleTowerSelect}
+            onTowerDeselect={handleTowerDeselect}
             selectedTower={selectedTower}
             towerLeads={showLeads ? towerLeads : []}
             userPosition={isTrackingLocation ? userPosition : null}
+            onLocate={toggleLocationTracking}
+            mapStyle={mapStyle}
+            mapModes={mapModes}
           />
         </Suspense>
 
         <Paper
-          elevation={3}
+          elevation={0}
           sx={{
+            ...mapOverlaySx,
             position: 'absolute',
             top: 20,
             right: 20,
             zIndex: 1000,
-            bgcolor: 'background.paper',
-            borderRadius: 2,
-            overflow: 'hidden'
+            overflow: 'hidden',
           }}
         >
           <Box
@@ -502,7 +527,7 @@ function HomeContent() {
               alignItems: 'center',
               gap: 1,
               '&:hover': { bgcolor: 'action.hover' },
-              bgcolor: showLeads ? 'primary.soft' : 'background.paper'
+              bgcolor: showLeads ? 'rgba(33, 150, 243, 0.10)' : 'transparent',
             }}
           >
             <MapIcon color={showLeads ? "primary" : "action"} />
@@ -517,80 +542,46 @@ function HomeContent() {
           </Box>
         </Paper>
 
-        <Paper
-          elevation={3}
-          sx={{
-            position: 'absolute',
-            top: 90,
-            right: 20,
-            zIndex: 1000,
-            bgcolor: 'background.paper',
-            borderRadius: 2,
-            overflow: 'hidden',
-            minWidth: 200
-          }}
-        >
-          <Box
-            onClick={toggleLocationTracking}
+        <MapDetailsPanel
+          mapStyle={mapStyle}
+          onMapStyleChange={setMapStyle}
+          mapModes={mapModes}
+          onMapModesChange={setMapModes}
+        />
+
+        {/* Drop tower: only meaningful with a GPS fix, so it appears then. */}
+        {isTrackingLocation && userPosition && (
+          <Paper
+            elevation={3}
+            onClick={isDroppingTower ? undefined : handleDropTower}
             sx={{
+              position: 'absolute',
+              top: 90,
+              right: 20,
+              zIndex: 1000,
               p: 1.5,
-              cursor: 'pointer',
+              cursor: isDroppingTower ? 'wait' : 'pointer',
               display: 'flex',
               alignItems: 'center',
               gap: 1,
-              minHeight: 44,
+              borderRadius: 2,
+              bgcolor: 'success.soft',
+              opacity: isDroppingTower ? 0.6 : 1,
               '&:hover': { bgcolor: 'action.hover' },
-              bgcolor: isTrackingLocation ? 'primary.soft' : 'background.paper'
             }}
           >
-            <MyLocationIcon color={isTrackingLocation ? 'primary' : 'action'} />
+            <AddLocationIcon color="success" />
             <Box>
               <Box sx={{ fontWeight: 'bold', fontSize: '0.9rem' }}>
-                {isTrackingLocation ? 'Tracking location' : 'Locate me'}
+                {isDroppingTower ? 'Saving…' : 'Drop tower here'}
               </Box>
               <Box sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>
-                {isTrackingLocation
-                  ? (userPosition ? 'GPS active' : 'Waiting for GPS…')
-                  : 'Tap to share location'}
+                {userPosition.lat.toFixed(5)}, {userPosition.lon.toFixed(5)}
               </Box>
             </Box>
-          </Box>
+          </Paper>
+        )}
 
-          {isTrackingLocation && geoError && (
-            <Box sx={{ px: 1.5, pb: 1, fontSize: '0.75rem', color: 'error.main' }}>
-              Location unavailable — check permissions
-            </Box>
-          )}
-
-          {isTrackingLocation && userPosition && (
-            <Box
-              onClick={isDroppingTower ? undefined : handleDropTower}
-              sx={{
-                p: 1.5,
-                cursor: isDroppingTower ? 'wait' : 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 1,
-                minHeight: 44,
-                borderTop: '1px solid',
-                borderColor: 'divider',
-                bgcolor: 'success.soft',
-                opacity: isDroppingTower ? 0.6 : 1,
-                '&:hover': { bgcolor: isDroppingTower ? 'success.soft' : 'action.hover' }
-              }}
-            >
-              <AddLocationIcon color="success" />
-              <Box>
-                <Box sx={{ fontWeight: 'bold', fontSize: '0.9rem' }}>
-                  {isDroppingTower ? 'Saving…' : 'Drop tower here'}
-                </Box>
-                <Box sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>
-                  {userPosition.lat.toFixed(5)}, {userPosition.lon.toFixed(5)}
-                </Box>
-              </Box>
-            </Box>
-          )}
-        </Paper>
 
         <PromoteLeadDialog
           open={!!leadToPromote}

@@ -2,8 +2,9 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getAuthUser } from '@/lib/auth-helpers';
 import { issueLoginOtp, verifyLoginOtp } from '@/lib/otp';
+import { isOtpSendBudgetExhausted, recordLoginEvent, requestIp } from '@/lib/login-security';
 
-// GET /api/profile/two-factor — current opt-in state for the profile page.
+// GET /api/profile/two-factor — current activation state.
 export async function GET() {
     try {
         const user = await getAuthUser();
@@ -23,10 +24,9 @@ interface TwoFactorBody {
 }
 
 // POST /api/profile/two-factor
-//   { action: 'enable' }          -> emails a code; must be verified before it turns on
-//   { action: 'verify', code }    -> code proven -> twoFactorEnabled = true
-//   { action: 'disable' }         -> sends OTP for confirmation (no code) or verifies it (with code)
-//   { action: 'disable', code }   -> verifies OTP -> twoFactorEnabled = false
+//   { action: 'enable' }        -> emails a code; activation waits for verify
+//   { action: 'verify', code }  -> code proven, twoFactorEnabled = true
+//   disable is blocked: once activated, 2FA stays on.
 export async function POST(request: Request) {
     let user;
     try {
@@ -42,34 +42,64 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
     }
 
+    if (body.action === 'disable') {
+        return NextResponse.json(
+            { error: 'Two-factor authentication cannot be turned off once enabled.' },
+            { status: 403 },
+        );
+    }
+
     try {
         if (body.action === 'enable') {
-            // Reuses the same LoginOtp row + cooldown as the login flow.
+            if (await isOtpSendBudgetExhausted(user.email)) {
+                return NextResponse.json(
+                    { error: 'Too many codes sent. Try again later.', code: 'otp_cooldown' },
+                    { status: 429 },
+                );
+            }
             const issued = await issueLoginOtp(user.email);
             if (issued.cooldownRemainingSeconds > 0) {
                 return NextResponse.json(
-                    { error: 'A code was already sent. Wait before requesting another.', code: 'otp_cooldown', remainingSeconds: issued.cooldownRemainingSeconds },
-                    { status: 429 }
+                    {
+                        error: 'A code was already sent. Wait before requesting another.',
+                        code: 'otp_cooldown',
+                        remainingSeconds: issued.cooldownRemainingSeconds,
+                    },
+                    { status: 429 },
                 );
             }
-            return NextResponse.json({ status: 'otp_sent' });
+            if (issued.deliveryResult && !issued.deliveryResult.ok) {
+                return NextResponse.json(
+                    { error: 'Could not send the code. Try again.', code: 'otp_send_failed' },
+                    { status: 502 },
+                );
+            }
+            await recordLoginEvent({
+                email: user.email,
+                userId: user.id,
+                type: 'OTP_SENT',
+                ip: requestIp(request),
+                userAgent: request.headers.get('user-agent'),
+                metadata: { purpose: 'two_factor_setup', resendStatus: issued.deliveryResult?.resendStatus },
+            }).catch(() => {});
+            return NextResponse.json({ sent: true });
         }
 
         if (body.action === 'verify') {
-            const code = (body.code ?? '').trim();
-            if (!/^\d{6}$/.test(code)) {
-                return NextResponse.json({ error: 'Enter the 6-digit code', code: 'otp_invalid' }, { status: 400 });
+            if (!body.code || !/^\d{8}$/.test(body.code)) {
+                return NextResponse.json({ error: 'Enter the 8-digit code.' }, { status: 400 });
             }
-            const verified = await verifyLoginOtp(user.email, code);
+
+            const verified = await verifyLoginOtp(user.email, body.code);
             if (verified.ok === false) {
-                const message =
-                    verified.reason === 'max_attempts'
-                        ? 'Too many wrong codes. Request a new one.'
-                        : verified.reason === 'invalid'
-                          ? 'Incorrect code. Try again.'
-                          : 'That code expired or was already used — request a new one.';
-                return NextResponse.json({ error: message, code: `otp_${verified.reason}` }, { status: 400 });
+                const message = verified.reason === 'invalid'
+                    ? 'That code is not correct.'
+                    : verified.reason === 'max_attempts'
+                        ? 'Too many attempts. Request a new code.'
+                        : 'That code expired. Request a new one.';
+                return NextResponse.json({ error: message }, { status: 400 });
             }
+
             const updated = await prisma.user.update({
                 where: { id: user.id },
                 data: { twoFactorEnabled: true, sessionVersion: { increment: 1 } },
@@ -77,46 +107,9 @@ export async function POST(request: Request) {
             return NextResponse.json({ twoFactorEnabled: updated.twoFactorEnabled });
         }
 
-        if (body.action === 'disable') {
-            const code = (body.code ?? '').trim();
-            // Step 1: no code yet -> send OTP for confirmation
-            if (!code) {
-                const issued = await issueLoginOtp(user.email);
-                if (issued.cooldownRemainingSeconds > 0) {
-                    return NextResponse.json(
-                        { error: 'A code was already sent. Wait before requesting another.', code: 'otp_cooldown', remainingSeconds: issued.cooldownRemainingSeconds },
-                        { status: 429 }
-                    );
-                }
-                return NextResponse.json({ status: 'otp_sent' });
-            }
-            // Step 2: code provided -> verify then disable
-            if (!/^\d{6}$/.test(code)) {
-                return NextResponse.json({ error: 'Enter the 6-digit code', code: 'otp_invalid' }, { status: 400 });
-            }
-            const verified = await verifyLoginOtp(user.email, code);
-            if (verified.ok === false) {
-                const message =
-                    verified.reason === 'max_attempts'
-                        ? 'Too many wrong codes. Request a new one.'
-                        : verified.reason === 'invalid'
-                          ? 'Incorrect code. Try again.'
-                          : 'That code expired or was already used — request a new one.';
-                return NextResponse.json({ error: message, code: `otp_${verified.reason}` }, { status: 400 });
-            }
-            const updated = await prisma.user.update({
-                where: { id: user.id },
-                data: { twoFactorEnabled: false, sessionVersion: { increment: 1 } },
-            });
-            return NextResponse.json({ twoFactorEnabled: updated.twoFactorEnabled });
-        }
-
         return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
-    } catch (err) {
-        console.error('[two-factor] failed:', err);
-        return NextResponse.json(
-            { error: 'Could not send the code. Please try again.', code: 'otp_send_failed' },
-            { status: 502 }
-        );
+    } catch (error) {
+        console.error('[two-factor] POST failed:', error);
+        return NextResponse.json({ error: 'Could not complete 2FA setup.' }, { status: 500 });
     }
 }
