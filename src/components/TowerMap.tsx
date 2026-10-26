@@ -799,7 +799,7 @@ export default function TowerMap({
                     key={`tower-popup-${selectedTower.id}`}
                     longitude={selectedTower.lon}
                     latitude={selectedTower.lat}
-                    maxWidth="360px"
+                    maxWidth="420px"
                     closeButton
                     className="mapcn-popup"
                     onClose={() => onTowerDeselect?.(selectedTower.id)}
@@ -883,7 +883,7 @@ export default function TowerMap({
                                 {selectedTower.parcel?.address && (
                                     <Box className="mapcn-popup-row">
                                         <span>Address</span>
-                                        <span style={{ textAlign: 'right' }}>{String(selectedTower.parcel.address)}</span>
+                                        <span style={{ textAlign: 'left' }}>{String(selectedTower.parcel.address)}</span>
                                     </Box>
                                 )}
                                 <Box className="mapcn-popup-row">

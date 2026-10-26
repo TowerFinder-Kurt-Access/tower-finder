@@ -66,7 +66,7 @@
   position: relative;
   /* Wide enough for a full street address without an aggressive wrap. */
   width: max-content;
-  max-width: 360px;
+  max-width: 420px;
   padding: 14px;
   border-radius: 6px;
   border: 1px solid #e2e8f0;
@@ -150,19 +150,6 @@
   outline: 2px solid #3b82f6;
   outline-offset: -2px;
   border-radius: 3px;
-}
-
-/* ---------- Tooltips ---------- */
-.mapcn-tooltip {
-  padding: 4px 8px;
-  border-radius: 4px;
-  background: #0f172a;
-  color: #f8fafc;
-  font-size: 11px;
-  line-height: 1.4;
-  pointer-events: none;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-  animation: mapcn-pop-in 150ms ease-out;
 }
 
 /* ---------- Marker labels ---------- */
@@ -258,37 +245,6 @@
 .mapcn-control-button:disabled {
   opacity: 0.5;
   pointer-events: none;
-}
-
-/* ---------- Cluster legend ---------- */
-.mapcn-cluster-legend {
-  position: absolute;
-  bottom: 8px;
-  left: 8px;
-  z-index: 10;
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  padding: 8px 10px;
-  border-radius: 6px;
-  border: 1px solid #e2e8f0;
-  background: rgba(255, 255, 255, 0.94);
-  font-size: 11px;
-  color: #334155;
-  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-  pointer-events: none;
-}
-.mapcn-cluster-legend-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.mapcn-cluster-legend-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  border: 1.5px solid #ffffff;
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08);
 }
 
 /* ---------- Tower markers ---------- */

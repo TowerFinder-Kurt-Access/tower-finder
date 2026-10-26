@@ -39,6 +39,16 @@ const STYLE_ICONS: Record<MapStyleId, React.ReactNode> = {
     satellite: <SatelliteAltIcon fontSize="small" />,
 };
 
+/** Shared heading style for the two groups inside the panel. */
+const sectionLabelSx = {
+    fontSize: 11,
+    fontWeight: 700,
+    letterSpacing: '0.06em',
+    textTransform: 'uppercase',
+    color: 'text.secondary',
+    mb: 1,
+} as const;
+
 function ModeButton({
     label,
     icon,
@@ -147,16 +157,7 @@ export default function MapDetailsPanel({
             <Collapse in={open}>
                 <Divider />
                 <Box sx={{ p: 1.5 }}>
-                    <Typography
-                        sx={{
-                            fontSize: 11,
-                            fontWeight: 700,
-                            letterSpacing: '0.06em',
-                            textTransform: 'uppercase',
-                            color: 'text.secondary',
-                            mb: 1,
-                        }}
-                    >
+                    <Typography sx={sectionLabelSx}>
                         Map type
                     </Typography>
                     <Box sx={{ display: 'grid', gridTemplateColumns: '1fr', gap: 1 }}>
@@ -173,16 +174,7 @@ export default function MapDetailsPanel({
 
                     <Divider sx={{ my: 1.5 }} />
 
-                    <Typography
-                        sx={{
-                            fontSize: 11,
-                            fontWeight: 700,
-                            letterSpacing: '0.06em',
-                            textTransform: 'uppercase',
-                            color: 'text.secondary',
-                            mb: 1,
-                        }}
-                    >
+                    <Typography sx={sectionLabelSx}>
                         Map details
                     </Typography>
                     <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1 }}>
