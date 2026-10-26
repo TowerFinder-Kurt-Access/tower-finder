@@ -101,7 +101,7 @@ export const LEAD_CLUSTER_COLORS = ['#4caf50', '#388e3c', '#1b5e20'] as const;
 export const TOWER_CLUSTER_COLORS_DARK = ['#f87171', '#f87171', '#f87171'] as const;
 export const LEAD_CLUSTER_COLORS_DARK = ['#81c784', '#4caf50', '#388e3c'] as const;
 
-/** Point colors, matching the current Leaflet marker fills. */
+/** Point colors, matching the original marker fills. */
 export const TOWER_POINT_COLOR = '#e53935';
 export const LEAD_POINT_COLOR = '#66bb6a';
 

@@ -11,7 +11,8 @@ import MapIcon from '@mui/icons-material/Map';
 import MyLocationIcon from '@mui/icons-material/MyLocation';
 import AddLocationIcon from '@mui/icons-material/AddLocation';
 import { useGeolocation } from '@/hooks/useGeolocation';
-// Dynamically import Map to avoid SSR issues with Leaflet
+// Dynamically import the map client-side only: MapLibre needs a DOM canvas
+// and window, which the server render does not have.
 const Map = dynamic(() => import('@/components/TowerMap'), {
   ssr: false,
   loading: () => <p>Loading Map...</p>

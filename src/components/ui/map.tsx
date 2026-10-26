@@ -481,9 +481,8 @@ const Map = forwardRef<MapRef, MapProps>(function Map(
   // The container is `h-full w-full`, which resolves against the parent. In a
   // flex chain that height is not final until after the first paint, so the
   // canvas is created too small and MapLibre never re-reads it on its own.
-  // Leaflet's MapContainer called resize() for us; mapcn does not. Without
-  // this, the map paints only the corner the canvas was sized to and the rest
-  // of the box stays blank.
+  // Nothing else calls resize() for us. Without this, the map paints only the
+  // corner the canvas was sized to and the rest of the box stays blank.
   useEffect(() => {
     if (!mapInstance || !isLoaded) return;
 

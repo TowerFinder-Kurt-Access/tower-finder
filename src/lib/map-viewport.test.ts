@@ -20,7 +20,7 @@ assert.deepEqual(lngLat, [-64.0, 46.5], 'longitude comes first for MapLibre');
 
 assert.deepEqual(toLatLng(lngLat[0], lngLat[1]), [TOWER_LAT, TOWER_LON], 'round trip is lossless');
 
-assert.deepEqual(centerToLatLng(lngLat), [TOWER_LAT, TOWER_LON], 'a viewport center reads back in Leaflet order');
+assert.deepEqual(centerToLatLng(lngLat), [TOWER_LAT, TOWER_LON], 'a viewport center reads back in app order');
 
 // A negative latitude would look plausible if the pair were swapped.
 assert.equal(lngLat[1], TOWER_LAT, 'latitude stays in the second slot');

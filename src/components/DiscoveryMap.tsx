@@ -39,7 +39,7 @@ type CellProps = {
     foundCount: number;
 };
 
-/** Cell color, matching the palette the Leaflet version used. */
+/** Cell color, matching the palette of the original discovery map. */
 function cellColor(cell: DiscoveryCell): string {
     if (cell.status === 'failed') return '#f44336';
     if (cell.status === 'processing') return '#2196F3';
@@ -140,7 +140,7 @@ function CellLayer({
     return null;
 }
 
-/** Fit the view to the cells, with the same 30px padding the Leaflet version used. */
+/** Fit the view to the cells, with the same 30px padding the map always used. */
 function FitCells({ cells }: { cells: DiscoveryCell[] }) {
     const { map } = useMap();
 
