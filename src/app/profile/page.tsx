@@ -137,7 +137,7 @@ export default function ProfilePage() {
             setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
             // Logout after password change
             setTimeout(() => {
-                signOut({ callbackUrl: '/login' });
+                signOut({ callbackUrl: '/login?success=password-changed' });
             }, 2000);
         } catch (error: unknown) {
             setMessageType('error');

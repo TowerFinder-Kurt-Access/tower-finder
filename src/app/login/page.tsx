@@ -24,15 +24,19 @@ function LoginPageContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const { showSnackbar } = useSnackbar();
+    const SUCCESS_MESSAGES: Record<string, string> = {
+        'password-reset': 'Password reset successfully! Please sign in with your new password.',
+        'password-changed': 'Password changed successfully. Please sign in again with your new password.',
+        'email-changed': 'Email changed successfully. Please sign in again with your new email address.',
+        '2fa-enabled': 'Two-factor authentication enabled. Please sign in again with your password and email code.',
+    };
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState(searchParams.get('error') === 'session-revoked'
         ? 'Your session has ended. Please sign in again.'
         : '');
     const [success, setSuccess] = useState(
-        searchParams.get('success') === 'password-reset'
-            ? 'Password reset successfully! Please sign in with your new password.'
-            : ''
+        SUCCESS_MESSAGES[searchParams.get('success') ?? ''] ?? ''
     );
     const [loading, setLoading] = useState(false);
     const [lockSecondsLeft, setLockSecondsLeft] = useState<number | null>(null);
