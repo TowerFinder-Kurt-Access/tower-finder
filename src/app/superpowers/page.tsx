@@ -12,6 +12,7 @@ import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import AutorenewIcon from '@mui/icons-material/Autorenew';
 import RadarIcon from '@mui/icons-material/Radar';
 import SettingsIcon from '@mui/icons-material/Settings';
+import HistoryIcon from '@mui/icons-material/History';
 import ArrowOutwardIcon from '@mui/icons-material/ArrowOutward';
 import { keyframes } from '@emotion/react';
 
@@ -35,13 +36,21 @@ const revealSx = (index: number) => ({
     '@media (prefers-reduced-motion: reduce)': { animation: 'none' },
 });
 
-// Bento order: 1 wide + 4 narrow. Wide leads the eye to the highest-traffic tool.
+// Bento order: 2 wide + 4 narrow. That fills four rows of a two-column grid
+// with no empty cell. The two wide cards lead the eye.
 const ENTRIES: ReadonlyArray<Entry> = [
     {
         label: 'Tower Leads',
         description: 'Search history, imported leads, and promotion to towers.',
         path: '/superpowers/tower-leads',
         icon: <ExploreIcon />,
+        span: 'wide',
+    },
+    {
+        label: 'Login Events',
+        description: 'Every sign-in, failure, lockout, and one-time code, with full metadata.',
+        path: '/superpowers/login-events',
+        icon: <HistoryIcon />,
         span: 'wide',
     },
     {
@@ -139,7 +148,7 @@ export default function SuperpowersLanding() {
                             maxWidth: '60ch',
                         }}
                     >
-                        Five focused surfaces for jobs, scans, users, and reference data. Pick one.
+                        Six focused surfaces for jobs, scans, users, and reference data. Pick one.
                     </Typography>
                 </Box>
 

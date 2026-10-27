@@ -16,9 +16,11 @@ import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import AutorenewIcon from '@mui/icons-material/Autorenew';
 import RadarIcon from '@mui/icons-material/Radar';
 import SettingsIcon from '@mui/icons-material/Settings';
+import HistoryIcon from '@mui/icons-material/History';
 
 const NAV_ITEMS = [
     { label: 'Tower Leads', icon: <ExploreIcon />, path: '/superpowers/tower-leads' },
+    { label: 'Login Events', icon: <HistoryIcon />, path: '/superpowers/login-events' },
     { label: 'Users', icon: <AdminPanelSettingsIcon />, path: '/superpowers/users' },
     { label: 'Background Jobs', icon: <AutorenewIcon />, path: '/superpowers/jobs' },
     { label: 'Discovery Scans', icon: <RadarIcon />, path: '/superpowers/discovery' },
