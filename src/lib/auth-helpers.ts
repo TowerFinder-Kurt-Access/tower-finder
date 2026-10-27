@@ -1,6 +1,7 @@
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { withDbRetry } from '@/lib/db-retry'
+import { isSuperpowersDenied } from '@/lib/superpowers-access'
 import { Role } from '@prisma/client'
 
 export interface AuthUser {
@@ -42,12 +43,14 @@ export async function getAuthUser(): Promise<AuthUser> {
 }
 
 /**
- * Check if user has admin role
+ * Check if user has admin role and may use the admin tools.
+ * SUPERPOWERS_DENIED_EMAILS / _USER_IDS keep an admin out of Superpowers
+ * without taking away the role.
  */
 export async function requireAdmin(): Promise<AuthUser> {
   const user = await getAuthUser()
 
-  if (user.role !== Role.ADMIN) {
+  if (user.role !== Role.ADMIN || isSuperpowersDenied(user)) {
     throw new Error('Forbidden - Admin access required')
   }
 

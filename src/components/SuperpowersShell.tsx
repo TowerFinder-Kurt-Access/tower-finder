@@ -15,7 +15,13 @@ import { TwoFactorEnrollment } from './TwoFactorEnrollment';
 
 const PUBLIC_ROUTES = ['/login', '/forgot-password', '/reset-password'];
 
-export default function SuperpowersShell({ children }: { children: React.ReactNode }) {
+export default function SuperpowersShell({
+    children,
+    superpowersDenied = false,
+}: {
+    children: React.ReactNode;
+    superpowersDenied?: boolean;
+}) {
     const pathname = usePathname();
     const { data: session, status } = useSession();
     const onSuperpowers = pathname?.startsWith('/superpowers') ?? false;
@@ -60,7 +66,7 @@ export default function SuperpowersShell({ children }: { children: React.ReactNo
                 </Box>
             );
         }
-        if (session?.user?.role !== Role.ADMIN) {
+        if (session?.user?.role !== Role.ADMIN || superpowersDenied) {
             return (
                 <Box sx={{ flex: 1, p: 4 }}>
                     <Alert severity="error">Access Denied. Admin privileges required.</Alert>

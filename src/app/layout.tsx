@@ -3,6 +3,7 @@ import './globals.css';
 import './mapcn.css';
 import type { Metadata } from 'next';
 import { auth } from '@/lib/auth';
+import { isSuperpowersDenied } from '@/lib/superpowers-access';
 import SuperpowersShell from '@/components/SuperpowersShell';
 import { SessionProvider } from 'next-auth/react';
 import { CountryProvider } from '@/lib/country-context';
@@ -20,6 +21,7 @@ export const metadata: Metadata = {
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const session = await auth();
+  const superpowersDenied = isSuperpowersDenied(session?.user);
 
   return (
     <html lang="en">
@@ -29,7 +31,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             <CountryProvider>
               <LayoutWithSnackbar>
                 {session ? (
-                    <SuperpowersShell>{children}</SuperpowersShell>
+                    <SuperpowersShell superpowersDenied={superpowersDenied}>{children}</SuperpowersShell>
                 ) : (
                     children
                 )}
