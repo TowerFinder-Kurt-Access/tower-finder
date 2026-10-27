@@ -9,6 +9,17 @@ const RETRYABLE: Record<string, true> = {
 };
 const DELAYS_MS = [300, 900, 1800];
 
+function isRetryable(error: unknown): boolean {
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+        return RETRYABLE[error.code] === true;
+    }
+    if (error instanceof Prisma.PrismaClientInitializationError) {
+        if (error.errorCode && RETRYABLE[error.errorCode]) return true;
+        return /can't reach database server|connection|timed out|P1001|P1002|P1017/i.test(error.message);
+    }
+    return false;
+}
+
 /**
  * Retry read-only database work through transient connection failures.
  * A database blip should not blank the map with a 500.
@@ -18,8 +29,7 @@ export async function withDbRetry<T>(run: () => Promise<T>): Promise<T> {
         try {
             return await run();
         } catch (error) {
-            const code = error instanceof Prisma.PrismaClientKnownRequestError ? error.code : null;
-            if (!code || !RETRYABLE[code] || attempt >= DELAYS_MS.length) throw error;
+            if (!isRetryable(error) || attempt >= DELAYS_MS.length) throw error;
             const { promise, resolve } = Promise.withResolvers<void>();
             setTimeout(resolve, DELAYS_MS[attempt]);
             await promise;

@@ -107,6 +107,8 @@ function LoginPageContent() {
                 setError('A code was already sent — wait a moment before requesting another.');
             } else if (result?.code === 'otp_send_failed') {
                 setError('Could not send the code. Please try again.');
+            } else if (result?.code === 'otp_send_budget') {
+                setError('Too many code requests. Please try again later.');
             } else if (result?.error) {
                 setError('Invalid email or password');
             } else {
@@ -166,8 +168,14 @@ function LoginPageContent() {
             if (result?.code === 'otp_required') {
                 setOtp('');
                 setResendSecondsLeft(60);
+                showSnackbar('A new code was sent. Check your email.', 'success');
             } else if (result?.code === 'otp_cooldown') {
                 setResendSecondsLeft(60);
+                setError('A code was already sent. Wait a moment before requesting another.');
+            } else if (result?.code === 'otp_send_budget') {
+                setError('Too many code requests. Please try again later.');
+            } else if (result?.code === 'otp_send_failed') {
+                setError('Could not send the code. Please try again shortly.');
             } else {
                 setOtpStep(false);
                 setError('Please try signing in again.');

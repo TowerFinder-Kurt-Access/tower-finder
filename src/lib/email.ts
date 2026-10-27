@@ -137,33 +137,54 @@ export async function sendEmail(
     }
     const from =
         process.env.EMAIL_FROM ?? 'Tower Finder <no-reply@towerfinder.com>';
-    let res: Response;
-    try {
-        res = await fetch('https://api.resend.com/emails', {
-            method: 'POST',
-            headers: {
-                Authorization: `Bearer ${apiKey}`,
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(
-                templateId
-                    ? {
-                          from,
-                          to,
-                          subject,
-                          template: { id: templateId, variables },
-                      }
-                    : { from, to, subject, html },
-            ),
-            // Every sign-in now waits on this call. A stuck provider must not
-            // hold the login open.
-            signal: AbortSignal.timeout(5000),
-        });
-    } catch (error) {
-        const detail = String(error).slice(0, 200);
+    let res: Response | null = null;
+    let lastError: unknown = null;
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+        res = null;
+        try {
+            res = await fetch('https://api.resend.com/emails', {
+                method: 'POST',
+                headers: {
+                    Authorization: `Bearer ${apiKey}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(
+                    templateId
+                        ? {
+                              from,
+                              to,
+                              subject,
+                              template: { id: templateId, variables },
+                          }
+                        : { from, to, subject, html },
+                ),
+                // Every sign-in now waits on this call. A stuck provider must not
+                // hold the login open.
+                signal: AbortSignal.timeout(5000),
+            });
+            if (res.ok) break;
+            if ((res.status >= 500 || res.status === 429) && attempt === 0) {
+                const { promise, resolve } = Promise.withResolvers<void>();
+                setTimeout(resolve, 600);
+                await promise;
+                continue;
+            }
+            break;
+        } catch (error) {
+            lastError = error;
+            if (attempt === 0) {
+                const { promise, resolve } = Promise.withResolvers<void>();
+                setTimeout(resolve, 600);
+                await promise;
+                continue;
+            }
+        }
+    }
+    if (!res) {
+        const detail = String(lastError).slice(0, 200);
         if (process.env.NODE_ENV !== 'production') {
             console.error(`[dev-email] Resend unreachable: ${detail} — using console fallback`);
-            return { ok: true, devFallback: true, resendDetail: detail };
+            return { ok: true, devFallback: true, resendError: 'network_error', resendDetail: detail };
         }
         return { ok: false, resendError: 'network_error', resendDetail: detail };
     }

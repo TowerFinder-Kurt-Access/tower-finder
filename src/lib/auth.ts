@@ -35,6 +35,9 @@ class OtpCooldownError extends CredentialsSignin {
 class OtpSendFailedError extends CredentialsSignin {
   code = "otp_send_failed"
 }
+class OtpSendBudgetError extends CredentialsSignin {
+  code = "otp_send_budget"
+}
 class OtpInvalidError extends CredentialsSignin {
   code = "otp_invalid"
 }
@@ -140,7 +143,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             // Step 1: password passed — email a one-time code.
             if (await isOtpSendBudgetExhausted(user.email)) {
               await recordLoginEvent({ email, userId: user.id, type: LoginEventType.OTP_COOLDOWN, ip, userAgent, metadata: { reason: "send_budget" } }).catch(() => {})
-              throw new OtpCooldownError()
+              throw new OtpSendBudgetError()
             }
             let issued
             try {
@@ -172,6 +175,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             await recordLoginEvent({ email, userId: user.id, type: LoginEventType.OTP_SENT, ip, userAgent, metadata: {
               resendStatus: dr?.resendStatus,
               resendId: dr?.resendId,
+              resendError: dr?.resendError,
+              resendDetail: dr?.resendDetail,
               devFallback: dr?.devFallback ?? false,
               noApiKey: dr?.noApiKey ?? false,
             } }).catch(() => {})
@@ -213,6 +218,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
               || err instanceof OtpRequiredError
               || err instanceof OtpCooldownError
               || err instanceof OtpSendFailedError
+              || err instanceof OtpSendBudgetError
               || err instanceof OtpInvalidError
               || err instanceof OtpExpiredError
               || err instanceof OtpMaxAttemptsError) throw err
