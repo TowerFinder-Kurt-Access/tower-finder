@@ -36,11 +36,15 @@ function LoginPageContent() {
         'email-changed': 'Email changed successfully. Please sign in again with your new email address.',
         '2fa-enabled': 'Two-factor authentication enabled. Please sign in again with your password and email code.',
     };
+    const ERROR_MESSAGES: Record<string, string> = {
+        'session-revoked': 'Your session has ended. Please sign in again.',
+        'session-expired': 'Your session expired. Please sign in again.',
+    };
+    const errorParam = searchParams.get('error') ?? '';
+    const sessionExpired = errorParam === 'session-expired';
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
-    const [error, setError] = useState(searchParams.get('error') === 'session-revoked'
-        ? 'Your session has ended. Please sign in again.'
-        : '');
+    const [error, setError] = useState(ERROR_MESSAGES[errorParam] ?? '');
     const [success, setSuccess] = useState(
         SUCCESS_MESSAGES[searchParams.get('success') ?? ''] ?? ''
     );
@@ -77,13 +81,14 @@ function LoginPageContent() {
         return () => clearInterval(id);
     }, [resendSecondsLeft]);
 
-    // A revoked JWT keeps riding a valid cookie, so the form would submit under
-    // a stale session. Clear it here; the middleware cannot, because the
-    // NextAuth wrapper re-issues the cookie after the middleware returns.
-    const sessionRevoked = searchParams.get('error') === 'session-revoked';
+    // A revoked or expired JWT keeps riding a valid cookie, so the form would
+    // submit under a stale session. Clear it here; the middleware cannot,
+    // because the NextAuth wrapper re-issues the cookie after the middleware
+    // returns.
+    const staleSession = errorParam === 'session-revoked' || sessionExpired;
     useEffect(() => {
-        if (sessionRevoked) void signOut({ redirect: false });
-    }, [sessionRevoked]);
+        if (staleSession) void signOut({ redirect: false });
+    }, [staleSession]);
 
     // ---- Login handler ----
     const handleSubmit = async (e: React.FormEvent) => {
@@ -93,7 +98,10 @@ function LoginPageContent() {
         setLoading(true);
 
         try {
-            const result = await signIn('credentials', { email, password, redirect: false });
+            const result = await signIn('credentials', {
+                email, password, redirect: false,
+                ...(sessionExpired ? { sessionHint: 'expired' } : {}),
+            });
 
             if (result?.code === 'account_locked') {
                 setError('Account temporarily locked after too many failed attempts.');
@@ -135,7 +143,10 @@ function LoginPageContent() {
         setLoading(true);
 
         try {
-            const result = await signIn('credentials', { email, password, otp, redirect: false });
+            const result = await signIn('credentials', {
+                email, password, otp, redirect: false,
+                ...(sessionExpired ? { sessionHint: 'expired' } : {}),
+            });
 
             if (result?.code === 'otp_invalid') {
                 setOtp('');

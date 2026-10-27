@@ -60,12 +60,17 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       credentials: {
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
-        otp: { label: "One-time code", type: "text" }
+        otp: { label: "One-time code", type: "text" },
+        // Set by the login page when middleware reported a stale cookie.
+        sessionHint: { label: "Session hint", type: "text" }
       },
       async authorize(credentials, request) {
         const email = (credentials?.email as string | undefined)?.trim()
         const password = credentials?.password as string | undefined
         const otp = credentials?.otp as string | undefined
+        // An expired cookie cannot be decoded, so the next successful sign-in
+        // is the first place the email is known again.
+        const sessionExpiredHint = credentials?.sessionHint === "expired"
         if (!email || !password) return null
 
         const ip = requestIp(request)
@@ -137,6 +142,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           // not activated are pushed to the setup screen, not challenged with
           // a code they never opted into.
           if (!user.twoFactorEnabled) {
+            if (sessionExpiredHint) await recordLoginEvent({ email, userId: user.id, type: LoginEventType.SESSION_EXPIRED, ip, userAgent, metadata: { reason: "jwt_expired" } }).catch(() => {})
             await recordLoginEvent({ email, userId: user.id, type: LoginEventType.LOGIN_SUCCESS, ip, userAgent, metadata: { method: "password_only" } }).catch(() => {})
             await prisma.user.update({ where: { id: user.id }, data: { lastLogin: new Date() } })
             return sessionUser
@@ -211,6 +217,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             throw new OtpExpiredError()
           }
 
+          if (sessionExpiredHint) await recordLoginEvent({ email, userId: user.id, type: LoginEventType.SESSION_EXPIRED, ip, userAgent, metadata: { reason: "jwt_expired" } }).catch(() => {})
           await recordLoginEvent({ email, userId: user.id, type: LoginEventType.OTP_VERIFIED, ip, userAgent, metadata: { method: "email_otp" } }).catch(() => {})
           await recordLoginEvent({ email, userId: user.id, type: LoginEventType.LOGIN_SUCCESS, ip, userAgent, metadata: { method: "email_otp" } }).catch(() => {})
           await prisma.user.update({ where: { id: user.id }, data: { lastLogin: new Date() } })
@@ -232,5 +239,27 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         }
       }
     })
-  ]
+  ],
+  events: {
+    async signOut(message) {
+      const token = "token" in message ? message.token : null
+      const email = typeof token?.email === "string" ? token.email : null
+      const userId = typeof token?.id === "string" ? Number.parseInt(token.id, 10) : Number.NaN
+      if (!email || !Number.isFinite(userId)) return
+
+      // The login page clears a stale cookie after a revocation or an expiry.
+      // That is not a deliberate sign-out, so keep it out of the audit log.
+      const current = await prisma.user
+        .findUnique({ where: { id: userId }, select: { sessionVersion: true } })
+        .catch(() => null)
+      if (!current || current.sessionVersion !== token?.sessionVersion) return
+
+      await recordLoginEvent({
+        email,
+        userId,
+        type: LoginEventType.LOGOUT,
+        metadata: { source: "signout" },
+      }).catch(() => {})
+    },
+  },
 })

@@ -3,6 +3,12 @@ import { authConfig } from '@/lib/auth.config';
 
 const { auth } = NextAuth(authConfig);
 
+function hasSessionCookie(req: { cookies?: { has: (name: string) => boolean } }): boolean {
+    return Boolean(
+        req.cookies?.has('authjs.session-token') || req.cookies?.has('__Secure-authjs.session-token')
+    );
+}
+
 export default auth(async (req: any) => {
     const isLoggedIn = !!req.auth?.user;
     const { pathname } = req.nextUrl;
@@ -108,6 +114,9 @@ export default auth(async (req: any) => {
     if (!isLoggedIn && pathname !== '/login') {
         const loginUrl = new URL('/login', req.url);
         loginUrl.searchParams.set('callbackUrl', pathname);
+        // A cookie that no longer verifies means the session ended, not that
+        // the visitor never signed in. Report it as an expiry.
+        if (hasSessionCookie(req)) loginUrl.searchParams.set('error', 'session-expired');
         return Response.redirect(loginUrl);
     }
 });
