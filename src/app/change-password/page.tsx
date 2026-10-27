@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useSession, signOut } from 'next-auth/react';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
@@ -16,6 +16,21 @@ export default function ChangePasswordPage() {
     const [confirmPassword, setConfirmPassword] = useState('');
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
+
+    // A reset bumps sessionVersion. If this page is reached with the old
+    // cookie, the token still carries forcedPasswordChange and middleware can
+    // fail open during a DB blip. Validate once and clear the stale session.
+    useEffect(() => {
+        let cancelled = false;
+        void fetch('/api/auth/session-version')
+            .then((res) => {
+                if (!cancelled && res.status === 401) {
+                    void signOut({ callbackUrl: '/login?error=session-revoked' });
+                }
+            })
+            .catch(() => {});
+        return () => { cancelled = true; };
+    }, []);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -34,6 +49,11 @@ export default function ChangePasswordPage() {
                 body: JSON.stringify({ currentPassword, newPassword }),
             });
             const data = await res.json();
+
+            if (res.status === 401) {
+                void signOut({ callbackUrl: '/login?error=session-revoked' });
+                return;
+            }
 
             if (!res.ok) {
                 setError(data.error || 'Something went wrong. Please try again.');
@@ -106,13 +126,22 @@ export default function ChangePasswordPage() {
                         {loading ? 'Changing...' : 'Change Password'}
                     </Button>
 
-                    <Box sx={{ mt: 2, textAlign: 'center' }}>
+                    <Box sx={{ mt: 2, textAlign: 'center', display: 'flex', flexDirection: 'column', gap: 1 }}>
                         <Button
+                            type="button"
                             variant="text"
                             onClick={() => signOut({ callbackUrl: '/login?forgot=1' })}
                             sx={{ textTransform: 'none' }}
                         >
                             Forgot your current password? Reset it by email
+                        </Button>
+                        <Button
+                            type="button"
+                            variant="text"
+                            onClick={() => signOut({ callbackUrl: '/login' })}
+                            sx={{ textTransform: 'none' }}
+                        >
+                            Sign out and reset session
                         </Button>
                     </Box>
                 </form>

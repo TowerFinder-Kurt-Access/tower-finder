@@ -273,12 +273,15 @@ function LoginPageContent() {
             if (!res.ok) {
                 setError(data.error || 'Something went wrong. Please try again.');
             } else {
-                // Success — clear all state, go back to login with success message.
+                // Success — clear any stale pre-reset cookie, then go back to
+                // login. The reset bumped sessionVersion, so the old token must
+                // not survive into the next sign-in.
                 setResetCodeStep(false);
                 setResetCode('');
                 setNewPassword('');
                 setConfirmNewPassword('');
                 setPassword('');
+                await signOut({ redirect: false });
                 setSuccess('Password reset successfully! Please sign in with your new password.');
             }
         } catch {
