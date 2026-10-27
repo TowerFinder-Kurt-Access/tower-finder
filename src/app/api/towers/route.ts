@@ -262,6 +262,12 @@ export async function GET(request: Request) {
                 type: parse('type'), carrier: parse('carrier'), status: parse('status'),
             };
             const lj = needsParcel(f) ? Prisma.sql`JOIN "Parcel" p ON p."towerId" = t.id` : Prisma.empty;
+            // A tower can carry more than one parcel. The tower-level country
+            // condition alone lets a US parcel slip into the Canada province
+            // list; constrain the joined parcel too.
+            const stateConds = country
+                ? [...facetConds(f, 'state'), Prisma.sql`p."country" = ${country}`]
+                : facetConds(f, 'state');
 
             // One row per facet, each with its sorted values, in a single round trip.
             const facetResult = await prisma.$queryRaw<{ facet: string; values: string[] }[]>(Prisma.sql`
@@ -278,13 +284,13 @@ export async function GET(request: Request) {
                         Prisma.sql`SELECT 'states' AS facet, fpr."name" AS value FROM "Province" fpr
                                 JOIN "Parcel" p ON p."provinceId" = fpr.id
                                 JOIN "Tower" t ON t.id = p."towerId"
-                                ${whereFrom(facetConds(f, 'state'))}`,
+                                ${whereFrom(stateConds)}`,
                         Prisma.sql`SELECT 'states' AS facet, p."stateRaw" AS value FROM "Parcel" p
                                 JOIN "Tower" t ON t.id = p."towerId"
-                                ${whereFrom(facetConds(f, 'state'), Prisma.sql`p."stateRaw" IS NOT NULL AND p."stateRaw" <> ''`)}`,
+                                ${whereFrom(stateConds, Prisma.sql`p."stateRaw" IS NOT NULL AND p."stateRaw" <> ''`)}`,
                         Prisma.sql`SELECT 'states' AS facet, p."provinceRaw" AS value FROM "Parcel" p
                                 JOIN "Tower" t ON t.id = p."towerId"
-                                ${whereFrom(facetConds(f, 'state'), Prisma.sql`p."provinceRaw" IS NOT NULL AND p."provinceRaw" <> ''`)}`,
+                                ${whereFrom(stateConds, Prisma.sql`p."provinceRaw" IS NOT NULL AND p."provinceRaw" <> ''`)}`,
                         Prisma.sql`SELECT 'counties' AS facet, fco."name" AS value FROM "County" fco
                                 JOIN "Parcel" p ON p."countyId" = fco.id
                                 JOIN "Tower" t ON t.id = p."towerId"

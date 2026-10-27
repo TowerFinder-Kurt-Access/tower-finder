@@ -26,6 +26,8 @@ import LocationOnIcon from '@mui/icons-material/LocationOn';
 import PersonIcon from '@mui/icons-material/Person';
 import PhoneIcon from '@mui/icons-material/Phone';
 import NotesPanel from './NotesPanel';
+import Link from '@mui/material/Link';
+import NextLink from 'next/link';
 
 interface Note {
     id: number;
@@ -76,6 +78,7 @@ interface Tower {
         dataSource?: string;
         rawData?: any;
         owner?: {
+            id?: number;
             name?: string;
             address?: string;
             type?: string;
@@ -342,7 +345,14 @@ export default function TowerDetailDrawer({
                                         <>
                                             <Divider sx={{ my: 1 }} />
                                             <Typography variant="body2">
-                                                <strong>Property Owner:</strong> {tower.parcel.owner.name || 'N/A'}
+                                                <strong>Property Owner:</strong>{' '}
+                                                {tower.parcel.owner.id ? (
+                                                    <Link component={NextLink} href={`/owners/${tower.parcel.owner.id}`}>
+                                                        {tower.parcel.owner.name || 'N/A'}
+                                                    </Link>
+                                                ) : (
+                                                    tower.parcel.owner.name || 'N/A'
+                                                )}
                                             </Typography>
                                             <Typography variant="body2">
                                                 <strong>Property Owner Type:</strong> {tower.parcel.owner.type || 'N/A'}

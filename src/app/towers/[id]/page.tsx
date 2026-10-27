@@ -14,7 +14,7 @@ const openExternal = (url: string): void => {
     }
 };
 
-import { useState, useEffect, useMemo, use, useSyncExternalStore } from 'react';
+import { useState, useEffect, useMemo, useRef, use, useSyncExternalStore } from 'react';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
 import dynamic from 'next/dynamic';
@@ -190,6 +190,7 @@ export default function TowerDetailPage({ params }: PageProps) {
     const router = useRouter();
 
     const [tower, setTower] = useState<Tower | null>(null);
+    const contentRef = useRef<HTMLDivElement | null>(null);
     const [loading, setLoading] = useState(true);
     const [status, setStatus] = useState('');
     const [saving, setSaving] = useState(false);
@@ -256,12 +257,19 @@ export default function TowerDetailPage({ params }: PageProps) {
     const [pendingStatusId, setPendingStatusId] = useState<number | null>(null);
     const [statusNote, setStatusNote] = useState('');
 
+    // A new tower starts at the top; saving the same tower keeps the position.
+    useEffect(() => {
+        contentRef.current?.scrollTo({ top: 0, behavior: 'auto' });
+    }, [tower?.id]);
+
     // Hydration-safe mounted flag: true in the browser, false during the server render.
     const mounted = useSyncExternalStore(() => () => {}, () => true, () => false);
 
     const loadTower = async () => {
         try {
-            setLoading(true);
+            // Keep the page mounted on refreshes so saving a field does not
+            // reset the user's scroll position.
+            if (!tower) setLoading(true);
             const res = await axios.get(`/api/towers/${towerId}`);
             const t = res.data;
             setTower(t);
@@ -292,6 +300,14 @@ export default function TowerDetailPage({ params }: PageProps) {
         } finally {
             setLoading(false);
         }
+    };
+
+    const refreshKeepingScroll = async (top = contentRef.current?.scrollTop ?? 0) => {
+        await loadTower();
+        // Let React commit the refreshed layout before restoring.
+        window.setTimeout(() => {
+            contentRef.current?.scrollTo({ top, behavior: 'auto' });
+        }, 250);
     };
 
     const loadNavigation = async () => {
@@ -516,7 +532,7 @@ export default function TowerDetailPage({ params }: PageProps) {
             setSelectedStatusId(pendingStatusId as number);
             setStatus(statusName);
             setStatusNoteDialogOpen(false);
-            loadTower();
+            await refreshKeepingScroll();
         } catch (error) {
             console.error('Error updating status:', error);
         } finally {
@@ -541,7 +557,7 @@ export default function TowerDetailPage({ params }: PageProps) {
             await axios.patch(`/api/towers/${tower.id}`, {
                 [field]: Number(value)
             });
-            loadTower();
+            await refreshKeepingScroll();
         } catch (error) {
             console.error(`Error updating ${field}:`, error);
         } finally {
@@ -585,7 +601,7 @@ export default function TowerDetailPage({ params }: PageProps) {
             }
 
             setAddDialogOpen(false);
-            loadTower();
+            await refreshKeepingScroll();
         } catch (error: any) {
             console.error('Error adding lookup:', error);
             alert(error.response?.data?.error || 'Failed to add new item');
@@ -624,7 +640,7 @@ export default function TowerDetailPage({ params }: PageProps) {
                 if (selectedStatusId === id) setStatus(updatedName);
             }
             setEditLookupDialog(d => ({ ...d, open: false }));
-            loadTower();
+            await refreshKeepingScroll();
         } catch (error: any) {
             alert(error.response?.data?.error || 'Failed to rename');
         } finally {
@@ -706,7 +722,7 @@ export default function TowerDetailPage({ params }: PageProps) {
         try {
             await axios.post(`/api/towers/${tower.id}/normalize`);
             alert('Location normalization completed!');
-            loadTower();
+            await refreshKeepingScroll();
         } catch (error: any) {
             console.error('Normalization failed:', error);
             alert('Failed to normalize location: ' + (error.response?.data?.error || error.message));
@@ -723,7 +739,7 @@ export default function TowerDetailPage({ params }: PageProps) {
                 streetViewUrl: streetViewUrl.trim() || null
             });
             setIsEditingStreetView(false);
-            loadTower();
+            await refreshKeepingScroll();
         } catch (error) {
             console.error('Error saving street view URL:', error);
             alert('Failed to save Street View URL');
@@ -734,13 +750,14 @@ export default function TowerDetailPage({ params }: PageProps) {
 
     const handleSaveAddress = async () => {
         if (!tower) return;
+        const top = contentRef.current?.scrollTop ?? 0;
         setSavingAddress(true);
         try {
             await axios.patch(`/api/towers/${tower.id}`, {
                 parcelUpdate: addressFields
             });
             setEditingAddress(false);
-            loadTower();
+            await refreshKeepingScroll(top);
         } catch (error) {
             console.error('Error saving address:', error);
             alert('Failed to save address');
@@ -880,7 +897,7 @@ export default function TowerDetailPage({ params }: PageProps) {
             </AppBar>
 
             {/* Content */}
-            <Box sx={{ flex: 1, overflow: 'auto', p: 3, backgroundColor: '#f5f5f5' }}>
+            <Box ref={contentRef} sx={{ flex: 1, overflow: 'auto', overflowAnchor: 'none', p: 3, backgroundColor: '#f5f5f5' }}>
                 <Box sx={{ maxWidth: 1200, mx: 'auto' }}>
                     {/* Quick Info Card */}
                     <Paper sx={{ p: 3, mb: 3, bgcolor: '#f8f9fa', border: '2px solid #e0e0e0' }}>
@@ -1629,7 +1646,14 @@ export default function TowerDetailPage({ params }: PageProps) {
                                         zoom={selectedBizId ? 17 : 13}
                                         towers={[tower]}
                                         businessesNearby={tower.businessesNearby || []}
-                                        onTowerSelect={(selected) => setMapSelectedTower(selected as Tower)}
+                                        onTowerSelect={(selected) => {
+                                            const action = 'action' in selected ? selected.action : undefined;
+                                            if (action === 'addOwner') {
+                                                setAddOwnerOpen(true);
+                                                return;
+                                            }
+                                            setMapSelectedTower(selected as Tower);
+                                        }}
                                         onTowerDeselect={() => setMapSelectedTower(null)}
                                         selectedTower={mapSelectedTower}
                                         selectedBusinessId={selectedBizId}

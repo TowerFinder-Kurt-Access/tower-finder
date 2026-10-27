@@ -769,6 +769,7 @@ function MarkerPopup({
   const popup = useMemo(() => {
     const popupInstance = new Popup({
       offset: 16,
+      focusAfterOpen: false,
       ...popupOptions,
       closeButton: false,
     })
@@ -1140,6 +1141,7 @@ function MapPopup({
   const popup = useMemo(() => {
     const popupInstance = new Popup({
       offset: 16,
+      focusAfterOpen: false,
       ...popupOptions,
       closeButton: false,
     })
