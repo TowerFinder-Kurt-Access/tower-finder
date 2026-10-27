@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
+import { withDbRetry } from '@/lib/db-retry';
 import { getAuthUser } from '@/lib/auth-helpers';
 import { buildTowerAccessFilter } from '@/lib/tower-access';
 import { ABBR_TO_PROVINCE, PROVINCE_TO_ABBR } from '@/lib/locations';
@@ -624,7 +625,7 @@ export async function GET(request: Request) {
         // popups read. No parcel geometry, no carriers, no leads, so the full
         // table stays small and the query does not join the heavy relations.
         if (isMapMode) {
-            const mapTowers = await prisma.tower.findMany({
+            const mapTowers = await withDbRetry(() => prisma.tower.findMany({
                 where: whereClause,
                 select: {
                     id: true,
@@ -634,7 +635,7 @@ export async function GET(request: Request) {
                     type: { select: { name: true } },
                     status: { select: { name: true } },
                 },
-            });
+            }));
             return NextResponse.json(mapTowers);
         }
 
@@ -645,7 +646,7 @@ export async function GET(request: Request) {
         // If pagination is requested, also get total count
         const needsCount = page !== undefined && limit !== undefined;
 
-        const [towers, totalCount] = await Promise.all([
+        const [towers, totalCount] = await withDbRetry(() => Promise.all([
             prisma.tower.findMany({
                 // relationJoins (prisma/schema.prisma) loads all includes in one round trip, which is what stopped the P2024 pool timeouts.
                 where: whereClause,
@@ -689,7 +690,7 @@ export async function GET(request: Request) {
                 take
             }),
             needsCount ? prisma.tower.count({ where: whereClause }) : Promise.resolve(undefined)
-        ]);
+        ]));
 
         const withFlags = towers.map(({ leads, ...tower }) => {
             const lead = leads.find((entry) => entry.contactPerson || entry.companyName) ?? leads[0] ?? null;
@@ -714,6 +715,14 @@ export async function GET(request: Request) {
     } catch (error) {
         if (error instanceof Error && error.message === 'Unauthorized') {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+        if (error instanceof Prisma.PrismaClientKnownRequestError
+            && ['P1001', 'P1002', 'P1017', 'P2024', 'P2037'].includes(error.code)) {
+            console.error('Towers database unavailable:', error.code);
+            return NextResponse.json(
+                { error: 'Database temporarily unavailable. Please retry.', retryable: true },
+                { status: 503, headers: { 'Retry-After': '3' } },
+            );
         }
         console.error('Error fetching towers:', error);
         return NextResponse.json({ error: 'Failed to fetch towers' }, { status: 500 });

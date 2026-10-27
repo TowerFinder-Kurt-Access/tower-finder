@@ -1,5 +1,6 @@
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { withDbRetry } from '@/lib/db-retry'
 import { Role } from '@prisma/client'
 
 export interface AuthUser {
@@ -23,10 +24,10 @@ export async function getAuthUser(): Promise<AuthUser> {
     throw new Error('Unauthorized')
   }
 
-  const dbUser = await prisma.user.findUnique({
+  const dbUser = await withDbRetry(() => prisma.user.findUnique({
     where: { id: parseInt(session.user.id) },
     select: { sessionVersion: true, isActive: true, role: true, email: true, name: true },
-  })
+  }))
 
   if (!dbUser || !dbUser.isActive || dbUser.sessionVersion !== session.user.sessionVersion) {
     throw new Error('Unauthorized')
