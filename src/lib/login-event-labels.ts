@@ -31,6 +31,9 @@ export const LOGIN_EVENT_META = {
     OTP_EXPIRED: { label: 'Code expired', family: 'otp', tone: 'warning' },
     OTP_MAX_ATTEMPTS: { label: 'Code max attempts', family: 'otp', tone: 'failure' },
     OTP_COOLDOWN: { label: 'Code cooldown', family: 'otp', tone: 'warning' },
+    LOGOUT: { label: 'Logout', family: 'session', tone: 'neutral' },
+    SESSION_REVOKED: { label: 'Session revoked', family: 'session', tone: 'warning' },
+    SESSION_EXPIRED: { label: 'Session expired', family: 'session', tone: 'warning' },
 } satisfies Record<LoginEventType, LoginEventMeta>;
 
 export interface LoginEventFamilyMeta {
@@ -40,7 +43,18 @@ export interface LoginEventFamilyMeta {
 }
 
 export const LOGIN_EVENT_FAMILIES: ReadonlyArray<LoginEventFamilyMeta> = [
-    { key: 'session', label: 'Session', types: ['LOGIN_SUCCESS', 'LOGIN_FAILED', 'LOGIN_LOCKED'] },
+    {
+        key: 'session',
+        label: 'Session',
+        types: [
+            'LOGIN_SUCCESS',
+            'LOGIN_FAILED',
+            'LOGIN_LOCKED',
+            'LOGOUT',
+            'SESSION_REVOKED',
+            'SESSION_EXPIRED',
+        ],
+    },
     {
         key: 'account',
         label: 'Account',

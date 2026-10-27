@@ -435,7 +435,7 @@ export default function LoginEventsPage() {
                             color: C.muted,
                         }}
                     >
-                        Sixteen event types across session, account, password, and one-time code. Each row keeps the
+                        Nineteen event types across session, account, password, and one-time code. Each row keeps the
                         email, the IP, the device, and the metadata the server recorded.
                     </Typography>
 
@@ -1345,7 +1345,7 @@ export default function LoginEventsPage() {
                     }}
                 >
                     <Typography sx={{ fontSize: '0.75rem', color: C.faint }}>
-                        Source: public.LoginEvent. Read only. Sixteen event types.
+                        Source: public.LoginEvent. Read only. Nineteen event types.
                     </Typography>
                     <Box
                         component={Link}
