@@ -12,8 +12,9 @@ import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 import AutorenewIcon from '@mui/icons-material/Autorenew';
 import RadarIcon from '@mui/icons-material/Radar';
 import SettingsIcon from '@mui/icons-material/Settings';
+import HistoryIcon from '@mui/icons-material/History';
 import ArrowOutwardIcon from '@mui/icons-material/ArrowOutward';
-import { useEffect, useState } from 'react';
+import { keyframes } from '@emotion/react';
 
 type Entry = {
     label: string;
@@ -23,13 +24,33 @@ type Entry = {
     span: 'wide' | 'narrow';
 };
 
-// Bento order: 1 wide + 4 narrow. Wide leads the eye to the highest-traffic tool.
+const rise = keyframes`
+    from { opacity: 0; translate: 0 8px; }
+    to { opacity: 1; translate: 0 0; }
+`;
+
+// `translate` rather than `transform` so the card hover lift still wins.
+const revealSx = (index: number) => ({
+    animation: `${rise} 480ms cubic-bezier(0.22, 1, 0.36, 1) both`,
+    animationDelay: `${index * 50}ms`,
+    '@media (prefers-reduced-motion: reduce)': { animation: 'none' },
+});
+
+// Bento order: 2 wide + 4 narrow. That fills four rows of a two-column grid
+// with no empty cell. The two wide cards lead the eye.
 const ENTRIES: ReadonlyArray<Entry> = [
     {
         label: 'Tower Leads',
         description: 'Search history, imported leads, and promotion to towers.',
         path: '/superpowers/tower-leads',
         icon: <ExploreIcon />,
+        span: 'wide',
+    },
+    {
+        label: 'Login Events',
+        description: 'Every sign-in, failure, lockout, and one-time code, with full metadata.',
+        path: '/superpowers/login-events',
+        icon: <HistoryIcon />,
         span: 'wide',
     },
     {
@@ -64,11 +85,6 @@ const ENTRIES: ReadonlyArray<Entry> = [
 
 export default function SuperpowersLanding() {
     const { data: session, status } = useSession();
-    const [mounted, setMounted] = useState(false);
-
-    useEffect(() => {
-        setMounted(true);
-    }, []);
 
     if (status === 'loading') {
         return (
@@ -132,7 +148,7 @@ export default function SuperpowersLanding() {
                             maxWidth: '60ch',
                         }}
                     >
-                        Five focused surfaces for jobs, scans, users, and reference data. Pick one.
+                        Six focused surfaces for jobs, scans, users, and reference data. Pick one.
                     </Typography>
                 </Box>
 
@@ -148,7 +164,6 @@ export default function SuperpowersLanding() {
                             key={entry.path}
                             entry={entry}
                             index={i}
-                            mounted={mounted}
                         />
                     ))}
                 </Box>
@@ -157,7 +172,7 @@ export default function SuperpowersLanding() {
     );
 }
 
-function ToolCard({ entry, index, mounted }: { entry: Entry; index: number; mounted: boolean }) {
+function ToolCard({ entry, index }: { entry: Entry; index: number }) {
     const isWide = entry.span === 'wide';
 
     return (
@@ -179,9 +194,7 @@ function ToolCard({ entry, index, mounted }: { entry: Entry; index: number; moun
                 overflow: 'hidden',
                 cursor: 'pointer',
                 transition: 'border-color 220ms ease, transform 220ms ease, background-color 220ms ease',
-                opacity: mounted ? 1 : 0,
-                transform: mounted ? 'translateY(0)' : 'translateY(8px)',
-                transitionDelay: mounted ? `${index * 50}ms` : '0ms',
+                ...revealSx(index),
                 '&:hover': {
                     borderColor: '#3b82f6',
                     transform: 'translateY(-2px)',

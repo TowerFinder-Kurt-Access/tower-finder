@@ -227,6 +227,10 @@ model LoginEvent {
 
   @@index([email, createdAt])
   @@index([userId])
+  // Default listing is newest first, so the index carries the order.
+  @@index([createdAt(sort: Desc), id(sort: Desc)])
+  // Type filters keep the same newest-first order.
+  @@index([type, createdAt])
 }
 
 model LoginOtp {
