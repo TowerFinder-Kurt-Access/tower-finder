@@ -3,6 +3,7 @@ import { LoginEventType, Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { requireAdmin } from '@/lib/auth-helpers';
 import { withDbRetry } from '@/lib/db-retry';
+import { resolveCountries } from '@/lib/ip-country';
 
 const VALID_TYPES = new Set<string>(Object.values(LoginEventType));
 const DEFAULT_PAGE_SIZE = 25;
@@ -97,8 +98,16 @@ export async function GET(request: Request) {
         const byType: Record<string, number> = {};
         for (const entry of grouped) byType[entry.type] = entry._count._all;
 
+        // Country is resolved at read time, so the page gains a flag without a
+        // schema change. A failed or unknown lookup leaves the field null.
+        const countries = await resolveCountries(rows.map((row) => row.ip));
+        const decorated = rows.map((row) => ({
+            ...row,
+            country: row.ip ? countries.get(row.ip) ?? null : null,
+        }));
+
         return NextResponse.json({
-            rows,
+            rows: decorated,
             total,
             page,
             pageSize,

@@ -23,9 +23,15 @@ import TableRow from '@mui/material/TableRow';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import AndroidIcon from '@mui/icons-material/Android';
+import AppleIcon from '@mui/icons-material/Apple';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
+import DesktopWindowsIcon from '@mui/icons-material/DesktopWindows';
+import DevicesOtherIcon from '@mui/icons-material/DevicesOther';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import PhoneIphoneIcon from '@mui/icons-material/PhoneIphone';
+import TerminalIcon from '@mui/icons-material/Terminal';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import SearchOffIcon from '@mui/icons-material/SearchOff';
 import {
@@ -36,6 +42,8 @@ import {
     type LoginEventFamily,
     type LoginEventTone,
 } from '@/lib/login-event-labels';
+import { BROWSER_LOGO_PATH } from '@/lib/browser-logos';
+import { countryFlag, countryName } from '@/lib/country-flag';
 
 const DISPLAY_FONT = '"Outfit", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
 const MONO_FONT = 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace';
@@ -57,6 +65,41 @@ const C = {
 
 const PAGE_SIZES = [25, 50, 100] as const;
 
+type AgentBrowser =
+    | 'Chrome'
+    | 'Firefox'
+    | 'Safari'
+    | 'Edge'
+    | 'Opera'
+    | 'curl'
+    | 'axios'
+    | 'Other'
+    | 'Not recorded';
+
+type AgentOs = 'Windows' | 'macOS' | 'Android' | 'iOS' | 'Linux' | 'Unknown OS';
+
+const OS_ICON: Record<AgentOs, typeof DesktopWindowsIcon> = {
+    Windows: DesktopWindowsIcon,
+    macOS: AppleIcon,
+    iOS: PhoneIphoneIcon,
+    Android: AndroidIcon,
+    Linux: TerminalIcon,
+    'Unknown OS': DevicesOtherIcon,
+};
+
+/** Official Simple Icons brand colors. curl is lightened for a dark surface. */
+const BROWSER_COLOR: Record<AgentBrowser, string> = {
+    Chrome: '#4285F4',
+    Firefox: '#FF7139',
+    Safari: '#006CFF',
+    Edge: '#0F7DC2',
+    Opera: '#FF1B2D',
+    curl: '#7FA8C9',
+    axios: '#5A29E4',
+    Other: '#94A3B8',
+    'Not recorded': '#4B5563',
+};
+
 const rise = keyframes`
     from { opacity: 0; transform: translateY(12px); }
     to { opacity: 1; transform: translateY(0); }
@@ -77,6 +120,7 @@ interface LoginEventRow {
     userId: number | null;
     type: LoginEventType;
     ip: string | null;
+    country: string | null;
     userAgent: string | null;
     metadata: unknown;
     createdAt: string;
@@ -123,10 +167,12 @@ function formatRelative(iso: string): string {
     return `${Math.round(days / 30)}mo ago`;
 }
 
-function describeAgent(userAgent: string | null): { browser: string; os: string } {
-    if (!userAgent) return { browser: 'Not recorded', os: '' };
+function describeAgent(userAgent: string | null): { browser: AgentBrowser; os: AgentOs } {
+    if (!userAgent) return { browser: 'Not recorded', os: 'Unknown OS' };
 
-    let browser = 'Other';
+    // Order matters. Edge and Opera both ship "Chrome/", and every Chrome UA
+    // carries "Safari/". Mobile UAs carry "Mac OS X" or "Linux" too.
+    let browser: AgentBrowser = 'Other';
     if (/Edg\//.test(userAgent)) browser = 'Edge';
     else if (/OPR\//.test(userAgent)) browser = 'Opera';
     else if (/Firefox\//.test(userAgent)) browser = 'Firefox';
@@ -135,12 +181,12 @@ function describeAgent(userAgent: string | null): { browser: string; os: string 
     else if (/curl\//.test(userAgent)) browser = 'curl';
     else if (/axios\//.test(userAgent)) browser = 'axios';
 
-    let os = 'Unknown OS';
-    if (/Windows NT/.test(userAgent)) os = 'Windows';
-    else if (/Mac OS X/.test(userAgent)) os = 'macOS';
-    else if (/Android/.test(userAgent)) os = 'Android';
-    else if (/iPhone|iPad|iOS/.test(userAgent)) os = 'iOS';
-    else if (/Linux/.test(userAgent)) os = 'Linux';
+    let os: AgentOs = 'Unknown OS';
+    if (/Android/.test(userAgent)) os = 'Android';
+    else if (/iPhone|iPad|iPod/.test(userAgent)) os = 'iOS';
+    else if (/Windows NT/.test(userAgent)) os = 'Windows';
+    else if (/Mac OS X|Macintosh/.test(userAgent)) os = 'macOS';
+    else if (/Linux|X11/.test(userAgent)) os = 'Linux';
 
     return { browser, os };
 }
@@ -1021,17 +1067,59 @@ export default function LoginEventsPage() {
                                                     )}
                                                 </TableCell>
                                                 <TableCell sx={{ py: 1.25, whiteSpace: 'nowrap' }}>
-                                                    <Typography sx={{ fontFamily: MONO_FONT, fontSize: '0.8125rem', color: C.body }}>
-                                                        {row.ip ?? 'Not recorded'}
-                                                    </Typography>
+                                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                                                        {row.country ? (
+                                                            <Box
+                                                                component="span"
+                                                                role="img"
+                                                                aria-label={countryName(row.country)}
+                                                                title={countryName(row.country)}
+                                                                sx={{
+                                                                    fontSize: '0.9375rem',
+                                                                    lineHeight: 1,
+                                                                    flexShrink: 0,
+                                                                }}
+                                                            >
+                                                                {countryFlag(row.country)}
+                                                            </Box>
+                                                        ) : (
+                                                            <Box
+                                                                aria-hidden
+                                                                sx={{
+                                                                    width: 15,
+                                                                    height: 15,
+                                                                    flexShrink: 0,
+                                                                    borderRadius: '3px',
+                                                                    bgcolor: '#1c1c1c',
+                                                                }}
+                                                            />
+                                                        )}
+                                                        <Typography
+                                                            sx={{
+                                                                fontFamily: MONO_FONT,
+                                                                fontSize: '0.8125rem',
+                                                                color: C.body,
+                                                            }}
+                                                        >
+                                                            {row.ip ?? 'Not recorded'}
+                                                        </Typography>
+                                                    </Box>
                                                 </TableCell>
                                                 <TableCell sx={{ py: 1.25, whiteSpace: 'nowrap' }}>
-                                                    <Typography sx={{ fontSize: '0.8125rem', color: C.body }}>
-                                                        {agent.browser}
-                                                    </Typography>
-                                                    <Typography sx={{ fontSize: '0.6875rem', color: C.faint }}>
-                                                        {agent.os}
-                                                    </Typography>
+                                                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                                                            <BrowserBadge browser={agent.browser} />
+                                                            <Typography sx={{ fontSize: '0.8125rem', color: C.body, lineHeight: 1.2 }}>
+                                                                {agent.browser}
+                                                            </Typography>
+                                                        </Box>
+                                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                                                            <OsGlyph os={agent.os} />
+                                                            <Typography sx={{ fontSize: '0.6875rem', color: C.faint, lineHeight: 1.2 }}>
+                                                                {agent.os}
+                                                            </Typography>
+                                                        </Box>
+                                                    </Box>
                                                 </TableCell>
                                                 <TableCell align="right" sx={{ py: 1.25 }}>
                                                     <IconButton
@@ -1102,6 +1190,14 @@ export default function LoginEventsPage() {
                                                                     label="Account ID"
                                                                     value={row.userId === null ? 'Not linked' : `#${row.userId}`}
                                                                     mono
+                                                                />
+                                                                <DetailRow
+                                                                    label="Country"
+                                                                    value={
+                                                                        row.country
+                                                                            ? `${countryName(row.country)} (${row.country})`
+                                                                            : 'Not resolved'
+                                                                    }
                                                                 />
                                                                 <DetailRow
                                                                     label="Recorded"
@@ -1299,6 +1395,67 @@ const DETAIL_LABEL_SX = {
     textTransform: 'uppercase',
     color: C.dim,
 };
+
+function BrowserBadge({ browser }: { browser: AgentBrowser }) {
+    const color = BROWSER_COLOR[browser];
+    const path = browserLogo(browser);
+
+    if (path) {
+        return (
+            <Box sx={{ width: 15, height: 15, flexShrink: 0, display: 'flex' }}>
+                <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden focusable="false">
+                    <path d={path} fill={color} />
+                </svg>
+            </Box>
+        );
+    }
+
+    // Edge and unknown agents have no vendored mark, so they keep the badge.
+    const initial = browser === 'Not recorded' ? '?' : browser.charAt(0).toUpperCase();
+
+    return (
+        <Box
+            aria-hidden
+            sx={{
+                width: 15,
+                height: 15,
+                flexShrink: 0,
+                borderRadius: '4px',
+                border: `1px solid ${color}59`,
+                bgcolor: `${color}26`,
+                color,
+                fontSize: '0.5625rem',
+                fontWeight: 800,
+                lineHeight: 1,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+            }}
+        >
+            {initial}
+        </Box>
+    );
+}
+
+/** Narrows to the browsers that ship a vendored mark. */
+function browserLogo(browser: AgentBrowser): string | null {
+    switch (browser) {
+        case 'Chrome':
+        case 'Firefox':
+        case 'Safari':
+        case 'Opera':
+        case 'curl':
+        case 'axios':
+            return BROWSER_LOGO_PATH[browser];
+        default:
+            return null;
+    }
+}
+
+function OsGlyph({ os }: { os: AgentOs }) {
+    const Icon = OS_ICON[os];
+    return <Icon aria-hidden sx={{ fontSize: 15, color: C.dim, flexShrink: 0 }} />;
+}
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
     return (
