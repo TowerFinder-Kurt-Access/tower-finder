@@ -98,16 +98,29 @@ export async function isLoginIpBudgetExhausted(ip: string | null): Promise<boole
     return failures >= 30;
 }
 
-/** Durable send throttle: no more than 10 OTP emails per address per hour. */
-export async function isOtpSendBudgetExhausted(email: string): Promise<boolean> {
-    const sent = await prisma.loginEvent.count({
+export const OTP_SEND_BUDGET_MAX = 20;
+const OTP_SEND_WINDOW_MS = 60 * 60 * 1000;
+
+/** Seconds until the hourly OTP send budget frees up (0 when open). */
+export async function getOtpSendBudgetWaitSeconds(email: string): Promise<number> {
+    const recent = await prisma.loginEvent.findMany({
         where: {
             email: email.trim().toLowerCase(),
             type: LoginEventType.OTP_SENT,
-            createdAt: { gte: new Date(Date.now() - 60 * 60 * 1000) },
+            createdAt: { gte: new Date(Date.now() - OTP_SEND_WINDOW_MS) },
         },
+        orderBy: { createdAt: 'desc' },
+        take: OTP_SEND_BUDGET_MAX,
+        select: { createdAt: true },
     });
-    return sent >= 10;
+    if (recent.length < OTP_SEND_BUDGET_MAX) return 0;
+    const freeAt = recent[OTP_SEND_BUDGET_MAX - 1].createdAt.getTime() + OTP_SEND_WINDOW_MS;
+    return Math.max(1, Math.ceil((freeAt - Date.now()) / 1000));
+}
+
+/** Durable send throttle: 20 OTP emails per address per hour. */
+export async function isOtpSendBudgetExhausted(email: string): Promise<boolean> {
+    return (await getOtpSendBudgetWaitSeconds(email)) > 0;
 }
 
 /** Durable guessing throttle: 20 failed OTP checks per address per day. */

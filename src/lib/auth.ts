@@ -9,7 +9,7 @@ import {
   isIpRateLimited,
   isLoginIpBudgetExhausted,
   isOtpAttemptBudgetExhausted,
-  isOtpSendBudgetExhausted,
+  getOtpSendBudgetWaitSeconds,
   recordLoginEvent,
   requestIp,
 } from "@/lib/login-security"
@@ -36,7 +36,11 @@ class OtpSendFailedError extends CredentialsSignin {
   code = "otp_send_failed"
 }
 class OtpSendBudgetError extends CredentialsSignin {
-  code = "otp_send_budget"
+  code: string
+  constructor(seconds: number) {
+    super()
+    this.code = `otp_send_budget:${seconds}`
+  }
 }
 class OtpInvalidError extends CredentialsSignin {
   code = "otp_invalid"
@@ -141,9 +145,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           // -------- Second factor: email OTP, for activated accounts --------
           if (!otp) {
             // Step 1: password passed — email a one-time code.
-            if (await isOtpSendBudgetExhausted(user.email)) {
-              await recordLoginEvent({ email, userId: user.id, type: LoginEventType.OTP_COOLDOWN, ip, userAgent, metadata: { reason: "send_budget" } }).catch(() => {})
-              throw new OtpSendBudgetError()
+            const otpSendWait = await getOtpSendBudgetWaitSeconds(user.email);
+            if (otpSendWait > 0) {
+              await recordLoginEvent({ email, userId: user.id, type: LoginEventType.OTP_COOLDOWN, ip, userAgent, metadata: { reason: "send_budget", waitSeconds: otpSendWait } }).catch(() => {})
+              throw new OtpSendBudgetError(otpSendWait)
             }
             let issued
             try {

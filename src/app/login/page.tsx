@@ -20,6 +20,12 @@ function formatLockTime(totalSeconds: number): string {
     return minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s`;
 }
 
+function otpBudgetMessage(code: string): string {
+    const seconds = Number(code.split(':')[1] ?? '');
+    const minutes = Number.isFinite(seconds) && seconds > 0 ? Math.ceil(seconds / 60) : 60;
+    return `Too many code requests. Try again in ${minutes} minute${minutes === 1 ? '' : 's'}.`;
+}
+
 function LoginPageContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -107,8 +113,8 @@ function LoginPageContent() {
                 setError('A code was already sent — wait a moment before requesting another.');
             } else if (result?.code === 'otp_send_failed') {
                 setError('Could not send the code. Please try again.');
-            } else if (result?.code === 'otp_send_budget') {
-                setError('Too many code requests. Please try again later.');
+            } else if (result?.code?.startsWith('otp_send_budget')) {
+                setError(otpBudgetMessage(result.code));
             } else if (result?.error) {
                 setError('Invalid email or password');
             } else {
@@ -172,8 +178,8 @@ function LoginPageContent() {
             } else if (result?.code === 'otp_cooldown') {
                 setResendSecondsLeft(60);
                 setError('A code was already sent. Wait a moment before requesting another.');
-            } else if (result?.code === 'otp_send_budget') {
-                setError('Too many code requests. Please try again later.');
+            } else if (result?.code?.startsWith('otp_send_budget')) {
+                setError(otpBudgetMessage(result.code));
             } else if (result?.code === 'otp_send_failed') {
                 setError('Could not send the code. Please try again shortly.');
             } else {
