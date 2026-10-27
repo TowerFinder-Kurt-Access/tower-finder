@@ -212,6 +212,11 @@ enum LoginEventType {
   OTP_EXPIRED
   OTP_MAX_ATTEMPTS
   OTP_COOLDOWN
+
+  // Session lifecycle
+  LOGOUT
+  SESSION_REVOKED
+  SESSION_EXPIRED
 }
 
 model LoginEvent {
