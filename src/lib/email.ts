@@ -120,14 +120,18 @@ export async function sendEmail(
 ): Promise<EmailDeliveryResult> {
     const apiKey = process.env.RESEND_API_KEY;
     const templateId = options?.forceInline ? undefined : process.env.RESEND_TEMPLATE_ID;
-    // Local dev: always log the message so the OTP can be read from the
-    // server log (the test mailboxes don't exist). Production stays silent.
+    // Local dev: the code is sensitive. Print it only when explicitly asked.
+    // Production never logs the message.
     if (process.env.NODE_ENV !== 'production') {
-        console.log(
-            templateId
-                ? `[dev-email] TO=${to}\nTEMPLATE=${templateId}\nVARIABLES=${JSON.stringify(variables)}`
-                : `[dev-email] TO=${to}\nSUBJECT=${subject}\n${html}`,
-        );
+        if (process.env.DEV_EMAIL_LOG === '1') {
+            console.log(
+                templateId
+                    ? `[dev-email] TO=${to}\nTEMPLATE=${templateId}\nVARIABLES=${JSON.stringify(variables)}`
+                    : `[dev-email] TO=${to}\nSUBJECT=${subject}\n${html}`,
+            );
+        } else {
+            console.log(`[dev-email] TO=${to} SUBJECT=${subject} (code redacted; set DEV_EMAIL_LOG=1 to show)`);
+        }
     }
     if (!apiKey) {
         if (process.env.NODE_ENV === 'production') {
