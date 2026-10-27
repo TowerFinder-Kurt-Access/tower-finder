@@ -21,7 +21,7 @@ export function toLeadRow(lead: LeadWithTower): LeadRow {
 
     return {
         id: lead.id,
-        stage: lead.stage,
+        stage: lead.customStageKey ?? lead.stage,
         contactPerson: contacts.contactPerson,
         companyName: contacts.companyName,
         actions: lead.actions,
@@ -61,10 +61,21 @@ export function readLeadFields(body: unknown): { data: LeadFieldInput; error?: s
     }
 
     if ('stage' in input) {
-        if (typeof input.stage !== 'string' || !(input.stage in LeadStageValues)) {
+        const value = input.stage;
+        if (typeof value !== 'string' || !value.trim()) {
             return { data, error: 'Unknown stage' };
         }
-        data.stage = input.stage as LeadStage;
+        const key = value.trim();
+        if (key in LeadStageValues) {
+            data.stage = key as LeadStage;
+            data.customStageKey = null;
+        } else if (/^[a-z0-9_]+$/.test(key)) {
+            // Custom stage keys are checked against LeadCustomStage by the API.
+            data.stage = LeadStageValues.PROSPECTIVE;
+            data.customStageKey = key;
+        } else {
+            return { data, error: 'Unknown stage' };
+        }
     }
 
     if ('towerId' in input) {

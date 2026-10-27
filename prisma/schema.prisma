@@ -516,6 +516,7 @@ model Lead {
   id            Int       @id @default(autoincrement())
   towerId       Int
   stage         LeadStage
+  customStageKey String?
   contactPerson String?
   companyName   String?
   actions       String?
@@ -529,6 +530,25 @@ model Lead {
 
   @@index([towerId])
   @@index([stage])
+  @@index([customStageKey])
+}
+
+// User-created lead tabs. System stages stay in the LeadStage enum; a custom
+// stage is stored on the lead as customStageKey.
+model LeadCustomStage {
+  id        Int      @id @default(autoincrement())
+  key       String   @unique
+  label     String
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+}
+
+// Rename or hide a system stage without changing the enum.
+model LeadStageOverride {
+  key       String   @id
+  label     String?
+  hidden    Boolean  @default(false)
+  updatedAt DateTime @updatedAt
 }
 
 enum Role {

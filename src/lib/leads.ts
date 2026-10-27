@@ -66,7 +66,7 @@ export function resolveContact(
 /** One lead as the list and drawer render it. */
 export interface LeadRow {
     id: number;
-    stage: LeadStage;
+    stage: string;
     contactPerson: string | null;
     companyName: string | null;
     actions: string | null;

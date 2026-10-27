@@ -19,7 +19,7 @@ export async function GET(request: Request) {
         const stage = (searchParams.get('stage') || '')
             .split(',')
             .map((value) => value.trim())
-            .filter((value): value is LeadStage => value in LeadStage);
+            .filter(Boolean);
         const search = (searchParams.get('search') || '').trim();
         const page = Math.max(parseInt(searchParams.get('page') || '0', 10) || 0, 0);
         const limit = Math.min(Math.max(parseInt(searchParams.get('limit') || '100', 10) || 100, 1), 500);
@@ -45,7 +45,14 @@ export async function GET(request: Request) {
             ],
         };
 
-        const where: Prisma.LeadWhereInput = stage.length ? { AND: [baseWhere, { stage: { in: stage } }] } : baseWhere;
+        const stageFilters: Prisma.LeadWhereInput[] = stage.map((key) =>
+            key in LeadStage
+                ? { stage: key as LeadStage, customStageKey: null }
+                : { customStageKey: key }
+        );
+        const where: Prisma.LeadWhereInput = stageFilters.length
+            ? { AND: [baseWhere, { OR: stageFilters }] }
+            : baseWhere;
 
         const sortable: Record<string, Prisma.LeadOrderByWithRelationInput> = {
             stage: { stage: order },
@@ -55,7 +62,7 @@ export async function GET(request: Request) {
         };
         const orderBy: Prisma.LeadOrderByWithRelationInput[] = [sortable[sort] ?? { stage: 'asc' }, { id: 'asc' }];
 
-        const [rows, total, counts] = await Promise.all([
+        const [rows, total, systemCounts, customCounts] = await Promise.all([
             prisma.lead.findMany({
                 where,
                 orderBy,
@@ -64,7 +71,16 @@ export async function GET(request: Request) {
                 include: leadInclude,
             }),
             prisma.lead.count({ where }),
-            prisma.lead.groupBy({ by: ['stage'], where: baseWhere, _count: { _all: true } }),
+            prisma.lead.groupBy({
+                by: ['stage'],
+                where: { AND: [baseWhere, { customStageKey: null }] },
+                _count: { _all: true },
+            }),
+            prisma.lead.groupBy({
+                by: ['customStageKey'],
+                where: { AND: [baseWhere, { customStageKey: { not: null } }] },
+                _count: { _all: true },
+            }),
         ]);
 
         return NextResponse.json({
@@ -72,7 +88,10 @@ export async function GET(request: Request) {
             total,
             page,
             limit,
-            counts: Object.fromEntries(counts.map((group) => [group.stage, group._count._all])),
+            counts: Object.fromEntries([
+                ...systemCounts.map((group) => [group.stage, group._count._all]),
+                ...customCounts.map((group) => [group.customStageKey as string, group._count._all]),
+            ]),
         });
     } catch (error) {
         console.error('Error fetching leads:', error);
@@ -107,6 +126,14 @@ export async function POST(request: Request) {
         const { data, error } = readLeadFields(body);
         if (error) return NextResponse.json({ error }, { status: 400 });
         if (!data.stage) return NextResponse.json({ error: 'Choose a stage.' }, { status: 400 });
+        const customStageKey = typeof data.customStageKey === 'string' ? data.customStageKey : null;
+        if (customStageKey) {
+            const exists = await prisma.leadCustomStage.findUnique({
+                where: { key: customStageKey },
+                select: { key: true },
+            });
+            if (!exists) return NextResponse.json({ error: 'Unknown stage.' }, { status: 400 });
+        }
 
         const highest = await prisma.lead.aggregate({ _max: { sortOrder: true } });
         const lead = await prisma.lead.create({

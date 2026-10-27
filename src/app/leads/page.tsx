@@ -15,6 +15,10 @@ import Link from '@mui/material/Link';
 import Button from '@mui/material/Button';
 import IconButton from '@mui/material/IconButton';
 import Drawer from '@mui/material/Drawer';
+import Dialog from '@mui/material/Dialog';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
+import DialogActions from '@mui/material/DialogActions';
 import Divider from '@mui/material/Divider';
 import Skeleton from '@mui/material/Skeleton';
 import Alert from '@mui/material/Alert';
@@ -32,10 +36,11 @@ import SearchOffIcon from '@mui/icons-material/SearchOff';
 import MailOutlineIcon from '@mui/icons-material/MailOutline';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
+import DeleteIcon from '@mui/icons-material/Delete';
 import { LEAD_STAGE_LABELS, type LeadRow } from '@/lib/leads';
 import { useSnackbar } from '@/components/GlobalSnackbar';
 
-type LeadStage = keyof typeof LEAD_STAGE_LABELS;
+type StageOption = { key: string; label: string; system: boolean };
 
 interface TowerOption {
     id: number;
@@ -47,8 +52,8 @@ interface TowerOption {
     ownerType: string | null;
 }
 
-const STAGES = Object.keys(LEAD_STAGE_LABELS) as LeadStage[];
 const PAGE_SIZE = 50;
+const NEW_STAGE_VALUE = '__new_stage__';
 
 const ROW_GRID = {
     xs: 'minmax(0, 1fr) auto auto',
@@ -66,7 +71,7 @@ const sectionLabel = {
 
 interface LeadFormValues {
     towerId: string;
-    stage: LeadStage;
+    stage: string;
     contactPerson: string;
     companyName: string;
     actions: string;
@@ -102,13 +107,23 @@ type DrawerState = { mode: 'view' | 'edit'; lead: LeadRow } | { mode: 'create' }
 function LeadsContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
-    const activeStage = (searchParams.get('stage') || '') as LeadStage | '';
+    const activeStage = searchParams.get('stage') || '';
     const reduceMotion = useMediaQuery('(prefers-reduced-motion: reduce)');
     const { showSnackbar } = useSnackbar();
 
     const [rows, setRows] = useState<LeadRow[]>([]);
     const [total, setTotal] = useState(0);
-    const [counts, setCounts] = useState<Partial<Record<LeadStage, number>>>({});
+    const [counts, setCounts] = useState<Partial<Record<string, number>>>({});
+    const [stages, setStages] = useState<StageOption[]>([]);
+    const [stageDialogOpen, setStageDialogOpen] = useState(false);
+    const [stageName, setStageName] = useState('');
+    const [stageSaving, setStageSaving] = useState(false);
+    const [stageError, setStageError] = useState<string | null>(null);
+    const [stageEditOpen, setStageEditOpen] = useState(false);
+    const [stageEditKey, setStageEditKey] = useState('');
+    const [stageEditLabel, setStageEditLabel] = useState('');
+    const [stageEditSaving, setStageEditSaving] = useState(false);
+    const [stageEditError, setStageEditError] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [searchInput, setSearchInput] = useState('');
@@ -151,6 +166,18 @@ function LeadsContent() {
             controller.abort();
         };
     }, [towerQuery]);
+
+    // Stage tabs, including user-created stages.
+    useEffect(() => {
+        axios.get<StageOption[]>('/api/lead-stages')
+            .then((response) => setStages(response.data))
+            .catch((err) => console.error('Failed to load lead stages', err));
+    }, []);
+
+    const stageLabel = (key: string) =>
+        stages.find((stage) => stage.key === key)?.label
+        ?? LEAD_STAGE_LABELS[key as keyof typeof LEAD_STAGE_LABELS]
+        ?? key;
 
     const updateTowerQuery = (value: string) => {
         setTowerQuery(value);
@@ -195,7 +222,7 @@ function LeadsContent() {
         [counts]
     );
 
-    const selectStage = (stage: LeadStage | '') => {
+    const selectStage = (stage: string | '') => {
         setPage(0);
         setDrawer(null);
         if (stage) router.push(`/leads?stage=${stage}`);
@@ -232,7 +259,7 @@ function LeadsContent() {
     };
 
     const openCreate = () => {
-        setForm({ ...EMPTY_FORM, stage: activeStage || 'PROSPECTIVE' });
+        setForm({ ...EMPTY_FORM, stage: activeStage || stages[0]?.key || 'PROSPECTIVE' });
         setSelectedTower(null);
         updateTowerQuery('');
         setFormError(null);
@@ -291,6 +318,83 @@ function LeadsContent() {
         }
     };
 
+    const createStage = async () => {
+        const label = stageName.trim();
+        if (!label) {
+            setStageError('Enter a stage name.');
+            return;
+        }
+
+        setStageSaving(true);
+        setStageError(null);
+        try {
+            const response = await axios.post<StageOption>('/api/lead-stages', { label });
+            setStages((current) => [...current, response.data]);
+            setStageDialogOpen(false);
+            setStageName('');
+            showSnackbar(`Stage "${response.data.label}" created.`);
+            if (drawer && drawer.mode !== 'view') {
+                updateForm('stage', response.data.key);
+            } else {
+                selectStage(response.data.key);
+            }
+        } catch (err) {
+            const message = axios.isAxiosError(err)
+                ? (err.response?.data as { error?: string } | undefined)?.error
+                : undefined;
+            setStageError(message || 'Could not create the stage.');
+        } finally {
+            setStageSaving(false);
+        }
+    };
+
+    const openStageEdit = (stage: StageOption) => {
+        setStageEditKey(stage.key);
+        setStageEditLabel(stage.label);
+        setStageEditError(null);
+        setStageEditOpen(true);
+    };
+
+    const saveStageEdit = async () => {
+        const label = stageEditLabel.trim();
+        if (!label) {
+            setStageEditError('Stage name is required.');
+            return;
+        }
+        setStageEditSaving(true);
+        setStageEditError(null);
+        try {
+            const response = await axios.patch<StageOption>(`/api/lead-stages/${encodeURIComponent(stageEditKey)}`, { label });
+            setStages((current) => current.map((stage) => stage.key === stageEditKey ? response.data : stage));
+            setStageEditOpen(false);
+            showSnackbar('Stage renamed.');
+        } catch (err) {
+            const message = axios.isAxiosError(err)
+                ? (err.response?.data as { error?: string } | undefined)?.error
+                : undefined;
+            setStageEditError(message || 'Could not rename the stage.');
+        } finally {
+            setStageEditSaving(false);
+        }
+    };
+
+    const deleteStage = async (key: string) => {
+        const stage = stages.find((entry) => entry.key === key);
+        if (!window.confirm(`Delete the "${stage?.label ?? key}" stage?`)) return;
+        try {
+            await axios.delete(`/api/lead-stages/${encodeURIComponent(key)}`);
+            setStages((current) => current.filter((entry) => entry.key !== key));
+            if (activeStage === key) selectStage('');
+            if (form.stage === key) updateForm('stage', 'PROSPECTIVE');
+            showSnackbar('Stage deleted.');
+        } catch (err) {
+            const message = axios.isAxiosError(err)
+                ? (err.response?.data as { error?: string } | undefined)?.error
+                : undefined;
+            showSnackbar(message || 'Could not delete the stage.', 'error');
+        }
+    };
+
     const start = total === 0 ? 0 : page * PAGE_SIZE + 1;
     const end = Math.min((page + 1) * PAGE_SIZE, total);
     const hasFilters = Boolean(search || activeStage);
@@ -308,7 +412,7 @@ function LeadsContent() {
                         Leads
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
-                        {allCount} leads from the CellWaves outreach workbook, across all four tabs.
+                        {allCount} leads from the CellWaves outreach workbook, across all tabs.
                     </Typography>
                 </Box>
                 <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 1, width: { xs: '100%', sm: 'auto' } }}>
@@ -358,13 +462,13 @@ function LeadsContent() {
                     color={activeStage ? 'default' : 'primary'}
                     variant={activeStage ? 'outlined' : 'filled'}
                 />
-                {STAGES.map((stage) => (
+                {stages.map((stage) => (
                     <Chip
-                        key={stage}
-                        label={`${LEAD_STAGE_LABELS[stage]} ${counts[stage] ?? 0}`}
-                        onClick={() => selectStage(stage)}
-                        color={activeStage === stage ? 'primary' : 'default'}
-                        variant={activeStage === stage ? 'filled' : 'outlined'}
+                        key={stage.key}
+                        label={`${stage.label} ${counts[stage.key] ?? 0}`}
+                        onClick={() => selectStage(stage.key)}
+                        color={activeStage === stage.key ? 'primary' : 'default'}
+                        variant={activeStage === stage.key ? 'filled' : 'outlined'}
                     />
                 ))}
             </Box>
@@ -510,7 +614,7 @@ function LeadsContent() {
                                 {row.remarks || 'No remarks'}
                             </Typography>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0 }}>
-                                <Chip label={LEAD_STAGE_LABELS[row.stage]} size="small" variant="outlined" />
+                                <Chip label={stageLabel(row.stage)} size="small" variant="outlined" />
                                 {row.emailFollowUp && (
                                     <Tooltip title="Email follow-up needed">
                                         <MailOutlineIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
@@ -584,7 +688,7 @@ function LeadsContent() {
                             </Box>
                             {drawer.mode === 'view' && (
                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', mt: 1.5 }}>
-                                    <Chip label={LEAD_STAGE_LABELS[drawer.lead.stage]} size="small" variant="outlined" />
+                                    <Chip label={stageLabel(drawer.lead.stage)} size="small" variant="outlined" />
                                     {drawer.lead.emailFollowUp && <Chip label="Email follow-up" size="small" variant="outlined" />}
                                     {drawer.lead.brettStatus && <Chip label={drawer.lead.brettStatus} size="small" variant="outlined" />}
                                 </Box>
@@ -689,11 +793,56 @@ function LeadsContent() {
                                     size="small"
                                     label="Stage"
                                     value={form.stage}
-                                    onChange={(event) => updateForm('stage', event.target.value as LeadStage)}
+                                    SelectProps={{
+                                        renderValue: (value) => stageLabel(String(value)),
+                                    }}
+                                    onChange={(event) => {
+                                        if (event.target.value === NEW_STAGE_VALUE) {
+                                            setStageName('');
+                                            setStageError(null);
+                                            setStageDialogOpen(true);
+                                            return;
+                                        }
+                                        updateForm('stage', event.target.value);
+                                    }}
                                 >
-                                    {STAGES.map((stage) => (
-                                        <MenuItem key={stage} value={stage}>{LEAD_STAGE_LABELS[stage]}</MenuItem>
+                                    {stages.map((stage) => (
+                                        <MenuItem
+                                            key={stage.key}
+                                            value={stage.key}
+                                            sx={{ display: 'flex', justifyContent: 'space-between', gap: 1 }}
+                                        >
+                                            <span>{stage.label}</span>
+                                            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                                                <IconButton
+                                                    size="small"
+                                                    aria-label={`Edit ${stage.label}`}
+                                                    onMouseDown={(event) => event.stopPropagation()}
+                                                    onClick={(event) => {
+                                                        event.stopPropagation();
+                                                        openStageEdit(stage);
+                                                    }}
+                                                >
+                                                    <EditIcon fontSize="small" />
+                                                </IconButton>
+                                                <IconButton
+                                                    size="small"
+                                                    aria-label={`Delete ${stage.label}`}
+                                                    onMouseDown={(event) => event.stopPropagation()}
+                                                    onClick={(event) => {
+                                                        event.stopPropagation();
+                                                        void deleteStage(stage.key);
+                                                    }}
+                                                >
+                                                    <DeleteIcon fontSize="small" />
+                                                </IconButton>
+                                            </Box>
+                                        </MenuItem>
                                     ))}
+                                    <MenuItem value={NEW_STAGE_VALUE} sx={{ gap: 1 }}>
+                                        <AddIcon fontSize="small" />
+                                        Add New Status
+                                    </MenuItem>
                                 </TextField>
                                 <TextField
                                     size="small"
@@ -786,6 +935,71 @@ function LeadsContent() {
                     </Box>
                 )}
             </Drawer>
+
+            <Dialog
+                open={stageDialogOpen}
+                onClose={() => { if (!stageSaving) setStageDialogOpen(false); }}
+                maxWidth="xs"
+                fullWidth
+            >
+                <DialogTitle>New stage</DialogTitle>
+                <DialogContent>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                        Custom stages become shared tabs for every lead.
+                    </Typography>
+                    <TextField
+                        autoFocus
+                        fullWidth
+                        label="Stage name"
+                        value={stageName}
+                        onChange={(event) => { setStageName(event.target.value); setStageError(null); }}
+                        error={Boolean(stageError)}
+                        helperText={stageError ?? 'Example: Staging'}
+                        slotProps={{ htmlInput: { maxLength: 40 } }}
+                    />
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setStageDialogOpen(false)} disabled={stageSaving} color="inherit">
+                        Cancel
+                    </Button>
+                    <Button onClick={createStage} variant="contained" disabled={stageSaving} startIcon={stageSaving ? <CircularProgress size={16} color="inherit" /> : undefined}>
+                        {stageSaving ? 'Creating...' : 'Create stage'}
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
+            <Dialog
+                open={stageEditOpen}
+                onClose={() => { if (!stageEditSaving) setStageEditOpen(false); }}
+                maxWidth="xs"
+                fullWidth
+            >
+                <DialogTitle>Edit stage</DialogTitle>
+                <DialogContent>
+                    <TextField
+                        autoFocus
+                        fullWidth
+                        label="Stage name"
+                        value={stageEditLabel}
+                        onChange={(event) => {
+                            setStageEditLabel(event.target.value);
+                            setStageEditError(null);
+                        }}
+                        error={Boolean(stageEditError)}
+                        helperText={stageEditError ?? undefined}
+                        slotProps={{ htmlInput: { maxLength: 40 } }}
+                        sx={{ mt: 1 }}
+                    />
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setStageEditOpen(false)} disabled={stageEditSaving} color="inherit">
+                        Cancel
+                    </Button>
+                    <Button onClick={saveStageEdit} variant="contained" disabled={stageEditSaving}>
+                        {stageEditSaving ? 'Saving...' : 'Save'}
+                    </Button>
+                </DialogActions>
+            </Dialog>
         </Box>
     );
 }

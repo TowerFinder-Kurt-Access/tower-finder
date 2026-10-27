@@ -33,6 +33,14 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         if (Object.keys(data).length === 0) {
             return NextResponse.json({ error: 'Nothing to update.' }, { status: 400 });
         }
+        const customStageKey = typeof data.customStageKey === 'string' ? data.customStageKey : null;
+        if (customStageKey) {
+            const exists = await prisma.leadCustomStage.findUnique({
+                where: { key: customStageKey },
+                select: { key: true },
+            });
+            if (!exists) return NextResponse.json({ error: 'Unknown stage.' }, { status: 400 });
+        }
 
         if (typeof data.towerId === 'number' && data.towerId !== existing.towerId) {
             const tower = await prisma.tower.findUnique({ where: { id: data.towerId }, select: { id: true } });
