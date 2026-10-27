@@ -94,13 +94,11 @@ export default auth(async (req: any) => {
         }
     }
 
-    // 3. Valid sessions visiting /login go home. A revoked session also arrives
-    //    here holding a valid JWT, so sending it home would bounce straight back.
-    const sessionRevoked = req.nextUrl.searchParams.get('error') === 'session-revoked';
-    if (isLoggedIn && pathname === '/login' && !sessionRevoked) {
-        return Response.redirect(new URL('/', req.url));
-    }
-
+    // 3. The login page always renders. Redirecting an authenticated session
+    //    away from /login loops when that session is stale: / sends it back
+    //    with error=session-revoked, and a lost or cached query sends it home
+    //    again. The login page clears stale cookies itself.
+    //
     // 4. Allow cron + worker jobs to bypass auth (secured by CRON_SECRET check in the handler)
     if (pathname.startsWith('/api/cron') || pathname.startsWith('/api/worker')) {
         return;
