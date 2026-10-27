@@ -133,7 +133,6 @@ interface LoginEventResponse {
     page: number;
     pageSize: number;
     byType: Record<string, number>;
-    generatedAt: string;
 }
 
 interface Filters {
@@ -210,7 +209,6 @@ export default function LoginEventsPage() {
     const [rows, setRows] = useState<LoginEventRow[]>([]);
     const [total, setTotal] = useState(0);
     const [byType, setByType] = useState<Record<string, number>>({});
-    const [generatedAt, setGeneratedAt] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
 
@@ -228,13 +226,15 @@ export default function LoginEventsPage() {
         return () => clearTimeout(timer);
     }, [filters]);
 
-    const requestEvents = useCallback(() => {
+    const requestEvents = useCallback((fresh: boolean) => {
         const params: Record<string, string | number> = { page, pageSize };
         if (debouncedFilters.email.trim()) params.email = debouncedFilters.email.trim();
         if (debouncedFilters.ip.trim()) params.ip = debouncedFilters.ip.trim();
         if (debouncedFilters.types.length > 0) params.type = debouncedFilters.types.join(',');
         if (debouncedFilters.from) params.from = `${debouncedFilters.from}T00:00:00`;
         if (debouncedFilters.to) params.to = `${debouncedFilters.to}T23:59:59.999`;
+        // Refresh skips the server cache, so it always reads the current table.
+        if (fresh) params.fresh = 1;
         return axios.get<LoginEventResponse>('/api/admin/login-events', { params });
     }, [debouncedFilters, page, pageSize]);
 
@@ -242,15 +242,14 @@ export default function LoginEventsPage() {
         setRows(data.rows);
         setTotal(data.total);
         setByType(data.byType);
-        setGeneratedAt(data.generatedAt);
     }, []);
 
     // The newest request wins. Older responses land late and are dropped.
-    const runRequest = useCallback(() => {
+    const runRequest = useCallback((fresh = false) => {
         const requestId = requestRef.current + 1;
         requestRef.current = requestId;
 
-        return requestEvents()
+        return requestEvents(fresh)
             .then((response) => {
                 if (requestRef.current !== requestId) return;
                 commit(response.data);
@@ -444,7 +443,7 @@ export default function LoginEventsPage() {
                         <Button
                             onClick={() => {
                                 setLoading(true);
-                                void runRequest();
+                                void runRequest(true);
                             }}
                             startIcon={<RefreshIcon sx={{ fontSize: 18 }} />}
                             sx={{
@@ -475,12 +474,6 @@ export default function LoginEventsPage() {
                             Clear filters
                         </Button>
                     </Box>
-
-                    <Typography sx={{ mt: 3, fontSize: '0.75rem', color: C.faint }}>
-                        {generatedAt
-                            ? `Snapshot taken ${new Date(generatedAt).toLocaleTimeString('en-US', { hour12: false })}`
-                            : 'Reading the LoginEvent table'}
-                    </Typography>
                 </Box>
             </Box>
 
