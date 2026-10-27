@@ -2,9 +2,11 @@
  * Label duplicate towers (one physical site imported twice), and undo it.
  *
  * Rule: towers that share a Parcel address in the same province and sit within
- * --max-separation metres of each other are the same site. Each cluster of such
- * rows keeps one keeper row; the other rows get the "Duplicate Tower" status and
- * a note pointing at the keeper. A human status is never overwritten.
+ * --max-separation metres of each other are the same site. Leading house
+ * numbers are ignored for the address match, so "124, Main St" and "Main St"
+ * still compare. Each cluster of such rows keeps one keeper row; the other
+ * rows get the "Duplicate Tower" status and a note pointing at the keeper. A
+ * human status is never overwritten.
  *
  *   npx tsx --env-file=.env scripts/migrations/label-duplicate-towers.ts                    # dry run
  *   npx tsx --env-file=.env scripts/migrations/label-duplicate-towers.ts --write            # label + backup
@@ -12,7 +14,7 @@
  *   npx tsx --env-file=.env scripts/migrations/label-duplicate-towers.ts --restore --write  # undo the newest backup
  *   npx tsx --env-file=.env scripts/migrations/label-duplicate-towers.ts --restore <file> --write
  *
- * Flags: --provinces=ON,AB (default: every province), --max-separation=25
+ * Flags: --provinces=ON,AB (default: every province), --max-separation=1000
  *
  * Every write run drops a backup in data/dupes/ before it changes anything.
  * Restore reads the newest backup unless a path follows --restore. See docs/restore.md.
@@ -45,12 +47,17 @@ const provinces = provincesArg
     ? provincesArg.slice('--provinces='.length).split(',').map((p) => p.trim().toUpperCase()).filter(Boolean)
     : null;
 const separationArg = args.find((a) => a.startsWith('--max-separation='));
-const maxSeparationM = separationArg ? Number(separationArg.slice('--max-separation='.length)) : 25;
+const maxSeparationM = separationArg ? Number(separationArg.slice('--max-separation='.length)) : 1000;
+/** Different house numbers on one street merge only when they sit this close.
+ * Same-address rows still use the full separation tolerance. */
+const VARIANT_MAX_M = 25;
 
 interface Row {
     id: number;
     province: string;
     address: string;
+    addressKey: string;
+    addressKeyFull: string;
     lat: number;
     lon: number;
     statusId: number | null;
@@ -129,6 +136,24 @@ interface Backup {
     notes: BackupNote[];
 }
 
+function normalizeAddress(address: string): string {
+    return address
+        .toLowerCase()
+        .replace(/^\s*\d+[a-z]?\s*[,.-]?\s*/i, '')
+        .replace(/\b[a-z]\d[a-z]\s?\d[a-z]\d\b\s*,?\s*canada\s*$/i, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+/** Full address, used to tell an exact match from a house-number variant. */
+function normalizeAddressFull(address: string): string {
+    return address
+        .toLowerCase()
+        .replace(/[.,]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
 function distanceM(aLat: number, aLon: number, bLat: number, bLon: number): number {
     const toRad = Math.PI / 180;
     const dLat = (bLat - aLat) * toRad;
@@ -149,7 +174,8 @@ function keeperScore(row: Row): number {
     return score;
 }
 
-/** Every tower that shares a Parcel address with at least one other tower. */
+/** Every tower with a Parcel address. Address normalization happens after
+ *  this query, so variant spellings are not filtered out here. */
 async function selectRows(): Promise<Row[]> {
     const rows = await prisma.$queryRaw<Row[]>(Prisma.sql`
         WITH t AS (
@@ -168,15 +194,12 @@ async function selectRows(): Promise<Row[]> {
             WHERE p.address IS NOT NULL
               AND btrim(p.address) <> ''
               ${provinces ? Prisma.sql`AND p."provinceRaw" IN (${Prisma.join(provinces)})` : Prisma.empty}
-        ), g AS (
-            SELECT province, address FROM t GROUP BY 1, 2 HAVING count(*) > 1
         )
         SELECT t.id, t.province, t.address, t.lat, t.lon, t."statusId", t."statusName",
                t."humanLabel", t."ownerId",
                COALESCE(n.notes, 0)::int AS notes,
                COALESCE(a.assignments, 0)::int AS assignments
         FROM t
-        JOIN g ON g.province = t.province AND g.address = t.address
         LEFT JOIN (SELECT "towerId", count(*) AS notes FROM "Note" WHERE content NOT LIKE ${`${NOTE_PREFIX}%`} GROUP BY 1) n ON n."towerId" = t.id
         LEFT JOIN (SELECT "towerId", count(*) AS assignments FROM "TowerAssignment" GROUP BY 1) a ON a."towerId" = t.id
         ORDER BY t.province, t.address, t.id
@@ -184,6 +207,8 @@ async function selectRows(): Promise<Row[]> {
 
     return rows.map((r) => ({
         ...r,
+        addressKey: normalizeAddress(r.address),
+        addressKeyFull: normalizeAddressFull(r.address),
         notes: Number(r.notes),
         assignments: Number(r.assignments),
         lat: Number(r.lat),
@@ -211,7 +236,7 @@ function previousStatusByRow(): Map<number, number | null> {
 function buildPlan(rows: Row[], previousStatus: Map<number, number | null>): Plan {
     const groups = new Map<string, Row[]>();
     for (const row of rows) {
-        const key = `${row.province}\u0000${row.address}`;
+        const key = `${row.province}\u0000${row.addressKey}`;
         const list = groups.get(key);
         if (list) list.push(row);
         else groups.set(key, [row]);
@@ -226,13 +251,15 @@ function buildPlan(rows: Row[], previousStatus: Map<number, number | null>): Pla
     const farGroups: Plan['farGroups'] = [];
 
     for (const members of groups.values()) {
+        if (members.length < 2) continue;
         const edges: [number, number, number][] = [];
         let closest = Infinity;
         for (let i = 0; i < members.length; i++) {
             for (let j = i + 1; j < members.length; j++) {
                 const d = distanceM(members[i].lat, members[i].lon, members[j].lat, members[j].lon);
                 if (d < closest) closest = d;
-                if (d <= maxSeparationM) edges.push([i, j, d]);
+                const sameAddress = members[i].addressKeyFull === members[j].addressKeyFull;
+                if (d <= (sameAddress ? maxSeparationM : VARIANT_MAX_M)) edges.push([i, j, d]);
             }
         }
 
@@ -330,11 +357,10 @@ async function planNotes(targets: LabelAction[], keepers: Row[]): Promise<{
     const empty = { existing: new Map(), stale: [], missing: [], onKeeper: [] };
     if (targets.length === 0 && keepers.length === 0) return empty;
 
-    const towerIds = [...targets.map((t) => t.row.id), ...keepers.map((k) => k.id)];
-    const notes = await prisma.$queryRaw<{ id: number; towerId: number; content: string }[]>(Prisma.sql`
-        SELECT id, "towerId", content FROM "Note"
-        WHERE "towerId" IN (${Prisma.join(towerIds)}) AND content LIKE ${`${NOTE_PREFIX}%`}
-    `);
+    const notes = await prisma.note.findMany({
+        where: { content: { startsWith: NOTE_PREFIX } },
+        select: { id: true, towerId: true, content: true },
+    });
 
     const existing = new Map<number, { id: number; content: string }[]>();
     for (const note of notes) {
@@ -461,7 +487,7 @@ async function label(): Promise<void> {
         label: status,
         provinces,
         maxSeparationM,
-        rule: `same Parcel address within ${maxSeparationM} m; one keeper per cluster, the rest get "${LABEL_NAME}"`,
+        rule: `same normalized Parcel address within ${maxSeparationM} m; one keeper per cluster, the rest get "${LABEL_NAME}"`,
         rows: plan.toLabel.map((a) => ({
             id: a.row.id,
             province: a.row.province,
@@ -584,7 +610,7 @@ function writeReport(plan: Plan): void {
     writeJson(REPORT_FILE, {
         createdAt: new Date().toISOString(),
         maxSeparationM,
-        rule: 'same Parcel address, nearest tower further apart than maxSeparationM',
+        rule: 'same normalized Parcel address, nearest tower further apart than maxSeparationM',
         groups: plan.farGroups,
     });
     console.log(`same-address report: ${path.relative(process.cwd(), REPORT_FILE)} (${plan.farGroups.length} addresses)`);

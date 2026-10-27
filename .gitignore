@@ -66,6 +66,7 @@ graphify-out
 
 # duplicate tower undo backups (the only way back from a run) - keep off the repo
 data/dupes/dupe-label-*.json
+data/dupes/snapshots/
 
 # discovery debug artifacts
 *.log
