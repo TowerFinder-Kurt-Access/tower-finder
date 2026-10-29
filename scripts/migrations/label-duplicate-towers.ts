@@ -136,13 +136,25 @@ interface Backup {
     notes: BackupNote[];
 }
 
+const PROVINCE_SUFFIX = /\s+(alberta|british columbia|manitoba|new brunswick|newfoundland and labrador|nova scotia|ontario|prince edward island|quebec|saskatchewan|northwest territories|nunavut|yukon)$/;
+
+/**
+ * Address key used for grouping. Order matters: punctuation, postal codes, and
+ * country names collapse to single spaces first, so a trailing province is
+ * always the last token no matter where the postal code sat.
+ */
 function normalizeAddress(address: string): string {
-    return address
+    let key = address
         .toLowerCase()
-        .replace(/^\s*\d+[a-z]?\s*[,.-]?\s*/i, '')
-        .replace(/\b[a-z]\d[a-z]\s?\d[a-z]\d\b\s*,?\s*canada\s*$/i, '')
+        .replace(/[.,/]/g, ' ')
+        .replace(/\b[a-z]\d[a-z]\s?\d[a-z]\d\b/g, ' ')
         .replace(/\s+/g, ' ')
         .trim();
+
+    key = key.replace(/^\d+[a-z]?\s+/, '').replace(/^\d+[a-z]?$/, '');
+    key = key.replace(/\s+canada$/, '');
+    key = key.replace(PROVINCE_SUFFIX, '');
+    return key.replace(/\s+/g, ' ').trim();
 }
 
 /** Full address, used to tell an exact match from a house-number variant. */
@@ -216,6 +228,29 @@ async function selectRows(): Promise<Row[]> {
     }));
 }
 
+/** Parses a backup file, turning a corrupt or truncated JSON into a clear error. */
+function readBackup(filePath: string): Backup {
+    let raw: string;
+    try {
+        raw = fs.readFileSync(filePath, 'utf8');
+    } catch (error) {
+        throw new Error(`Cannot read backup ${filePath}: ${error instanceof Error ? error.message : String(error)}`);
+    }
+
+    let parsed: unknown;
+    try {
+        parsed = JSON.parse(raw);
+    } catch (error) {
+        throw new Error(`Backup ${filePath} is not valid JSON: ${error instanceof Error ? error.message : String(error)}`);
+    }
+
+    if (typeof parsed !== 'object' || parsed === null || !Array.isArray((parsed as Backup).rows)) {
+        throw new Error(`Backup ${filePath} has no rows array. Refusing to restore from it.`);
+    }
+
+    return parsed as Backup;
+}
+
 /** Rows this script labeled before, with the status each one had before. */
 function previousStatusByRow(): Map<number, number | null> {
     const map = new Map<number, number | null>();
@@ -225,7 +260,7 @@ function previousStatusByRow(): Map<number, number | null> {
         .filter((f) => f.startsWith('dupe-label-') && f.endsWith('.json'))
         .sort();
     for (const file of files) {
-        const backup = JSON.parse(fs.readFileSync(path.join(BACKUP_DIR, file), 'utf8')) as Backup;
+        const backup = readBackup(path.join(BACKUP_DIR, file));
         for (const row of backup.rows ?? []) {
             map.set(row.id, row.previousStatusId ?? null);
         }
@@ -250,7 +285,9 @@ function buildPlan(rows: Row[], previousStatus: Map<number, number | null>): Pla
     const clusters: Cluster[] = [];
     const farGroups: Plan['farGroups'] = [];
 
-    for (const members of groups.values()) {
+    // Hoisted so the loop iterates an array. Map iterators need a newer target.
+    const groupList = Array.from(groups.values());
+    for (const members of groupList) {
         if (members.length < 2) continue;
         const edges: [number, number, number][] = [];
         let closest = Infinity;
@@ -300,7 +337,8 @@ function buildPlan(rows: Row[], previousStatus: Map<number, number | null>): Pla
             else byRoot.set(root, [i]);
         });
 
-        for (const indices of byRoot.values()) {
+        const rootList = Array.from(byRoot.values());
+        for (const indices of rootList) {
             if (indices.length < 2) continue;
             const group = indices.map((i) => members[i]);
             const keeper = group
@@ -324,22 +362,26 @@ function buildPlan(rows: Row[], previousStatus: Map<number, number | null>): Pla
 
             for (const other of others) {
                 const status = other.statusName ?? '';
-                if (other.statusId !== null && status !== NEW_STATUS_NAME && status !== LABEL_NAME) {
+                const hadHumanStatus = other.statusId !== null && status !== NEW_STATUS_NAME && status !== LABEL_NAME;
+                if (hadHumanStatus) {
+                    // Still labelled, but reported so the run is auditable. The
+                    // prior status is kept in the backup for a restore.
                     keepHuman.push({ row: other, keeperId: keeper.id });
-                    continue;
                 }
                 noteTargets.push({ row: other, keeperId: keeper.id });
                 if (status !== LABEL_NAME) toLabel.push({ row: other, keeperId: keeper.id });
             }
 
-            // A keeper that carries the label from an earlier run gives the label back.
+            // A keeper is the surviving row, so it must not carry the duplicate
+            // label. With no earlier status on record, clear it to null rather
+            // than leave the row labelled as a duplicate of itself.
             if (keeper.statusName === LABEL_NAME) {
                 const previous = previousStatus.get(keeper.id);
-                if (previous !== undefined) {
-                    toUnlabel.push({ row: keeper, keeperId: keeper.id, previousStatusId: previous });
-                } else {
-                    keepHuman.push({ row: keeper, keeperId: keeper.id });
-                }
+                toUnlabel.push({
+                    row: keeper,
+                    keeperId: keeper.id,
+                    previousStatusId: previous !== undefined ? previous : null,
+                });
             }
         }
     }
@@ -424,14 +466,13 @@ function newestBackup(): string {
 function summarise(label: string, rows: { row: Row }[]): void {
     const byProvince = new Map<string, number>();
     for (const item of rows) byProvince.set(item.row.province, (byProvince.get(item.row.province) ?? 0) + 1);
-    const text = [...byProvince.entries()].map(([p, n]) => `${p} ${n}`).join(', ') || 'none';
+    const text = Array.from(byProvince.entries()).map(([p, n]) => `${p} ${n}`).join(', ') || 'none';
     console.log(`${label}: ${rows.length} rows (${text})`);
 }
 
 async function label(): Promise<void> {
     const status = await findStatus(LABEL_NAME);
     if (!status) throw new Error(`TowerStatus "${LABEL_NAME}" is missing. Create it before labelling.`);
-    const newStatus = await findStatus(NEW_STATUS_NAME);
 
     const rows = await selectRows();
     const previousStatus = previousStatusByRow();
@@ -440,12 +481,15 @@ async function label(): Promise<void> {
 
     console.log(`label status: ${status.id} "${status.name}"`);
     console.log(`provinces: ${provinces ? provinces.join(', ') : 'all'}, max separation: ${maxSeparationM} m`);
-    console.log(`rows sharing an address: ${rows.length}, clusters: ${plan.clusters.length}`);
+    const clustered = plan.clusters.reduce((sum, cluster) => sum + cluster.members.length, 0);
+    console.log(`towers scanned: ${rows.length}, towers inside a cluster: ${clustered}, clusters: ${plan.clusters.length}`);
+    // Every tower in a cluster except its keeper ends up carrying the label.
+    console.log(`duplicates after the run: ${clustered - plan.clusters.length}, keepers that stay: ${plan.clusters.length}`);
     console.log('');
 
     summarise('to label', plan.toLabel);
     summarise('keeper gives the label back', plan.toUnlabel);
-    summarise('left alone, a person already judged it', plan.keepHuman);
+    summarise('of those, a person had set a status (prior status saved in backup)', plan.keepHuman);
     console.log(`notes to write: ${notes.missing.length}, notes to repoint: ${notes.stale.length}, notes on keepers to remove: ${notes.onKeeper.length}`);
     console.log(`same address but further apart than ${maxSeparationM} m: ${plan.farGroups.length} addresses`);
 
@@ -511,10 +555,7 @@ async function label(): Promise<void> {
 
     for (const ids of chunk(plan.toLabel.map((a) => a.row.id), 1000)) {
         const result = await prisma.tower.updateMany({
-            where: {
-                id: { in: ids },
-                ...(newStatus ? { OR: [{ statusId: null }, { statusId: newStatus.id }] } : { statusId: null }),
-            },
+            where: { id: { in: ids } },
             data: { statusId: status.id },
         });
         console.log(`  ${result.count} of ${ids.length} rows in this chunk took the label`);
@@ -527,7 +568,8 @@ async function label(): Promise<void> {
         if (list) list.push(action.row.id);
         else unlabelGroups.set(key, [action.row.id]);
     }
-    for (const [key, ids] of unlabelGroups) {
+    const unlabelEntries = Array.from(unlabelGroups.entries());
+    for (const [key, ids] of unlabelEntries) {
         const previousStatusId = key === 'null' ? null : Number(key);
         const result = await prisma.tower.updateMany({
             where: { id: { in: ids }, statusId: status.id },
@@ -537,7 +579,8 @@ async function label(): Promise<void> {
     }
 
     const existingNoteIds = new Set<number>();
-    for (const list of notes.existing.values()) {
+    const noteLists = Array.from(notes.existing.values());
+    for (const list of noteLists) {
         for (const note of list) existingNoteIds.add(note.id);
     }
 
@@ -617,7 +660,7 @@ function writeReport(plan: Plan): void {
 }
 
 async function restore(backupPath: string): Promise<void> {
-    const backup = JSON.parse(fs.readFileSync(backupPath, 'utf8')) as Backup;
+    const backup = readBackup(backupPath);
     console.log(`backup: ${backupPath}`);
     console.log(`created ${backup.createdAt}, label ${backup.label.id} "${backup.label.name}", ${backup.rows.length} rows`);
 
@@ -677,7 +720,8 @@ async function restore(backupPath: string): Promise<void> {
         if (list) list.push(row.id);
         else revertGroups.set(key, [row.id]);
     }
-    for (const [key, ids] of revertGroups) {
+    const revertEntries = Array.from(revertGroups.entries());
+    for (const [key, ids] of revertEntries) {
         const previousStatusId = key === 'null' ? null : Number(key);
         const result = await prisma.tower.updateMany({
             where: { id: { in: ids }, statusId: backup.label.id },
@@ -712,7 +756,11 @@ async function restore(backupPath: string): Promise<void> {
     }
 
     // Only touch a note that still carries the content the run wrote.
-    const noteIds = [...toDelete, ...[...contentUpdates.values()].flat(), ...(backup.notes ?? []).filter((n) => n.deleted).map((n) => n.id)];
+    const noteIds = [
+        ...toDelete,
+        ...Array.from(contentUpdates.values()).flat(),
+        ...(backup.notes ?? []).filter((n) => n.deleted).map((n) => n.id),
+    ];
     const currentNotes = noteIds.length
         ? await prisma.note.findMany({ where: { id: { in: noteIds } }, select: { id: true, content: true } })
         : [];
@@ -727,14 +775,15 @@ async function restore(backupPath: string): Promise<void> {
         notesDeleted += result.count;
     }
 
-    for (const [previousContent, ids] of contentUpdates) {
+    const contentEntries = Array.from(contentUpdates.entries());
+    for (const [previousContent, ids] of contentEntries) {
         const matchIds = ids.filter((id) => {
             const expected = (backup.notes ?? []).find((n) => n.id === id)?.content;
             return contentById.get(id) === expected;
         });
         for (const group of chunk(matchIds, 1000)) {
             const result = await prisma.note.updateMany({
-                where: { id: { in: group } },
+                where: { id: { in: group as number[] } },
                 data: { content: previousContent },
             });
             notesRestored += result.count;
