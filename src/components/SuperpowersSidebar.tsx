@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { signOut } from 'next-auth/react';
 import Link from 'next/link';
@@ -18,6 +18,8 @@ import RadarIcon from '@mui/icons-material/Radar';
 import SettingsIcon from '@mui/icons-material/Settings';
 import HistoryIcon from '@mui/icons-material/History';
 
+const BP = '/';
+
 const NAV_ITEMS = [
     { label: 'Tower Leads', icon: <ExploreIcon />, path: '/superpowers/tower-leads' },
     { label: 'Login Events', icon: <HistoryIcon />, path: '/superpowers/login-events' },
@@ -30,6 +32,18 @@ const NAV_ITEMS = [
 export default function SuperpowersSidebar() {
     const pathname = usePathname();
     const [isCollapsed, setIsCollapsed] = useState(false);
+
+    // Auto-collapse on small screens; the toggle still works above the breakpoint.
+    useEffect(() => {
+        const mq = window.matchMedia('(max-width: 600px)');
+        const sync = (e: MediaQueryList | MediaQueryListEvent) => {
+            if (e.matches) setIsCollapsed(true);
+        };
+        sync(mq);
+        mq.addEventListener('change', sync);
+        return () => mq.removeEventListener('change', sync);
+    }, []);
+
     const drawerWidth = isCollapsed ? 80 : 260;
 
     return (
@@ -83,7 +97,7 @@ export default function SuperpowersSidebar() {
             {/* Nav items */}
             <List sx={{ px: 1 }}>
                  {NAV_ITEMS.map((item) => {
-                    const isActive = pathname === item.path;
+                    const isActive = pathname === item.path || pathname.startsWith(BP + item.path + '/');
                     return (
                         <ListItemButton
                             key={item.path}

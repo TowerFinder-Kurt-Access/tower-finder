@@ -1,7 +1,7 @@
 'use client';
 import { usePathname } from 'next/navigation';
 import { signOut, useSession } from 'next-auth/react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import MapIcon from '@mui/icons-material/Map';
@@ -14,8 +14,10 @@ import CellTowerIcon from '@mui/icons-material/CellTower';
 import LogoutIcon from '@mui/icons-material/Logout';
 import MenuIcon from '@mui/icons-material/Menu';
 import MenuOpenIcon from '@mui/icons-material/MenuOpen';
-import { IconButton, MenuItem, Select, FormControl, InputLabel, ListItemIcon, ListItemText, List, ListItemButton } from '@mui/material';
+import { IconButton, MenuItem, Select, FormControl, InputLabel, ListItemIcon, ListItemText, List, ListItemButton, Tooltip } from '@mui/material';
 import { useCountry } from '@/lib/country-context';
+
+const BP = '/';
 
 const COUNTRIES = [
     { code: 'Canada', flag: '\ud83c\udde8\ud83c\udde6', short: 'CA' },
@@ -27,6 +29,17 @@ export default function NavRail() {
     const { data: session } = useSession();
     const { country, setCountry } = useCountry();
     const [isCollapsed, setIsCollapsed] = useState(false);
+
+    // Auto-collapse on small screens; the toggle still works above the breakpoint.
+    useEffect(() => {
+        const mq = window.matchMedia('(max-width: 600px)');
+        const sync = (e: MediaQueryList | MediaQueryListEvent) => {
+            if (e.matches) setIsCollapsed(true);
+        };
+        sync(mq);
+        mq.addEventListener('change', sync);
+        return () => mq.removeEventListener('change', sync);
+    }, []);
 
     const isAdmin = session?.user?.role === 'ADMIN';
     const navItems = [
@@ -114,13 +127,14 @@ export default function NavRail() {
             {/* Nav Items */}
             <List sx={{ px: 1 }}>
                 {navItems.map((item) => {
-                    const isActive = pathname === item.path;
+                    const isActive = pathname === item.path
+                        || (item.path !== '/' && pathname.startsWith(BP + item.path + '/'));
                     return (
-                        <ListItemButton
-                            key={item.path}
-                            component="a"
-                            href={item.path}
-                            selected={isActive}
+                        <Tooltip key={item.path} title={isCollapsed ? item.label : ''}>
+                            <ListItemButton
+                                component="a"
+                                href={item.path}
+                                selected={isActive}
                             sx={{
                                 justifyContent: isCollapsed ? 'center' : 'initial',
                                 borderRadius: 1,
@@ -140,7 +154,8 @@ export default function NavRail() {
                                 {item.icon}
                             </ListItemIcon>
                             {!isCollapsed && <ListItemText primary={item.label} />}
-                        </ListItemButton>
+                            </ListItemButton>
+                        </Tooltip>
                     );
                 })}
             </List>

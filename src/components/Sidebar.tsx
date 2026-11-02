@@ -111,6 +111,17 @@ export default function Sidebar({
 }: SidebarProps) {
     const [query, setQuery] = useState('');
     const [collapsed, setCollapsed] = useState(false);
+
+    // Auto-collapse on small screens; the toggle still works above the breakpoint.
+    useEffect(() => {
+        const mq = window.matchMedia('(max-width: 600px)');
+        const sync = (e: MediaQueryList | MediaQueryListEvent) => {
+            if (e.matches) setCollapsed(true);
+        };
+        sync(mq);
+        mq.addEventListener('change', sync);
+        return () => mq.removeEventListener('change', sync);
+    }, []);
     const [selectedType, setSelectedType] = useState('');
     const [selectedCarrier, setSelectedCarrier] = useState('');
 
