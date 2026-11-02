@@ -1,7 +1,7 @@
 'use client';
 
 // Street View links are admin-entered text, so only known map hosts may open in a tab.
-const EXTERNAL_HOSTS = new Set(['www.google.com', 'maps.google.com', 'www.bing.com', 'webmap.onxmaps.com']);
+const EXTERNAL_HOSTS = new Set(['www.google.com', 'maps.google.com', 'www.bing.com', 'webmap.onxmaps.com', 'app.regrid.com', 'reportallusa.com', 'clss.nrcan-rncan.gc.ca']);
 
 const openExternal = (url: string): void => {
     try {
@@ -40,8 +40,12 @@ import {
     Stack,
     Toolbar,
     AppBar,
-    Tooltip
+    Tooltip,
+    Menu,
+    ListItemIcon,
+    ListItemText
 } from '@mui/material';
+import type { ButtonProps } from '@mui/material/Button';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import NavigateBeforeIcon from '@mui/icons-material/NavigateBefore';
 import NavigateNextIcon from '@mui/icons-material/NavigateNext';
@@ -70,12 +74,30 @@ import {
 import { getRadiusTiers } from '@/lib/nearby-business';
 import { pinnedMapUrl, towerToPlaceUrl } from '@/lib/google-maps';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
+import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
+import LayersIcon from '@mui/icons-material/Layers';
 
 // Dynamically import Map to avoid SSR issues
 const Map = dynamic(() => import('@/components/TowerMap'), {
     ssr: false,
     loading: () => <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}><CircularProgress /></Box>
 });
+
+interface ToolbarButtonProps extends Omit<ButtonProps, 'children'> {
+    title: string;
+    label: string;
+}
+
+// Toolbar actions collapse to icon-only on small screens to keep the bar usable.
+function ToolbarButton({ title, label, ...props }: ToolbarButtonProps) {
+    return (
+        <Tooltip title={title}>
+            <Button aria-label={title} size="small" {...props}>
+                {label}
+            </Button>
+        </Tooltip>
+    );
+}
 
 interface NoteHistory {
     id: number;
@@ -207,6 +229,9 @@ export default function TowerDetailPage({ params }: PageProps) {
     const [mapCenter, setMapCenter] = useState<[number, number] | null>(null);
     const [isSavingStreetView, setIsSavingStreetView] = useState(false);
     const [isNormalizing, setIsNormalizing] = useState(false);
+    const [mapMenuAnchor, setMapMenuAnchor] = useState<HTMLElement | null>(null);
+    const [ownerMenuAnchor, setOwnerMenuAnchor] = useState<HTMLElement | null>(null);
+    const [parcelMenuAnchor, setParcelMenuAnchor] = useState<HTMLElement | null>(null);
 
     // Lookups
     const [types, setTypes] = useState<LookupItem[]>([]);
@@ -810,7 +835,7 @@ export default function TowerDetailPage({ params }: PageProps) {
         <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
             {/* Action Bar */}
             <AppBar position="static" color="default" elevation={1}>
-                <Toolbar sx={{ gap: 1 }}>
+                <Toolbar sx={{ gap: 1, flexWrap: 'wrap', rowGap: 0.5 }}>
                     <IconButton edge="start" onClick={() => router.push('/towers')}>
                         <ArrowBackIcon />
                     </IconButton>
@@ -844,55 +869,134 @@ export default function TowerDetailPage({ params }: PageProps) {
                         </span>
                     </Tooltip>
 
-                    <Box sx={{ flexGrow: 1 }} />
+                    <Box sx={{ flexGrow: 1, display: { xs: 'none', sm: 'block' } }} />
 
-                    <Button startIcon={<MapIcon />} onClick={handleViewOnMap} size="small">
-                        View on Map
-                    </Button>
-                    <Button startIcon={<OpenInNewIcon />} onClick={handleOpenGoogleMaps} size="small">
-                        Google Maps
-                    </Button>
-                    <Button startIcon={<StreetviewIcon />} onClick={handleOpenSatelliteView} size="small">
-                        Satellite View
-                    </Button>
-                    {streetViewUrl && (
+                    {/* Small screens: grouped dropdowns */}
+                    <Box sx={{ display: { xs: 'flex', sm: 'none' }, gap: 1 }}>
                         <Button
-                            startIcon={<StreetviewIcon />}
-                            onClick={handleOpenSavedStreetView}
-                            size="small"
-                            variant="contained"
-                            color="success"
+                            variant="outlined"
+                            color="primary"
+                            endIcon={<ArrowDropDownIcon />}
+                            onClick={(e) => setMapMenuAnchor(e.currentTarget)}
                         >
-                            Saved Street View
+                            Map Views
                         </Button>
-                    )}
-                    <Button
-                        startIcon={<LocationOnIcon />}
-                        onClick={handleOpenOnXMaps}
-                        size="small"
-                        sx={{
-                            color: '#5c7c3c',
-                            '&:hover': {
-                                bgcolor: 'rgba(92, 124, 60, 0.04)'
-                            }
-                        }}
-                    >
-                        onX Maps
-                    </Button>
-                    <Button
-                        startIcon={<BusinessIcon />}
-                        onClick={handleLookupOwner}
-                        disabled={isOwnerLoading}
-                        size="small"
-                    >
-                        {isOwnerLoading ? 'Loading...' : 'Lookup Property Owner'}
-                    </Button>
-                    <Button startIcon={<TravelExploreIcon />} onClick={handleOpenBingMaps} size="small">
-                        Search Nearby
-                    </Button>
-                    <Button startIcon={<PersonAddIcon />} onClick={() => setAddOwnerOpen(true)} size="small" color="warning">
-                        Add Property Owner
-                    </Button>
+                        <Button
+                            variant="outlined"
+                            color="warning"
+                            endIcon={<ArrowDropDownIcon />}
+                            onClick={(e) => setOwnerMenuAnchor(e.currentTarget)}
+                        >
+                            Owners
+                        </Button>
+                    </Box>
+
+                    {/* Full buttons from sm up */}
+                    <Box sx={{ display: { xs: 'none', sm: 'flex' }, gap: 1, flexWrap: 'wrap' }}>
+                        <ToolbarButton title="View on Map" label="View on Map" startIcon={<MapIcon />} onClick={handleViewOnMap} />
+                        <ToolbarButton title="Open in Google Maps" label="Google Maps" startIcon={<OpenInNewIcon />} onClick={handleOpenGoogleMaps} />
+                        <ToolbarButton title="Satellite View" label="Satellite View" startIcon={<StreetviewIcon />} onClick={handleOpenSatelliteView} />
+                        {streetViewUrl && (
+                            <ToolbarButton
+                                title="Saved Street View"
+                                label="Saved Street View"
+                                startIcon={<StreetviewIcon />}
+                                onClick={handleOpenSavedStreetView}
+                                variant="contained"
+                                color="success"
+                            />
+                        )}
+                        <ToolbarButton
+                            title="Open in onX Maps"
+                            label="onX Maps"
+                            startIcon={<LocationOnIcon />}
+                            onClick={handleOpenOnXMaps}
+                            sx={{
+                                color: '#5c7c3c',
+                                '&:hover': {
+                                    bgcolor: 'rgba(92, 124, 60, 0.04)'
+                                }
+                            }}
+                        />
+                        <ToolbarButton
+                            title="Lookup Property Owner"
+                            label={isOwnerLoading ? 'Loading...' : 'Lookup Property Owner'}
+                            startIcon={<BusinessIcon />}
+                            onClick={handleLookupOwner}
+                            disabled={isOwnerLoading}
+                        />
+                        <ToolbarButton title="Search Nearby" label="Search Nearby" startIcon={<TravelExploreIcon />} onClick={handleOpenBingMaps} />
+                        <ToolbarButton title="Free Parcel Data Viewers" label="Parcel Data" startIcon={<LayersIcon />} onClick={(e) => setParcelMenuAnchor(e.currentTarget)} />
+                        <ToolbarButton title="Add Property Owner" label="Add Property Owner" startIcon={<PersonAddIcon />} onClick={() => setAddOwnerOpen(true)} color="warning" />
+                    </Box>
+
+                    <Menu anchorEl={mapMenuAnchor} open={Boolean(mapMenuAnchor)} onClose={() => setMapMenuAnchor(null)}>
+                        <MenuItem onClick={() => { setMapMenuAnchor(null); handleViewOnMap(); }}>
+                            <ListItemIcon><MapIcon color="primary" /></ListItemIcon>
+                            <ListItemText>View on Map</ListItemText>
+                        </MenuItem>
+                        <MenuItem onClick={() => { setMapMenuAnchor(null); handleOpenGoogleMaps(); }}>
+                            <ListItemIcon><OpenInNewIcon sx={{ color: '#4285F4' }} /></ListItemIcon>
+                            <ListItemText>Google Maps</ListItemText>
+                        </MenuItem>
+                        <MenuItem onClick={() => { setMapMenuAnchor(null); handleOpenSatelliteView(); }}>
+                            <ListItemIcon><StreetviewIcon color="action" /></ListItemIcon>
+                            <ListItemText>Satellite View</ListItemText>
+                        </MenuItem>
+                        {streetViewUrl && (
+                            <MenuItem onClick={() => { setMapMenuAnchor(null); handleOpenSavedStreetView(); }}>
+                                <ListItemIcon><StreetviewIcon color="success" /></ListItemIcon>
+                                <ListItemText>Saved Street View</ListItemText>
+                            </MenuItem>
+                        )}
+                        <MenuItem onClick={() => { setMapMenuAnchor(null); handleOpenOnXMaps(); }}>
+                            <ListItemIcon><LocationOnIcon sx={{ color: '#5c7c3c' }} /></ListItemIcon>
+                            <ListItemText>onX Maps</ListItemText>
+                        </MenuItem>
+                        <MenuItem onClick={() => { setMapMenuAnchor(null); handleOpenBingMaps(); }}>
+                            <ListItemIcon><TravelExploreIcon color="secondary" /></ListItemIcon>
+                            <ListItemText>Search Nearby</ListItemText>
+                        </MenuItem>
+                        <Divider />
+                        <MenuItem onClick={() => { setMapMenuAnchor(null); openExternal('https://app.regrid.com/us'); }}>
+                            <ListItemIcon><LayersIcon color="primary" /></ListItemIcon>
+                            <ListItemText>Regrid Parcels (US + Canada)</ListItemText>
+                        </MenuItem>
+                        <MenuItem onClick={() => { setMapMenuAnchor(null); openExternal('https://reportallusa.com/online'); }}>
+                            <ListItemIcon><LayersIcon color="secondary" /></ListItemIcon>
+                            <ListItemText>ReportAll Parcels (US)</ListItemText>
+                        </MenuItem>
+                        <MenuItem onClick={() => { setMapMenuAnchor(null); openExternal('https://clss.nrcan-rncan.gc.ca/mb-nc/en/index.html'); }}>
+                            <ListItemIcon><LayersIcon color="warning" /></ListItemIcon>
+                            <ListItemText>CLSS Map Browser (Canada)</ListItemText>
+                        </MenuItem>
+                    </Menu>
+
+                    <Menu anchorEl={ownerMenuAnchor} open={Boolean(ownerMenuAnchor)} onClose={() => setOwnerMenuAnchor(null)}>
+                        <MenuItem onClick={() => { setOwnerMenuAnchor(null); handleLookupOwner(); }} disabled={isOwnerLoading}>
+                            <ListItemIcon><BusinessIcon color="primary" /></ListItemIcon>
+                            <ListItemText>{isOwnerLoading ? 'Loading...' : 'Lookup Property Owner'}</ListItemText>
+                        </MenuItem>
+                        <MenuItem onClick={() => { setOwnerMenuAnchor(null); setAddOwnerOpen(true); }}>
+                            <ListItemIcon><PersonAddIcon color="warning" /></ListItemIcon>
+                            <ListItemText>Add Property Owner</ListItemText>
+                        </MenuItem>
+                    </Menu>
+
+                    <Menu anchorEl={parcelMenuAnchor} open={Boolean(parcelMenuAnchor)} onClose={() => setParcelMenuAnchor(null)}>
+                        <MenuItem onClick={() => { setParcelMenuAnchor(null); openExternal('https://app.regrid.com/us'); }}>
+                            <ListItemIcon><LayersIcon color="primary" /></ListItemIcon>
+                            <ListItemText>Regrid Parcels (US + Canada)</ListItemText>
+                        </MenuItem>
+                        <MenuItem onClick={() => { setParcelMenuAnchor(null); openExternal('https://reportallusa.com/online'); }}>
+                            <ListItemIcon><LayersIcon color="secondary" /></ListItemIcon>
+                            <ListItemText>ReportAll Parcels (US)</ListItemText>
+                        </MenuItem>
+                        <MenuItem onClick={() => { setParcelMenuAnchor(null); openExternal('https://clss.nrcan-rncan.gc.ca/mb-nc/en/index.html'); }}>
+                            <ListItemIcon><LayersIcon color="warning" /></ListItemIcon>
+                            <ListItemText>CLSS Map Browser (Canada)</ListItemText>
+                        </MenuItem>
+                    </Menu>
                 </Toolbar>
             </AppBar>
 
