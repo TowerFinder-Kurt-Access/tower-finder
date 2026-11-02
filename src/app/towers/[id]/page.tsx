@@ -1,7 +1,7 @@
 'use client';
 
 // Street View links are admin-entered text, so only known map hosts may open in a tab.
-const EXTERNAL_HOSTS = new Set(['www.google.com', 'maps.google.com', 'www.bing.com', 'webmap.onxmaps.com', 'app.regrid.com', 'reportallusa.com', 'clss.nrcan-rncan.gc.ca']);
+const EXTERNAL_HOSTS = new Set(['www.google.com', 'maps.google.com', 'www.bing.com', 'webmap.onxmaps.com', 'app.regrid.com', 'clss.nrcan-rncan.gc.ca']);
 
 const openExternal = (url: string): void => {
     try {
@@ -962,10 +962,6 @@ export default function TowerDetailPage({ params }: PageProps) {
                             <ListItemIcon><LayersIcon color="primary" /></ListItemIcon>
                             <ListItemText>Regrid Parcels (US + Canada)</ListItemText>
                         </MenuItem>
-                        <MenuItem onClick={() => { setMapMenuAnchor(null); openExternal('https://reportallusa.com/online'); }}>
-                            <ListItemIcon><LayersIcon color="secondary" /></ListItemIcon>
-                            <ListItemText>ReportAll Parcels (US)</ListItemText>
-                        </MenuItem>
                         <MenuItem onClick={() => { setMapMenuAnchor(null); openExternal('https://clss.nrcan-rncan.gc.ca/mb-nc/en/index.html'); }}>
                             <ListItemIcon><LayersIcon color="warning" /></ListItemIcon>
                             <ListItemText>CLSS Map Browser (Canada)</ListItemText>
@@ -987,10 +983,6 @@ export default function TowerDetailPage({ params }: PageProps) {
                         <MenuItem onClick={() => { setParcelMenuAnchor(null); openExternal('https://app.regrid.com/us'); }}>
                             <ListItemIcon><LayersIcon color="primary" /></ListItemIcon>
                             <ListItemText>Regrid Parcels (US + Canada)</ListItemText>
-                        </MenuItem>
-                        <MenuItem onClick={() => { setParcelMenuAnchor(null); openExternal('https://reportallusa.com/online'); }}>
-                            <ListItemIcon><LayersIcon color="secondary" /></ListItemIcon>
-                            <ListItemText>ReportAll Parcels (US)</ListItemText>
                         </MenuItem>
                         <MenuItem onClick={() => { setParcelMenuAnchor(null); openExternal('https://clss.nrcan-rncan.gc.ca/mb-nc/en/index.html'); }}>
                             <ListItemIcon><LayersIcon color="warning" /></ListItemIcon>
