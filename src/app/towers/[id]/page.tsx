@@ -1,7 +1,7 @@
 'use client';
 
 // Street View links are admin-entered text, so only known map hosts may open in a tab.
-const EXTERNAL_HOSTS = new Set(['www.google.com', 'maps.google.com', 'www.bing.com', 'webmap.onxmaps.com', 'app.regrid.com', 'clss.nrcan-rncan.gc.ca']);
+const EXTERNAL_HOSTS = new Set(['www.google.com', 'maps.google.com', 'www.bing.com', 'webmap.onxmaps.com']);
 
 const openExternal = (url: string): void => {
     try {
@@ -75,7 +75,6 @@ import { getRadiusTiers } from '@/lib/nearby-business';
 import { pinnedMapUrl, towerToPlaceUrl } from '@/lib/google-maps';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
-import LayersIcon from '@mui/icons-material/Layers';
 
 // Dynamically import Map to avoid SSR issues
 const Map = dynamic(() => import('@/components/TowerMap'), {
@@ -231,7 +230,6 @@ export default function TowerDetailPage({ params }: PageProps) {
     const [isNormalizing, setIsNormalizing] = useState(false);
     const [mapMenuAnchor, setMapMenuAnchor] = useState<HTMLElement | null>(null);
     const [ownerMenuAnchor, setOwnerMenuAnchor] = useState<HTMLElement | null>(null);
-    const [parcelMenuAnchor, setParcelMenuAnchor] = useState<HTMLElement | null>(null);
 
     // Lookups
     const [types, setTypes] = useState<LookupItem[]>([]);
@@ -926,7 +924,6 @@ export default function TowerDetailPage({ params }: PageProps) {
                             disabled={isOwnerLoading}
                         />
                         <ToolbarButton title="Search Nearby" label="Search Nearby" startIcon={<TravelExploreIcon />} onClick={handleOpenBingMaps} />
-                        <ToolbarButton title="Free Parcel Data Viewers" label="Parcel Data" startIcon={<LayersIcon />} onClick={(e) => setParcelMenuAnchor(e.currentTarget)} />
                         <ToolbarButton title="Add Property Owner" label="Add Property Owner" startIcon={<PersonAddIcon />} onClick={() => setAddOwnerOpen(true)} color="warning" />
                     </Box>
 
@@ -957,15 +954,6 @@ export default function TowerDetailPage({ params }: PageProps) {
                             <ListItemIcon><TravelExploreIcon color="secondary" /></ListItemIcon>
                             <ListItemText>Search Nearby</ListItemText>
                         </MenuItem>
-                        <Divider />
-                        <MenuItem onClick={() => { setMapMenuAnchor(null); openExternal('https://app.regrid.com/us'); }}>
-                            <ListItemIcon><LayersIcon color="primary" /></ListItemIcon>
-                            <ListItemText>Regrid Parcels (US + Canada)</ListItemText>
-                        </MenuItem>
-                        <MenuItem onClick={() => { setMapMenuAnchor(null); openExternal('https://clss.nrcan-rncan.gc.ca/mb-nc/en/index.html'); }}>
-                            <ListItemIcon><LayersIcon color="warning" /></ListItemIcon>
-                            <ListItemText>CLSS Map Browser (Canada)</ListItemText>
-                        </MenuItem>
                     </Menu>
 
                     <Menu anchorEl={ownerMenuAnchor} open={Boolean(ownerMenuAnchor)} onClose={() => setOwnerMenuAnchor(null)}>
@@ -979,16 +967,6 @@ export default function TowerDetailPage({ params }: PageProps) {
                         </MenuItem>
                     </Menu>
 
-                    <Menu anchorEl={parcelMenuAnchor} open={Boolean(parcelMenuAnchor)} onClose={() => setParcelMenuAnchor(null)}>
-                        <MenuItem onClick={() => { setParcelMenuAnchor(null); openExternal('https://app.regrid.com/us'); }}>
-                            <ListItemIcon><LayersIcon color="primary" /></ListItemIcon>
-                            <ListItemText>Regrid Parcels (US + Canada)</ListItemText>
-                        </MenuItem>
-                        <MenuItem onClick={() => { setParcelMenuAnchor(null); openExternal('https://clss.nrcan-rncan.gc.ca/mb-nc/en/index.html'); }}>
-                            <ListItemIcon><LayersIcon color="warning" /></ListItemIcon>
-                            <ListItemText>CLSS Map Browser (Canada)</ListItemText>
-                        </MenuItem>
-                    </Menu>
                 </Toolbar>
             </AppBar>
 
