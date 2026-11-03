@@ -34,7 +34,8 @@ export async function GET(request: Request) {
         + '&resultRecordCount=1';
 
     try {
-        const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+        // Parcels rarely change, so reuse the response for a day.
+        const res = await fetch(url, { signal: AbortSignal.timeout(8000), next: { revalidate: 86400 } });
         if (!res.ok) {
             return NextResponse.json({ error: 'Parcel service unavailable' }, { status: 502 });
         }

@@ -56,6 +56,10 @@ export default function TowerDocuments({ towerId }: TowerDocumentsProps) {
     const [uploading, setUploading] = useState(false);
     const [error, setError] = useState('');
     const [preview, setPreview] = useState<TowerDocument | null>(null);
+    const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+    const [previewLoading, setPreviewLoading] = useState(false);
+    // One blob URL per document, so reopening a PDF is instant.
+    const previewCache = useRef<Map<number, string>>(new Map());
     const [reloadKey, setReloadKey] = useState(0);
     const [deletingId, setDeletingId] = useState<number | null>(null);
     const [pendingDelete, setPendingDelete] = useState<TowerDocument | null>(null);
@@ -118,6 +122,11 @@ export default function TowerDocuments({ towerId }: TowerDocumentsProps) {
                 const data = await res.json().catch(() => ({}));
                 throw new Error(data.error || 'Delete failed');
             }
+            const cachedUrl = previewCache.current.get(document.id);
+            if (cachedUrl) {
+                URL.revokeObjectURL(cachedUrl);
+                previewCache.current.delete(document.id);
+            }
             setPendingDelete(null);
             setReloadKey((key) => key + 1);
         } catch (deleteError) {
@@ -140,11 +149,39 @@ export default function TowerDocuments({ towerId }: TowerDocumentsProps) {
         window.setTimeout(() => { setReloadKey((key) => key + 1); }, 1500);
     };
 
-    const handlePreview = (document: TowerDocument) => {
+    const handlePreview = async (document: TowerDocument) => {
         setPreview(document);
-        // Opening counts as a view, so refresh the metadata behind the dialog.
-        window.setTimeout(() => { setReloadKey((key) => key + 1); }, 1500);
+        setError('');
+
+        const cached = previewCache.current.get(document.id);
+        if (cached) {
+            setPreviewUrl(cached);
+            return;
+        }
+
+        setPreviewUrl(null);
+        setPreviewLoading(true);
+        try {
+            const res = await fetch('/api/documents/' + document.id + '/file');
+            if (!res.ok) throw new Error('Preview failed with status ' + res.status);
+            const url = URL.createObjectURL(await res.blob());
+            previewCache.current.set(document.id, url);
+            setPreviewUrl(url);
+            // The open is recorded server side, so refresh the metadata behind the dialog.
+            window.setTimeout(() => { setReloadKey((key) => key + 1); }, 1500);
+        } catch (previewError) {
+            setError(previewError instanceof Error ? previewError.message : 'Preview failed');
+            setPreview(null);
+        } finally {
+            setPreviewLoading(false);
+        }
     };
+
+    // Object URLs live until revoked, so release them when the section unmounts.
+    useEffect(() => () => {
+        previewCache.current.forEach((url) => URL.revokeObjectURL(url));
+        previewCache.current.clear();
+    }, []);
 
     return (
         <Box>
@@ -299,12 +336,13 @@ export default function TowerDocuments({ towerId }: TowerDocumentsProps) {
                         <CloseIcon />
                     </IconButton>
                 </DialogTitle>
-                <DialogContent sx={{ p: 0, height: '75vh' }}>
-                    {preview && (
+                <DialogContent sx={{ p: 0, height: '75vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {previewLoading && <CircularProgress />}
+                    {!previewLoading && previewUrl && (
                         <Box
                             component="iframe"
-                            title={preview.fileName}
-                            src={'/api/documents/' + preview.id + '/file'}
+                            title={preview?.fileName ?? 'Document preview'}
+                            src={previewUrl}
                             sx={{ width: '100%', height: '100%', border: 0 }}
                         />
                     )}
