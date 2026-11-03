@@ -41,6 +41,7 @@ model Tower {
   rawImportData       Json?             @map("rawExcelData")
   businessesNearby    BusinessNearby[]
   notes               Note[]
+  documents           TowerDocument[]
   parcel              Parcel?
   phones              Phone[]
   carrier             Carrier?          @relation(fields: [carrierId], references: [id])
@@ -171,6 +172,8 @@ model User {
   updatedAt        DateTime          @updatedAt
   lastLogin        DateTime?
   notes            Note[]
+  uploadedDocuments TowerDocument[] @relation("DocumentUploader")
+  openedDocuments   TowerDocument[] @relation("DocumentOpener")
   towerAssignments TowerAssignment[]
   loginEvents      LoginEvent[]
   customerLeadForms CustomerLeadForm[]
@@ -287,6 +290,26 @@ model NoteHistory {
   note      Note     @relation(fields: [noteId], references: [id], onDelete: Cascade)
 
   @@index([noteId])
+}
+
+model TowerDocument {
+  id             Int       @id @default(autoincrement())
+  towerId        Int
+  fileName       String
+  mimeType       String
+  sizeBytes      Int
+  data           Bytes
+  uploadedById   Int?
+  uploadedAt     DateTime  @default(now())
+  lastOpenedAt   DateTime?
+  lastOpenedById Int?
+  openCount      Int       @default(0)
+  tower          Tower     @relation(fields: [towerId], references: [id], onDelete: Cascade)
+  uploadedBy     User?     @relation("DocumentUploader", fields: [uploadedById], references: [id])
+  lastOpenedBy   User?     @relation("DocumentOpener", fields: [lastOpenedById], references: [id])
+
+  @@index([towerId])
+  @@index([uploadedById])
 }
 
 model TowerType {

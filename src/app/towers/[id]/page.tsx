@@ -1,7 +1,7 @@
 'use client';
 
 // Street View links are admin-entered text, so only known map hosts may open in a tab.
-const EXTERNAL_HOSTS = new Set(['www.google.com', 'maps.google.com', 'www.bing.com', 'webmap.onxmaps.com']);
+const EXTERNAL_HOSTS = new Set(['www.google.com', 'maps.google.com', 'www.bing.com', 'webmap.onxmaps.com', 'map.publicgis.com', 'maps.ltsa.ca']);
 
 const openExternal = (url: string): void => {
     try {
@@ -40,7 +40,10 @@ import {
     Stack,
     Toolbar,
     AppBar,
-    Tooltip
+    Tooltip,
+    Menu,
+    ListItemIcon,
+    ListItemText
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import NavigateBeforeIcon from '@mui/icons-material/NavigateBefore';
@@ -59,6 +62,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import SaveIcon from '@mui/icons-material/Save';
 import CancelIcon from '@mui/icons-material/Cancel';
 import NotesPanel from '@/components/NotesPanel';
+import TowerDocuments from '@/components/TowerDocuments';
 import AddOwnerDialog from '@/components/AddOwnerDialog';
 import MapDetailsPanel from '@/components/MapDetailsPanel';
 import {
@@ -70,6 +74,8 @@ import {
 import { getRadiusTiers } from '@/lib/nearby-business';
 import { pinnedMapUrl, towerToPlaceUrl } from '@/lib/google-maps';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
+import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
+import LayersIcon from '@mui/icons-material/Layers';
 
 // Dynamically import Map to avoid SSR issues
 const Map = dynamic(() => import('@/components/TowerMap'), {
@@ -96,6 +102,14 @@ interface Note {
     createdAt: string;
     updatedAt: string;
     history?: NoteHistory[];
+}
+
+interface BcParcel {
+    pid: string | null;
+    ownerType: string | null;
+    municipality: string | null;
+    planNumber: string | null;
+    areaSqm: number | null;
 }
 
 interface Phone {
@@ -128,6 +142,7 @@ interface Tower {
         streetDir?: string;
         unit?: string;
         postalCode?: string;
+        country?: string | null;
         cityRaw?: string;
         stateRaw?: string;
         provinceRaw?: string;
@@ -207,6 +222,9 @@ export default function TowerDetailPage({ params }: PageProps) {
     const [mapCenter, setMapCenter] = useState<[number, number] | null>(null);
     const [isSavingStreetView, setIsSavingStreetView] = useState(false);
     const [isNormalizing, setIsNormalizing] = useState(false);
+    const [mapMenuAnchor, setMapMenuAnchor] = useState<HTMLElement | null>(null);
+    const [ownerMenuAnchor, setOwnerMenuAnchor] = useState<HTMLElement | null>(null);
+    const [bcParcel, setBcParcel] = useState<{ status: 'idle' | 'found' | 'none'; parcel?: BcParcel }>({ status: 'idle' });
 
     // Lookups
     const [types, setTypes] = useState<LookupItem[]>([]);
@@ -458,6 +476,20 @@ export default function TowerDetailPage({ params }: PageProps) {
     const handleOpenOnXMaps = () => {
         if (tower) {
             openExternal(`https://webmap.onxmaps.com/hunt/map/query/${tower.lat},${tower.lon},14.57/overview#15.5/${tower.lat}/${tower.lon}`);
+        }
+    };
+
+    // PublicGIS restores the view from a #zoom/lat/lng hash.
+    const handleOpenPublicGis = () => {
+        if (tower) {
+            openExternal('https://map.publicgis.com/#16/' + tower.lat + '/' + tower.lon);
+        }
+    };
+
+    // ParcelMap BC reads ?center=lon,lat&zoom=N from the URL.
+    const handleOpenParcelMapBc = () => {
+        if (tower) {
+            openExternal('https://maps.ltsa.ca/?center=' + tower.lon + ',' + tower.lat + '&zoom=17');
         }
     };
 
@@ -782,6 +814,29 @@ export default function TowerDetailPage({ params }: PageProps) {
         }
     };
 
+    // BC towers get real parcel data from the free ParcelMap BC service.
+    useEffect(() => {
+        if (!tower) return;
+        const rawProvince = tower.parcel?.province;
+        const province = typeof rawProvince === 'object' ? rawProvince?.name : rawProvince;
+        const label = String(province || tower.parcel?.provinceRaw || tower.parcel?.stateRaw || '').trim();
+        if (!/^(british columbia|bc)$/i.test(label)) return;
+
+        let cancelled = false;
+        fetch('/api/parcels/bc?lat=' + tower.lat + '&lon=' + tower.lon)
+            .then((res) => res.json())
+            .then((data) => {
+                if (cancelled) return;
+                setBcParcel(data?.parcel ? { status: 'found', parcel: data.parcel } : { status: 'none' });
+            })
+            .catch((error) => {
+                if (cancelled) return;
+                console.error('BC parcel lookup failed:', error);
+                setBcParcel({ status: 'none' });
+            });
+        return () => { cancelled = true; };
+    }, [tower]);
+
     if (loading) {
         return (
             <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
@@ -806,11 +861,16 @@ export default function TowerDetailPage({ params }: PageProps) {
     const provinceName = getName(tower.parcel?.province) || tower.parcel?.provinceRaw || tower.parcel?.stateRaw || tower.parcel?.state || '';
     const postalCode = tower.parcel?.postalCode || tower.parcel?.zip || '';
 
+    // PublicGIS covers US parcels only, so the control hides for Canadian towers.
+    const isUsTower = /^(us|usa|united states)/i.test((tower.parcel?.country ?? '').trim());
+    // ParcelMap BC covers British Columbia only.
+    const isBcTower = /^(british columbia|bc)$/i.test(provinceName.trim());
+
     return (
         <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
             {/* Action Bar */}
             <AppBar position="static" color="default" elevation={1}>
-                <Toolbar sx={{ gap: 1 }}>
+                <Toolbar sx={{ gap: 1, flexWrap: 'wrap', rowGap: 0.5 }}>
                     <IconButton edge="start" onClick={() => router.push('/towers')}>
                         <ArrowBackIcon />
                     </IconButton>
@@ -844,55 +904,90 @@ export default function TowerDetailPage({ params }: PageProps) {
                         </span>
                     </Tooltip>
 
-                    <Box sx={{ flexGrow: 1 }} />
+                    <Box sx={{ flexGrow: 1, display: { xs: 'none', sm: 'block' } }} />
 
-                    <Button startIcon={<MapIcon />} onClick={handleViewOnMap} size="small">
-                        View on Map
-                    </Button>
-                    <Button startIcon={<OpenInNewIcon />} onClick={handleOpenGoogleMaps} size="small">
-                        Google Maps
-                    </Button>
-                    <Button startIcon={<StreetviewIcon />} onClick={handleOpenSatelliteView} size="small">
-                        Satellite View
-                    </Button>
-                    {streetViewUrl && (
+                    {/* One dropdown pair on every screen size */}
+                    <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                         <Button
-                            startIcon={<StreetviewIcon />}
-                            onClick={handleOpenSavedStreetView}
-                            size="small"
-                            variant="contained"
-                            color="success"
+                            variant="outlined"
+                            color="primary"
+                            startIcon={<MapIcon />}
+                            endIcon={<ArrowDropDownIcon />}
+                            onClick={(e) => setMapMenuAnchor(e.currentTarget)}
+                            sx={{
+                                bgcolor: 'rgba(25, 118, 210, 0.08)',
+                                '&:hover': { bgcolor: 'rgba(25, 118, 210, 0.16)' }
+                            }}
                         >
-                            Saved Street View
+                            Map Views
                         </Button>
-                    )}
-                    <Button
-                        startIcon={<LocationOnIcon />}
-                        onClick={handleOpenOnXMaps}
-                        size="small"
-                        sx={{
-                            color: '#5c7c3c',
-                            '&:hover': {
-                                bgcolor: 'rgba(92, 124, 60, 0.04)'
-                            }
-                        }}
-                    >
-                        onX Maps
-                    </Button>
-                    <Button
-                        startIcon={<BusinessIcon />}
-                        onClick={handleLookupOwner}
-                        disabled={isOwnerLoading}
-                        size="small"
-                    >
-                        {isOwnerLoading ? 'Loading...' : 'Lookup Property Owner'}
-                    </Button>
-                    <Button startIcon={<TravelExploreIcon />} onClick={handleOpenBingMaps} size="small">
-                        Search Nearby
-                    </Button>
-                    <Button startIcon={<PersonAddIcon />} onClick={() => setAddOwnerOpen(true)} size="small" color="warning">
-                        Add Property Owner
-                    </Button>
+                        <Button
+                            variant="outlined"
+                            color="warning"
+                            startIcon={<BusinessIcon />}
+                            endIcon={<ArrowDropDownIcon />}
+                            onClick={(e) => setOwnerMenuAnchor(e.currentTarget)}
+                            sx={{
+                                bgcolor: 'rgba(237, 108, 2, 0.08)',
+                                '&:hover': { bgcolor: 'rgba(237, 108, 2, 0.16)' }
+                            }}
+                        >
+                            Owners
+                        </Button>
+                    </Box>
+
+                    <Menu anchorEl={mapMenuAnchor} open={Boolean(mapMenuAnchor)} onClose={() => setMapMenuAnchor(null)}>
+                        <MenuItem onClick={() => { setMapMenuAnchor(null); handleViewOnMap(); }}>
+                            <ListItemIcon><MapIcon color="primary" /></ListItemIcon>
+                            <ListItemText>View on Map</ListItemText>
+                        </MenuItem>
+                        <MenuItem onClick={() => { setMapMenuAnchor(null); handleOpenGoogleMaps(); }}>
+                            <ListItemIcon><OpenInNewIcon sx={{ color: '#4285F4' }} /></ListItemIcon>
+                            <ListItemText>Google Maps</ListItemText>
+                        </MenuItem>
+                        <MenuItem onClick={() => { setMapMenuAnchor(null); handleOpenSatelliteView(); }}>
+                            <ListItemIcon><StreetviewIcon color="action" /></ListItemIcon>
+                            <ListItemText>Satellite View</ListItemText>
+                        </MenuItem>
+                        {streetViewUrl && (
+                            <MenuItem onClick={() => { setMapMenuAnchor(null); handleOpenSavedStreetView(); }}>
+                                <ListItemIcon><StreetviewIcon color="success" /></ListItemIcon>
+                                <ListItemText>Saved Street View</ListItemText>
+                            </MenuItem>
+                        )}
+                        <MenuItem onClick={() => { setMapMenuAnchor(null); handleOpenOnXMaps(); }}>
+                            <ListItemIcon><LocationOnIcon sx={{ color: '#5c7c3c' }} /></ListItemIcon>
+                            <ListItemText>onX Maps</ListItemText>
+                        </MenuItem>
+                        <MenuItem onClick={() => { setMapMenuAnchor(null); handleOpenBingMaps(); }}>
+                            <ListItemIcon><TravelExploreIcon color="secondary" /></ListItemIcon>
+                            <ListItemText>Search Nearby</ListItemText>
+                        </MenuItem>
+                        {isUsTower && (
+                            <MenuItem onClick={() => { setMapMenuAnchor(null); handleOpenPublicGis(); }}>
+                                <ListItemIcon><LayersIcon color="primary" /></ListItemIcon>
+                                <ListItemText>PublicGIS Parcels (US)</ListItemText>
+                            </MenuItem>
+                        )}
+                        {isBcTower && (
+                            <MenuItem onClick={() => { setMapMenuAnchor(null); handleOpenParcelMapBc(); }}>
+                                <ListItemIcon><LayersIcon color="success" /></ListItemIcon>
+                                <ListItemText>ParcelMap BC (Canada)</ListItemText>
+                            </MenuItem>
+                        )}
+                    </Menu>
+
+                    <Menu anchorEl={ownerMenuAnchor} open={Boolean(ownerMenuAnchor)} onClose={() => setOwnerMenuAnchor(null)}>
+                        <MenuItem onClick={() => { setOwnerMenuAnchor(null); handleLookupOwner(); }} disabled={isOwnerLoading}>
+                            <ListItemIcon><BusinessIcon color="primary" /></ListItemIcon>
+                            <ListItemText>{isOwnerLoading ? 'Loading...' : 'Lookup Property Owner'}</ListItemText>
+                        </MenuItem>
+                        <MenuItem onClick={() => { setOwnerMenuAnchor(null); setAddOwnerOpen(true); }}>
+                            <ListItemIcon><PersonAddIcon color="warning" /></ListItemIcon>
+                            <ListItemText>Add Property Owner</ListItemText>
+                        </MenuItem>
+                    </Menu>
+
                 </Toolbar>
             </AppBar>
 
@@ -901,7 +996,16 @@ export default function TowerDetailPage({ params }: PageProps) {
                 <Box sx={{ maxWidth: 1200, mx: 'auto' }}>
                     {/* Quick Info Card */}
                     <Paper sx={{ p: 3, mb: 3, bgcolor: '#f8f9fa', border: '2px solid #e0e0e0' }}>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                        <Box
+                            sx={{
+                                display: 'flex',
+                                flexDirection: { xs: 'column', sm: 'row' },
+                                alignItems: { xs: 'flex-start', sm: 'center' },
+                                justifyContent: 'space-between',
+                                gap: 1,
+                                mb: 2
+                            }}
+                        >
                             <Typography variant="h5" sx={{ fontWeight: 600 }}>
                                 Tower Information
                             </Typography>
@@ -911,7 +1015,13 @@ export default function TowerDetailPage({ params }: PageProps) {
                                         label={status}
                                         size="medium"
                                         color="primary"
-                                        sx={{ fontSize: '1rem', fontWeight: 600 }}
+                                        sx={{
+                                            fontSize: { xs: '0.875rem', sm: '1rem' },
+                                            fontWeight: 600,
+                                            maxWidth: '100%',
+                                            height: 'auto',
+                                            '& .MuiChip-label': { py: 0.5, whiteSpace: 'normal' }
+                                        }}
                                     />
                                 )}
                             </Box>
@@ -930,6 +1040,43 @@ export default function TowerDetailPage({ params }: PageProps) {
                                 {[cityName, provinceName, postalCode].filter(Boolean).join(', ') || 'Location details not available'}
                             </Typography>
                         </Box>
+
+                        {/* Parcel data for BC towers */}
+                        {isBcTower && (
+                            <Box sx={{ mb: 3 }}>
+                                <Typography variant="overline" color="text.secondary" sx={{ fontWeight: 600 }}>
+                                    Parcel (BC ParcelMap)
+                                </Typography>
+                                {bcParcel.status === 'found' && bcParcel.parcel ? (
+                                    <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap" alignItems="center" sx={{ mt: 0.5 }}>
+                                        {bcParcel.parcel.ownerType && (
+                                            <Chip
+                                                label={bcParcel.parcel.ownerType}
+                                                size="small"
+                                                color={/private/i.test(bcParcel.parcel.ownerType) ? 'default' : 'success'}
+                                            />
+                                        )}
+                                        {bcParcel.parcel.pid && (
+                                            <Chip label={'PID ' + bcParcel.parcel.pid} size="small" variant="outlined" />
+                                        )}
+                                        {bcParcel.parcel.municipality && (
+                                            <Typography variant="body2" color="text.secondary">
+                                                {bcParcel.parcel.municipality}
+                                            </Typography>
+                                        )}
+                                        {typeof bcParcel.parcel.areaSqm === 'number' && (
+                                            <Typography variant="body2" color="text.secondary">
+                                                {(bcParcel.parcel.areaSqm / 10000).toFixed(2)} ha
+                                            </Typography>
+                                        )}
+                                    </Stack>
+                                ) : (
+                                    <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                                        {bcParcel.status === 'idle' ? 'Loading parcel…' : 'No parcel found at this point.'}
+                                    </Typography>
+                                )}
+                            </Box>
+                        )}
 
                         {/* Key Details Grid - Dropdowns for Type/Carrier */}
                         <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2, mb: 2 }}>
@@ -1434,6 +1581,11 @@ export default function TowerDetailPage({ params }: PageProps) {
                             notes={notes}
                             onNotesChange={handleNotesChange}
                         />
+                    </Paper>
+
+                    {/* Documents Section */}
+                    <Paper sx={{ p: 3, mb: 3 }}>
+                        <TowerDocuments key={tower.id} towerId={tower.id} />
                     </Paper>
 
                     {/* Nearby Businesses Section */}
