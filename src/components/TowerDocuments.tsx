@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
@@ -19,7 +19,7 @@ import DescriptionIcon from '@mui/icons-material/Description';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import DownloadIcon from '@mui/icons-material/Download';
 import DeleteIcon from '@mui/icons-material/Delete';
-import OpenInNewIcon from '@mui/icons-material/OpenInNew';
+import CloseIcon from '@mui/icons-material/Close';
 
 interface TowerDocument {
     id: number;
@@ -56,24 +56,16 @@ export default function TowerDocuments({ towerId }: TowerDocumentsProps) {
     const [uploading, setUploading] = useState(false);
     const [error, setError] = useState('');
     const [preview, setPreview] = useState<TowerDocument | null>(null);
+    const [reloadKey, setReloadKey] = useState(0);
+    const [deletingId, setDeletingId] = useState<number | null>(null);
+    const [pendingDelete, setPendingDelete] = useState<TowerDocument | null>(null);
+    const [pendingDownload, setPendingDownload] = useState<TowerDocument | null>(null);
     const inputRef = useRef<HTMLInputElement>(null);
-
-    const load = useCallback(async () => {
-        try {
-            const res = await fetch('/api/towers/' + towerId + '/documents');
-            if (!res.ok) throw new Error('Request failed');
-            setDocuments(await res.json());
-            setStatus('ready');
-        } catch (loadError) {
-            console.error('Failed to load documents:', loadError);
-            setStatus('error');
-        }
-    }, [towerId]);
 
     useEffect(() => {
         let cancelled = false;
         fetch('/api/towers/' + towerId + '/documents')
-            .then((res) => (res.ok ? res.json() : Promise.reject(new Error('Request failed'))))
+            .then((res) => (res.ok ? res.json() : Promise.reject(new Error('Documents request failed with status ' + res.status))))
             .then((items: TowerDocument[]) => {
                 if (cancelled) return;
                 setDocuments(items);
@@ -85,7 +77,7 @@ export default function TowerDocuments({ towerId }: TowerDocumentsProps) {
                 setStatus('error');
             });
         return () => { cancelled = true; };
-    }, [towerId]);
+    }, [towerId, reloadKey]);
 
     const handleUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
@@ -102,7 +94,7 @@ export default function TowerDocuments({ towerId }: TowerDocumentsProps) {
                 const data = await res.json().catch(() => ({}));
                 throw new Error(data.error || 'Upload failed');
             }
-            await load();
+            setReloadKey((key) => key + 1);
         } catch (uploadError) {
             setError(uploadError instanceof Error ? uploadError.message : 'Upload failed');
         } finally {
@@ -111,24 +103,47 @@ export default function TowerDocuments({ towerId }: TowerDocumentsProps) {
         }
     };
 
-    const handleDelete = async (document: TowerDocument) => {
-        if (!window.confirm('Delete ' + document.fileName + '?')) return;
+    const handleDelete = (document: TowerDocument) => {
+        setPendingDelete(document);
+    };
+
+    const confirmDelete = async () => {
+        if (!pendingDelete) return;
+        const document = pendingDelete;
+        setError('');
+        setDeletingId(document.id);
         try {
             const res = await fetch('/api/documents/' + document.id, { method: 'DELETE' });
             if (!res.ok) {
                 const data = await res.json().catch(() => ({}));
                 throw new Error(data.error || 'Delete failed');
             }
-            await load();
+            setPendingDelete(null);
+            setReloadKey((key) => key + 1);
         } catch (deleteError) {
             setError(deleteError instanceof Error ? deleteError.message : 'Delete failed');
+            setPendingDelete(null);
+        } finally {
+            setDeletingId(null);
         }
+    };
+
+    const confirmDownload = () => {
+        if (!pendingDownload) return;
+        const link = window.document.createElement('a');
+        link.href = '/api/documents/' + pendingDownload.id + '/file?download=1';
+        link.download = pendingDownload.fileName;
+        window.document.body.appendChild(link);
+        link.click();
+        link.remove();
+        setPendingDownload(null);
+        window.setTimeout(() => { setReloadKey((key) => key + 1); }, 1500);
     };
 
     const handlePreview = (document: TowerDocument) => {
         setPreview(document);
         // Opening counts as a view, so refresh the metadata behind the dialog.
-        window.setTimeout(() => { void load(); }, 1500);
+        window.setTimeout(() => { setReloadKey((key) => key + 1); }, 1500);
     };
 
     return (
@@ -208,31 +223,82 @@ export default function TowerDocuments({ towerId }: TowerDocumentsProps) {
                                     </IconButton>
                                 </Tooltip>
                             )}
-                            <Tooltip title={document.mimeType === 'application/pdf' ? 'Open in new tab' : 'Download'}>
-                                <IconButton
-                                    size="small"
-                                    component="a"
-                                    href={'/api/documents/' + document.id + '/file'}
-                                    target="_blank"
-                                    rel="noopener"
-                                >
-                                    {document.mimeType === 'application/pdf'
-                                        ? <OpenInNewIcon fontSize="small" />
-                                        : <DownloadIcon fontSize="small" />}
+                            <Tooltip title="Download">
+                                <IconButton size="small" onClick={() => setPendingDownload(document)}>
+                                    <DownloadIcon fontSize="small" />
                                 </IconButton>
                             </Tooltip>
                             <Tooltip title="Delete">
-                                <IconButton size="small" color="error" onClick={() => handleDelete(document)}>
-                                    <DeleteIcon fontSize="small" />
-                                </IconButton>
+                                <span>
+                                    <IconButton
+                                        size="small"
+                                        color="error"
+                                        onClick={() => handleDelete(document)}
+                                        disabled={deletingId === document.id}
+                                    >
+                                        {deletingId === document.id
+                                            ? <CircularProgress size={16} color="inherit" />
+                                            : <DeleteIcon fontSize="small" />}
+                                    </IconButton>
+                                </span>
                             </Tooltip>
                         </Box>
                     </Box>
                 </Paper>
             ))}
 
+            <Dialog open={Boolean(pendingDownload)} onClose={() => setPendingDownload(null)} maxWidth="xs" fullWidth>
+                <DialogTitle>Download document?</DialogTitle>
+                <DialogContent>
+                    <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>
+                        {pendingDownload?.fileName} will be saved to your device.
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+                        {pendingDownload ? formatBytes(pendingDownload.sizeBytes) : ''}
+                    </Typography>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setPendingDownload(null)}>Cancel</Button>
+                    <Button variant="contained" onClick={confirmDownload} startIcon={<DownloadIcon />}>
+                        Download
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
+            <Dialog open={Boolean(pendingDelete)} onClose={() => setPendingDelete(null)} maxWidth="xs" fullWidth>
+                <DialogTitle>Delete document?</DialogTitle>
+                <DialogContent>
+                    <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>
+                        {pendingDelete?.fileName} will be removed for everyone. This cannot be undone.
+                    </Typography>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setPendingDelete(null)} disabled={deletingId !== null}>
+                        Cancel
+                    </Button>
+                    <Button
+                        variant="contained"
+                        color="error"
+                        onClick={confirmDelete}
+                        disabled={deletingId !== null}
+                        startIcon={deletingId !== null ? <CircularProgress size={16} color="inherit" /> : <DeleteIcon />}
+                    >
+                        {deletingId !== null ? 'Deleting...' : 'Delete'}
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
             <Dialog open={Boolean(preview)} onClose={() => setPreview(null)} maxWidth="lg" fullWidth>
-                <DialogTitle sx={{ wordBreak: 'break-all' }}>{preview?.fileName}</DialogTitle>
+                <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1, pr: 6, position: 'relative' }}>
+                    <Box component="span" sx={{ wordBreak: 'break-all' }}>{preview?.fileName}</Box>
+                    <IconButton
+                        aria-label="Close preview"
+                        onClick={() => setPreview(null)}
+                        sx={{ position: 'absolute', right: 8, top: 8 }}
+                    >
+                        <CloseIcon />
+                    </IconButton>
+                </DialogTitle>
                 <DialogContent sx={{ p: 0, height: '75vh' }}>
                     {preview && (
                         <Box

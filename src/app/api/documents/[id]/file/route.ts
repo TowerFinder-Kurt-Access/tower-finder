@@ -37,7 +37,8 @@ export async function GET(request: Request, { params }: RouteParams) {
         });
 
         const safeName = document.fileName.replace(/[\r\n"]/g, '');
-        const wantsInline = document.mimeType === 'application/pdf';
+        const wantsDownload = new URL(request.url).searchParams.get('download') === '1';
+        const wantsInline = document.mimeType === 'application/pdf' && !wantsDownload;
 
         return new NextResponse(new Uint8Array(document.data), {
             headers: {
