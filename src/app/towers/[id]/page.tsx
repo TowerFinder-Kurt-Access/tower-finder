@@ -62,6 +62,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import SaveIcon from '@mui/icons-material/Save';
 import CancelIcon from '@mui/icons-material/Cancel';
 import NotesPanel from '@/components/NotesPanel';
+import TowerDocuments from '@/components/TowerDocuments';
 import AddOwnerDialog from '@/components/AddOwnerDialog';
 import MapDetailsPanel from '@/components/MapDetailsPanel';
 import {
@@ -1580,6 +1581,11 @@ export default function TowerDetailPage({ params }: PageProps) {
                             notes={notes}
                             onNotesChange={handleNotesChange}
                         />
+                    </Paper>
+
+                    {/* Documents Section */}
+                    <Paper sx={{ p: 3, mb: 3 }}>
+                        <TowerDocuments key={tower.id} towerId={tower.id} />
                     </Paper>
 
                     {/* Nearby Businesses Section */}
