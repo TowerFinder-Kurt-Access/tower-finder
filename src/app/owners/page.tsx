@@ -14,6 +14,7 @@ import ClearIcon from '@mui/icons-material/Clear';
 import CheckBoxOutlineBlankIcon from '@mui/icons-material/CheckBoxOutlineBlank';
 import CheckBoxIcon from '@mui/icons-material/CheckBox';
 import { useCountry } from '@/lib/country-context';
+import LeaseExpiryCell from '@/components/LeaseExpiryCell';
 
 interface OwnerRow {
     id: string;
@@ -21,6 +22,7 @@ interface OwnerRow {
     ownerName: string;
     ownerType: string;
     ownerAddress: string;
+    leaseExpiry: string | null;
     parcelId: string;
     address: string;
     city: string;
@@ -331,6 +333,12 @@ export default function OwnersPage() {
             )
         },
         { field: 'ownerType', headerName: 'Type', width: 100 },
+        {
+            field: 'leaseExpiry',
+            headerName: 'Lease Expiry',
+            width: 140,
+            renderCell: (params) => <LeaseExpiryCell value={params.row.leaseExpiry} />
+        },
         { field: 'parcelId', headerName: 'Parcel ID', width: 150 },
         { field: 'address', headerName: 'Property Address', flex: 1, minWidth: 200 },
         {

@@ -5,6 +5,7 @@ import { ABBR_TO_PROVINCE } from '@/lib/locations';
 import { dedupeDisplayValues } from '@/lib/normalize';
 import { filterOfficialCanadianCities, filterOfficialCanadianCounties, filterCanadianPostalCodes, isCanada } from '@/lib/official-cities';
 import { getAuthUser } from '@/lib/auth-helpers';
+import { isLeaseExpiryInPast, parseLeaseExpiryDate } from '@/lib/lease-expiry';
 
 // GET /api/owners - List all owners grouped by parcel
 export async function GET(request: Request) {
@@ -231,6 +232,7 @@ export async function GET(request: Request) {
                     city: { select: { name: true } },
                     province: { select: { name: true } },
                     countyNormalized: { select: { name: true } },
+                    leaseExpiry: true,
                     owner: {
                         select: {
                             id: true,
@@ -255,6 +257,8 @@ export async function GET(request: Request) {
                 ownerName: owner?.name || 'Unknown',
                 ownerType: owner?.type || '',
                 ownerAddress: owner?.address || '',
+                // Lease expiry is per tower site, so it rides on the parcel row.
+                leaseExpiry: parcel.leaseExpiry ?? null,
                 parcelId: parcel.parcelId || 'Unknown',
                 address: parcel.address || '',
                 city: parcel.city?.name || parcel.cityRaw || '',
@@ -285,10 +289,25 @@ export async function POST(request: Request) {
     try { await getAuthUser(); } catch { return NextResponse.json({ error: 'Unauthorized' }, { status: 401 }); }
     try {
         const body = await request.json();
-        const { name, type, address, contacts, towerId } = body;
+        const { name, type, address, contacts, towerId, leaseExpiry, clientToday } = body;
 
         if (!name) {
             return NextResponse.json({ error: 'Owner name is required' }, { status: 400 });
+        }
+
+        // The lease is per tower site, so an expiry is only meaningful with a tower link.
+        let leaseExpiryDate: Date | null = null;
+        if (leaseExpiry != null && leaseExpiry !== '') {
+            leaseExpiryDate = parseLeaseExpiryDate(leaseExpiry);
+            if (!leaseExpiryDate) {
+                return NextResponse.json({ error: 'Invalid Lease Expiry date' }, { status: 400 });
+            }
+            if (!towerId) {
+                return NextResponse.json({ error: 'Lease Expiry requires a tower link' }, { status: 400 });
+            }
+            if (isLeaseExpiryInPast(leaseExpiry, clientToday)) {
+                return NextResponse.json({ error: 'Lease Expiry cannot be in the past' }, { status: 400 });
+            }
         }
 
         const owner = await prisma.owner.create({
@@ -307,11 +326,11 @@ export async function POST(request: Request) {
             include: { contacts: true }
         });
 
-        // If towerId provided, link owner to the tower's parcel
+        // If towerId provided, link owner to the tower's parcel and record the lease expiry
         if (towerId) {
             await prisma.parcel.updateMany({
                 where: { towerId: parseInt(towerId) },
-                data: { ownerId: owner.id }
+                data: { ownerId: owner.id, leaseExpiry: leaseExpiryDate }
             });
         }
 

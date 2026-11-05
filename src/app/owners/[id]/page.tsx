@@ -20,6 +20,7 @@ import TableRowsIcon from '@mui/icons-material/TableRows';
 import PersonIcon from '@mui/icons-material/Person';
 import PhoneIcon from '@mui/icons-material/Phone';
 import EmailIcon from '@mui/icons-material/Email';
+import LeaseExpiryCell from '@/components/LeaseExpiryCell';
 
 interface Contact {
     id?: number;
@@ -35,6 +36,7 @@ interface OwnerTower {
     lon: number;
     type: any;
     status: any;
+    leaseExpiry: string | null;
     source: string;
     address: string;
     city: string;
@@ -76,6 +78,7 @@ export default function OwnerDetailPage({ params }: PageProps) {
     const [editType, setEditType] = useState('');
     const [editAddress, setEditAddress] = useState('');
     const [editContacts, setEditContacts] = useState<Contact[]>([]);
+    const [saveError, setSaveError] = useState('');
 
     useEffect(() => {
         loadOwner();
@@ -89,6 +92,7 @@ export default function OwnerDetailPage({ params }: PageProps) {
             setEditName(res.data.name);
             setEditType(res.data.type || '');
             setEditAddress(res.data.address || '');
+            setSaveError('');
             setEditContacts(res.data.contacts.map((c: any) => ({
                 id: c.id,
                 type: c.type,
@@ -105,6 +109,7 @@ export default function OwnerDetailPage({ params }: PageProps) {
 
     const handleSave = async () => {
         setSaving(true);
+        setSaveError('');
         try {
             await axios.patch(`/api/owners/${ownerId}`, {
                 name: editName,
@@ -119,8 +124,12 @@ export default function OwnerDetailPage({ params }: PageProps) {
             });
             setEditing(false);
             loadOwner();
-        } catch (error) {
+        } catch (error: unknown) {
             console.error('Failed to save owner:', error);
+            const message = axios.isAxiosError(error)
+                ? (error.response?.data as { error?: string } | undefined)?.error
+                : undefined;
+            setSaveError(message || 'Failed to save owner');
         } finally {
             setSaving(false);
         }
@@ -191,6 +200,7 @@ export default function OwnerDetailPage({ params }: PageProps) {
                                 setEditName(owner.name);
                                 setEditType(owner.type || '');
                                 setEditAddress(owner.address || '');
+                                setSaveError('');
                                 setEditContacts(owner.contacts.map(c => ({
                                     id: c.id, type: c.type, value: c.value, label: c.label || '', isValid: c.isValid
                                 })));
@@ -232,6 +242,9 @@ export default function OwnerDetailPage({ params }: PageProps) {
                                 multiline
                                 rows={2}
                             />
+                            {saveError && (
+                                <Typography color="error" variant="body2">{saveError}</Typography>
+                            )}
                         </Box>
                     ) : (
                         <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2 }}>
@@ -369,6 +382,7 @@ export default function OwnerDetailPage({ params }: PageProps) {
                                     <TableCell>Status</TableCell>
                                     <TableCell>Address</TableCell>
                                     <TableCell>City</TableCell>
+                                    <TableCell>Lease Expiry</TableCell>
                                     <TableCell>Source</TableCell>
                                     <TableCell>Actions</TableCell>
                                 </TableRow>
@@ -383,6 +397,7 @@ export default function OwnerDetailPage({ params }: PageProps) {
                                         </TableCell>
                                         <TableCell>{tower.address}</TableCell>
                                         <TableCell>{tower.city}</TableCell>
+                                        <TableCell><LeaseExpiryCell value={tower.leaseExpiry} /></TableCell>
                                         <TableCell>{tower.source}</TableCell>
                                         <TableCell>
                                             <Stack direction="row" spacing={0.5}>

@@ -49,6 +49,8 @@ export async function GET(
                 lon: p.tower.lon,
                 type: p.tower.type?.name || '',
                 status: p.tower.status?.name || p.tower.legacyStatus || 'Unknown',
+                // Lease expiry is per tower site, so it rides on each parcel.
+                leaseExpiry: p.leaseExpiry ?? null,
                 source: p.tower.source,
                 address: p.address || '',
                 city: typeof p.city === 'object' && p.city ? p.city.name : (p.cityRaw || ''),
