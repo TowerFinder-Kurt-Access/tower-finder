@@ -6,7 +6,7 @@ import Typography from '@mui/material/Typography';
 import Paper from '@mui/material/Paper';
 import { DataGrid, GridColDef, GridToolbar, GridActionsCellItem } from '@mui/x-data-grid';
 import MapIcon from '@mui/icons-material/Map';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import axios from 'axios';
 import { CircularProgress, TextField, MenuItem, Button, Autocomplete, Checkbox, Badge, Chip } from '@mui/material';
 import FilterListIcon from '@mui/icons-material/FilterList';
@@ -185,7 +185,6 @@ export default function OwnersPage() {
         counties: string[];
         zips: string[];
     }>({ cities: [], states: [], counties: [], zips: [] });
-    const searchParams = useSearchParams();
     const [filters, setFilters] = useState<{
         city?: string;
         state?: string;
@@ -193,11 +192,7 @@ export default function OwnersPage() {
         zip?: string;
         search?: string;
         expiring?: string;
-    }>(() => {
-        // Sidebar badge deep-link (?expiring=N) lands on the urgent leases.
-        const urlExpiring = searchParams.get('expiring');
-        return urlExpiring && /^\d+$/.test(urlExpiring) ? { expiring: urlExpiring } : {};
-    });
+    }>({});
     const searchRef = useRef<HTMLInputElement>(null);
     const router = useRouter();
 

@@ -41,6 +41,37 @@ interface Tower {
 
 
 
+interface TowerFilters {
+    city?: string;
+    state?: string;
+    county?: string;
+    zip?: string;
+    type?: string;
+    carrier?: string;
+    status?: string;
+    address?: string;
+    id?: string;
+    search?: string;
+    minBusinessCount?: string;
+    maxBusinessCount?: string;
+    minAvgDistance?: string;
+    maxAvgDistance?: string;
+    minAiScore?: string;
+    maxAiScore?: string;
+    hasOwnerName?: string;
+    expiring?: string;
+}
+
+// URL-pinned filters (?id=, and the old ?expiring= badge link) must not outlive
+// the visit. Saves made before this rule still carry them, so strip them on
+// restore and on save; the list always opens on the user's own filters.
+function withoutPinnedFilters(filters: TowerFilters): TowerFilters {
+    const rest = { ...filters };
+    delete rest.id;
+    delete rest.expiring;
+    return rest;
+}
+
 function TowersPageContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -100,37 +131,15 @@ function TowersPageContent() {
         statuses: { id: number; name: string }[];
     }>({ types: [], carriers: [], statuses: [] });
     // Initialize filters from URL ?id= param, falling back to localStorage
-    const [filters, setFilters] = useState<{
-        city?: string;
-        state?: string;
-        county?: string;
-        zip?: string;
-        type?: string;
-        carrier?: string;
-        status?: string;
-        address?: string;
-        id?: string;
-        search?: string;
-        minBusinessCount?: string;
-        maxBusinessCount?: string;
-        minAvgDistance?: string;
-        maxAvgDistance?: string;
-        minAiScore?: string;
-        maxAiScore?: string;
-        hasOwnerName?: string;
-        expiring?: string;
-    }>(() => {
+    const [filters, setFilters] = useState<TowerFilters>(() => {
         if (urlIdParam) return { id: urlIdParam };
-        // A sidebar badge deep-link (?expiring=N) pins the expiry window over saved filters.
-        const urlExpiring = searchParams.get('expiring');
-        const pinned = urlExpiring && /^\d+$/.test(urlExpiring) ? { expiring: urlExpiring } : {};
         try {
             const saved = typeof window !== 'undefined' ? localStorage.getItem('towersPageSettings') : null;
-            if (saved) return { ...JSON.parse(saved).filters, ...pinned };
+            if (saved) return withoutPinnedFilters(JSON.parse(saved).filters ?? {});
         } catch (e) {
             console.error("Unreadable tower page settings:", e);
         }
-        return pinned;
+        return {};
     });
     // Restore sort from localStorage too, so sorting (e.g. AI Score) survives
     // navigating into a tower and back — same as filters/page.
@@ -150,7 +159,7 @@ function TowersPageContent() {
         const settings = {
             page,
             rowsPerPage,
-            filters,
+            filters: withoutPinnedFilters(filters),
             sortModel
         };
         localStorage.setItem('towersPageSettings', JSON.stringify(settings));

@@ -67,18 +67,13 @@ export default function NavRail() {
     }, []);
 
     const isAdmin = session?.user?.role === 'ADMIN';
-    const towersHref = leaseAlertCount !== null && leaseAlertCount > 0
-        ? `/towers?expiring=${LEASE_URGENT_DAYS}`
-        : undefined;
-    const ownersHref = leaseAlertCount !== null && leaseAlertCount > 0
-        ? `/owners?expiring=${LEASE_URGENT_DAYS}`
-        : undefined;
+    // The lease badge is informational only. Both lists open unfiltered, so a
+    // badge click cannot leave the user staring at a filtered or empty table.
     const navItems: { label: string; icon: ReactNode; path: string; href?: string; leaseAlerts: boolean }[] = [
         { label: 'Map', icon: <MapIcon />, path: '/', leaseAlerts: false },
-        // With urgent leases, clicking Towers lands on the expiry-filtered view; the chip row can clear it.
-        { label: 'Towers', icon: <TableRowsIcon />, path: '/towers', href: towersHref, leaseAlerts: true },
+        { label: 'Towers', icon: <TableRowsIcon />, path: '/towers', leaseAlerts: true },
         { label: 'Leads', icon: <ContactsIcon />, path: '/leads', leaseAlerts: false },
-        { label: 'Property Owners', icon: <GroupIcon />, path: '/owners', href: ownersHref, leaseAlerts: true },
+        { label: 'Property Owners', icon: <GroupIcon />, path: '/owners', leaseAlerts: true },
         ...(isAdmin ? [{ label: 'Review', icon: <DescriptionIcon />, path: '/review', leaseAlerts: false }] : []),
     ];
 
