@@ -21,6 +21,7 @@ import PersonIcon from '@mui/icons-material/Person';
 import PhoneIcon from '@mui/icons-material/Phone';
 import EmailIcon from '@mui/icons-material/Email';
 import LeaseExpiryCell from '@/components/LeaseExpiryCell';
+import { minLeaseExpiryDate } from '@/lib/lease-expiry';
 
 interface Contact {
     id?: number;
@@ -80,18 +81,31 @@ export default function OwnerDetailPage({ params }: PageProps) {
     const [editContacts, setEditContacts] = useState<Contact[]>([]);
     const [saveError, setSaveError] = useState('');
 
+    // Lease expiry in the owner card targets the tower's lease. It only appears
+    // when the owner has exactly one tower; several towers means several leases.
+    const [editLeaseExpiry, setEditLeaseExpiry] = useState('');
+    const singleTower = owner?.towers?.length === 1 ? owner.towers[0] : null;
+    const storedLeaseDay = singleTower?.leaseExpiry ? singleTower.leaseExpiry.slice(0, 10) : '';
+
+    // Inline lease expiry edit for one Associated Towers row (the lease is per tower).
+    const [leaseEditTowerId, setLeaseEditTowerId] = useState<number | null>(null);
+    const [leaseDraft, setLeaseDraft] = useState('');
+    const [savingLeaseRow, setSavingLeaseRow] = useState(false);
+
     useEffect(() => {
         loadOwner();
     }, [ownerId]);
 
-    const loadOwner = async () => {
+    const loadOwner = async (silent = false) => {
         try {
-            setLoading(true);
+            if (!silent) setLoading(true);
             const res = await axios.get(`/api/owners/${ownerId}`);
             setOwner(res.data);
             setEditName(res.data.name);
             setEditType(res.data.type || '');
             setEditAddress(res.data.address || '');
+            const onlyTower = res.data.towers?.length === 1 ? res.data.towers[0] : null;
+            setEditLeaseExpiry(onlyTower?.leaseExpiry ? onlyTower.leaseExpiry.slice(0, 10) : '');
             setSaveError('');
             setEditContacts(res.data.contacts.map((c: any) => ({
                 id: c.id,
@@ -122,8 +136,15 @@ export default function OwnerDetailPage({ params }: PageProps) {
                     isValid: c.isValid
                 }))
             });
+            // The card's lease field writes to the owner's single tower lease.
+            if (singleTower && editLeaseExpiry !== storedLeaseDay) {
+                await axios.patch(`/api/towers/${singleTower.id}`, {
+                    parcelUpdate: { leaseExpiry: editLeaseExpiry || null },
+                    clientToday: minLeaseExpiryDate()
+                });
+            }
             setEditing(false);
-            loadOwner();
+            await loadOwner(true);
         } catch (error: unknown) {
             console.error('Failed to save owner:', error);
             const message = axios.isAxiosError(error)
@@ -137,6 +158,28 @@ export default function OwnerDetailPage({ params }: PageProps) {
 
     const addContact = () => {
         setEditContacts([...editContacts, { type: 'Phone', value: '', label: '', isValid: true }]);
+    };
+
+    const handleSaveTowerLease = async (towerId: number) => {
+        setSavingLeaseRow(true);
+        try {
+            await axios.patch(`/api/towers/${towerId}`, {
+                parcelUpdate: { leaseExpiry: leaseDraft || null },
+                // Browser-local today, so the server judges past dates against
+                // the user's calendar, not the server's timezone.
+                clientToday: minLeaseExpiryDate()
+            });
+            setLeaseEditTowerId(null);
+            await loadOwner(true);
+        } catch (error: unknown) {
+            console.error('Failed to save lease expiry:', error);
+            const message = axios.isAxiosError(error)
+                ? (error.response?.data as { error?: string } | undefined)?.error
+                : undefined;
+            alert(message || 'Failed to save lease expiry');
+        } finally {
+            setSavingLeaseRow(false);
+        }
     };
 
     const removeContact = (index: number) => {
@@ -200,6 +243,7 @@ export default function OwnerDetailPage({ params }: PageProps) {
                                 setEditName(owner.name);
                                 setEditType(owner.type || '');
                                 setEditAddress(owner.address || '');
+                                setEditLeaseExpiry(storedLeaseDay);
                                 setSaveError('');
                                 setEditContacts(owner.contacts.map(c => ({
                                     id: c.id, type: c.type, value: c.value, label: c.label || '', isValid: c.isValid
@@ -242,6 +286,21 @@ export default function OwnerDetailPage({ params }: PageProps) {
                                 multiline
                                 rows={2}
                             />
+                            {owner.towers && owner.towers.length > 0 && (
+                                <TextField
+                                    label="Lease Expiry"
+                                    type="date"
+                                    value={editLeaseExpiry}
+                                    onChange={(e) => setEditLeaseExpiry(e.target.value)}
+                                    InputLabelProps={{ shrink: true }}
+                                    inputProps={{ min: minLeaseExpiryDate() }}
+                                    disabled={!singleTower}
+                                    helperText={singleTower
+                                        ? `Applies to tower #${singleTower.id}. Date cannot be in the past.`
+                                        : 'This owner has several towers. Set each lease in the towers table below.'}
+                                    fullWidth
+                                />
+                            )}
                             {saveError && (
                                 <Typography color="error" variant="body2">{saveError}</Typography>
                             )}
@@ -256,6 +315,21 @@ export default function OwnerDetailPage({ params }: PageProps) {
                                 <Typography variant="body2" color="text.secondary">Type</Typography>
                                 <Typography variant="body1">{owner.type || 'N/A'}</Typography>
                             </Box>
+                            {owner.towers && owner.towers.length > 0 && (
+                                <Box>
+                                    <Typography variant="body2" color="text.secondary">
+                                        Lease Expiry
+                                        {singleTower ? ` (Tower #${singleTower.id})` : ' (per tower)'}
+                                    </Typography>
+                                    {singleTower ? (
+                                        <LeaseExpiryCell value={singleTower.leaseExpiry} />
+                                    ) : (
+                                        <Typography variant="body2" color="text.secondary">
+                                            See Associated Towers below.
+                                        </Typography>
+                                    )}
+                                </Box>
+                            )}
                             <Box sx={{ gridColumn: '1 / -1' }}>
                                 <Typography variant="body2" color="text.secondary">Mailing Address</Typography>
                                 <Typography variant="body1">{owner.address || 'N/A'}</Typography>
@@ -397,7 +471,52 @@ export default function OwnerDetailPage({ params }: PageProps) {
                                         </TableCell>
                                         <TableCell>{tower.address}</TableCell>
                                         <TableCell>{tower.city}</TableCell>
-                                        <TableCell><LeaseExpiryCell value={tower.leaseExpiry} /></TableCell>
+                                        <TableCell>
+                                            {leaseEditTowerId === tower.id ? (
+                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                                    <TextField
+                                                        type="date"
+                                                        size="small"
+                                                        value={leaseDraft}
+                                                        onChange={(e) => setLeaseDraft(e.target.value)}
+                                                        inputProps={{ min: minLeaseExpiryDate() }}
+                                                        InputLabelProps={{ shrink: true }}
+                                                        sx={{ width: 160 }}
+                                                    />
+                                                    <IconButton
+                                                        size="small"
+                                                        color="primary"
+                                                        onClick={() => handleSaveTowerLease(tower.id)}
+                                                        disabled={savingLeaseRow}
+                                                        title="Save lease expiry"
+                                                    >
+                                                        <SaveIcon fontSize="small" />
+                                                    </IconButton>
+                                                    <IconButton
+                                                        size="small"
+                                                        onClick={() => setLeaseEditTowerId(null)}
+                                                        disabled={savingLeaseRow}
+                                                        title="Cancel"
+                                                    >
+                                                        <CancelIcon fontSize="small" />
+                                                    </IconButton>
+                                                </Box>
+                                            ) : (
+                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                                    <LeaseExpiryCell value={tower.leaseExpiry} />
+                                                    <IconButton
+                                                        size="small"
+                                                        aria-label={`Edit lease expiry for tower ${tower.id}`}
+                                                        onClick={() => {
+                                                            setLeaseDraft(tower.leaseExpiry ? tower.leaseExpiry.slice(0, 10) : '');
+                                                            setLeaseEditTowerId(tower.id);
+                                                        }}
+                                                    >
+                                                        <EditIcon fontSize="small" />
+                                                    </IconButton>
+                                                </Box>
+                                            )}
+                                        </TableCell>
                                         <TableCell>{tower.source}</TableCell>
                                         <TableCell>
                                             <Stack direction="row" spacing={0.5}>
