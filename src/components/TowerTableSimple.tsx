@@ -350,7 +350,6 @@ export default function TowerTableSimple({
                         label={label}
                         placeholder={selected.length ? `${selected.length} selected` : 'All'}
                         sx={{
-                            minWidth: 200,
                             '& .MuiOutlinedInput-root': {
                                 bgcolor: selected.length ? 'primary.50' : 'transparent',
                                 borderColor: selected.length ? 'primary.main' : undefined,
@@ -362,7 +361,7 @@ export default function TowerTableSimple({
                         }}
                     />
                 )}
-                sx={{ minWidth: 200, flex: 1, flexBasis: 200, maxWidth: 300 }}
+                sx={{ width: '100%', minWidth: 0 }}
             />
         );
     };
@@ -371,7 +370,7 @@ export default function TowerTableSimple({
         <Box sx={{ borderBottom: '1px solid #e0e0e0', bgcolor: 'white' }}>
             {/* Search Bar Row */}
             <Box sx={{ p: 2, pb: 0, display: 'flex', gap: 1 }}>
-                <form onSubmit={handleSearchSubmit} style={{ display: 'flex', flex: 1, gap: 8 }}>
+                <form onSubmit={handleSearchSubmit} style={{ display: 'flex', flex: 1, gap: 8, minWidth: 0 }}>
                     <TextField
                         fullWidth
                         variant="outlined"
@@ -385,15 +384,21 @@ export default function TowerTableSimple({
                         Search
                     </Button>
                 </form>
+
             </Box>
 
-            {/* Filter Dropdowns Row */}
-            <Box sx={{ p: 1, display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center' }}>
-                <Tooltip title="Filters">
-                    <Badge badgeContent={activeFilterCount} color="primary" sx={{ mr: 0.5 }}>
-                        <FilterListIcon color={activeFilterCount > 0 ? 'primary' : 'action'} />
-                    </Badge>
-                </Tooltip>
+            {/* Filter Fields */}
+            <Box
+                sx={{
+                    px: 2,
+                    pt: 1.5,
+                    pb: 1.5,
+                    display: 'grid',
+                    gap: 1.5,
+                    alignItems: 'center',
+                    gridTemplateColumns: { xs: '1fr', sm: 'repeat(auto-fit, minmax(200px, 1fr))' },
+                }}
+            >
                 {renderFilterAutocomplete('state', country === 'USA' ? 'State' : 'Province', filterOptions.states)}
                 {renderFilterAutocomplete('city', 'City', filterOptions.cities)}
                 {filterOptions.counties.length > 0 && renderFilterAutocomplete('county', 'County', filterOptions.counties)}
@@ -401,75 +406,106 @@ export default function TowerTableSimple({
                 {renderFilterAutocomplete('type', 'Type', filterOptions.types)}
                 {renderFilterAutocomplete('status', 'Status', filterOptions.statuses)}
                 {renderFilterAutocomplete('carrier', 'Carrier', filterOptions.carriers)}
-                
-                <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', ml: 1, borderLeft: '1px solid #e0e0e0', pl: 2 }}>
-                    <TextField
-                        label="Min Businesses"
-                        size="small"
-                        type="number"
-                        value={filters.minBusinessCount || ''}
-                        onChange={(e) => onFilterChange({ ...filters, minBusinessCount: e.target.value || undefined })}
-                        sx={{ width: 130 }}
-                    />
-                    <TextField
-                        label="Max Distance (m)"
-                        size="small"
-                        type="number"
-                        value={filters.maxAvgDistance || ''}
-                        onChange={(e) => onFilterChange({ ...filters, maxAvgDistance: e.target.value || undefined })}
-                        sx={{ width: 130 }}
-                    />
-                    <TextField
-                        label="Min AI Score %"
-                        size="small"
-                        type="number"
-                        inputProps={{ min: 0, max: 100 }}
-                        value={filters.minAiScore || ''}
-                        onChange={(e) => onFilterChange({ ...filters, minAiScore: e.target.value || undefined })}
-                        sx={{ width: 130 }}
-                    />
-                    <TextField
-                        label="Max AI Score %"
-                        size="small"
-                        type="number"
-                        inputProps={{ min: 0, max: 100 }}
-                        value={filters.maxAiScore || ''}
-                        onChange={(e) => onFilterChange({ ...filters, maxAiScore: e.target.value || undefined })}
-                        sx={{ width: 130 }}
-                    />
-                    <TextField
-                        select
-                        label="Owner Name"
-                        size="small"
-                        value={filters.hasOwnerName || ''}
-                        onChange={(e) => onFilterChange({ ...filters, hasOwnerName: e.target.value || undefined })}
-                        sx={{ width: 130 }}
-                        SelectProps={{ native: true }}
-                        InputLabelProps={{ shrink: true }}
-                    >
-                        <option value="">Any</option>
-                        <option value="true">Has owner</option>
-                        <option value="false">No owner</option>
-                    </TextField>
-                    <TextField
-                        select
-                        label="Lease Expiry"
-                        size="small"
-                        value={filters.expiring || ''}
-                        onChange={(e) => onFilterChange({ ...filters, expiring: e.target.value || undefined })}
-                        sx={{ width: 150 }}
-                        SelectProps={{ native: true }}
-                        InputLabelProps={{ shrink: true }}
-                    >
-                        <option value="">Any time</option>
-                        <option value="30">Within 30 days</option>
-                        <option value="60">Within 60 days</option>
-                        <option value="90">Within 90 days</option>
-                        <option value="365">Within 1 year</option>
-                    </TextField>
+                <TextField
+                    label="Min Businesses"
+                    size="small"
+                    type="number"
+                    value={filters.minBusinessCount || ''}
+                    onChange={(e) => onFilterChange({ ...filters, minBusinessCount: e.target.value || undefined })}
+                    sx={{ minWidth: 0 }}
+                    fullWidth
+                />
+                <TextField
+                    label="Max Distance (m)"
+                    size="small"
+                    type="number"
+                    value={filters.maxAvgDistance || ''}
+                    onChange={(e) => onFilterChange({ ...filters, maxAvgDistance: e.target.value || undefined })}
+                    sx={{ minWidth: 0 }}
+                    fullWidth
+                />
+                <TextField
+                    label="Min AI Score %"
+                    size="small"
+                    type="number"
+                    inputProps={{ min: 0, max: 100 }}
+                    value={filters.minAiScore || ''}
+                    onChange={(e) => onFilterChange({ ...filters, minAiScore: e.target.value || undefined })}
+                    sx={{ minWidth: 0 }}
+                    fullWidth
+                />
+                <TextField
+                    label="Max AI Score %"
+                    size="small"
+                    type="number"
+                    inputProps={{ min: 0, max: 100 }}
+                    value={filters.maxAiScore || ''}
+                    onChange={(e) => onFilterChange({ ...filters, maxAiScore: e.target.value || undefined })}
+                    sx={{ minWidth: 0 }}
+                    fullWidth
+                />
+                <TextField
+                    select
+                    label="Owner Name"
+                    size="small"
+                    value={filters.hasOwnerName || ''}
+                    onChange={(e) => onFilterChange({ ...filters, hasOwnerName: e.target.value || undefined })}
+                    sx={{ minWidth: 0 }}
+                    fullWidth
+                    SelectProps={{ native: true }}
+                    InputLabelProps={{ shrink: true }}
+                >
+                    <option value="">Any</option>
+                    <option value="true">Has owner</option>
+                    <option value="false">No owner</option>
+                </TextField>
+                <TextField
+                    select
+                    label="Lease Expiry"
+                    size="small"
+                    value={filters.expiring || ''}
+                    onChange={(e) => onFilterChange({ ...filters, expiring: e.target.value || undefined })}
+                    sx={{ minWidth: 0 }}
+                    fullWidth
+                    SelectProps={{ native: true }}
+                    InputLabelProps={{ shrink: true }}
+                >
+                    <option value="">Any time</option>
+                    <option value="30">Within 30 days</option>
+                    <option value="60">Within 60 days</option>
+                    <option value="90">Within 90 days</option>
+                    <option value="365">Within 1 year</option>
+                </TextField>
+            </Box>
+
+            {/* Filters label and active chips on the left, filter actions on the bottom right. */}
+            <Box sx={{ px: 2, pb: 1.5, display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
+                <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', minWidth: 0 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexShrink: 0 }}>
+                        <Tooltip title="Filters">
+                            <Badge badgeContent={activeFilterCount} color="primary" sx={{ mr: 0.5 }}>
+                                <FilterListIcon color={activeFilterCount > 0 ? 'primary' : 'action'} />
+                            </Badge>
+                        </Tooltip>
+                        <Typography variant="body2" color="text.secondary" noWrap>Filters</Typography>
+                    </Box>
+
+                    <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', minWidth: 0 }}>
+                        {activeChips.map((chip, i) => (
+                            <Chip
+                                key={`${chip.field}-${chip.value}-${i}`}
+                                label={`${chip.label}: ${chip.value}`}
+                                size="small"
+                                color="primary"
+                                variant="outlined"
+                                onDelete={() => removeFilterValue(chip.field, chip.value)}
+                                sx={{ fontWeight: 500 }}
+                            />
+                        ))}
+                    </Box>
                 </Box>
 
-                <Box sx={{ ml: 'auto', display: 'flex', gap: 1 }}>
+                <Box sx={{ ml: 'auto', display: 'flex', gap: 1, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                     {onExport && (
                         <>
                             <Button
@@ -514,22 +550,6 @@ export default function TowerTableSimple({
                     )}
                 </Box>
             </Box>
-            {/* Active Filter Chips Row */}
-            {activeChips.length > 0 && (
-                <Box sx={{ px: 1, pb: 1, display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-                    {activeChips.map((chip, i) => (
-                        <Chip
-                            key={`${chip.field}-${chip.value}-${i}`}
-                            label={`${chip.label}: ${chip.value}`}
-                            size="small"
-                            color="primary"
-                            variant="outlined"
-                            onDelete={() => removeFilterValue(chip.field, chip.value)}
-                            sx={{ fontWeight: 500 }}
-                        />
-                    ))}
-                </Box>
-            )}
         </Box>
     );
 
@@ -836,6 +856,14 @@ export default function TowerTableSimple({
                 loading={isLoading}
                 columnVisibilityModel={columnVisibilityModel}
                 onColumnVisibilityModelChange={handleColumnVisibilityChange}
+                sx={{
+                    // MUI X runs custom cell renderers in block flow, so text and chips
+                    // sit at different heights inside one row. Center only the cells
+                    // that render an element, and leave plain values on the default
+                    // block layout so their ellipsis still works.
+                    '& .MuiDataGrid-cell:has(> *)': { display: 'flex', alignItems: 'center' },
+                    '& .MuiDataGrid-cell > *': { maxWidth: '100%' },
+                }}
             />
             <Menu
                 anchorEl={anchorEl}
