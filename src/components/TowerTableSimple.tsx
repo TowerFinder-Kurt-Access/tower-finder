@@ -19,6 +19,7 @@ import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import { pinnedMapUrl } from '@/lib/google-maps';
 import { calibratedPercent } from '@/lib/ml/calibration';
+import LeaseExpiryCell from '@/components/LeaseExpiryCell';
 
 // The score is a ranking heuristic, not a tower detector.
 const AI_SCORE_TOOLTIP = [
@@ -108,7 +109,7 @@ interface TowerTableSimpleProps {
         minBusinessCount?: string; maxBusinessCount?: string;
         minAvgDistance?: string; maxAvgDistance?: string;
         minAiScore?: string; maxAiScore?: string;
-        hasOwnerName?: string;
+        hasOwnerName?: string; expiring?: string;
     }) => void;
     filters?: {
         city?: string; state?: string; county?: string; zip?: string;
@@ -117,7 +118,7 @@ interface TowerTableSimpleProps {
         minBusinessCount?: string; maxBusinessCount?: string;
         minAvgDistance?: string; maxAvgDistance?: string;
         minAiScore?: string; maxAiScore?: string;
-        hasOwnerName?: string;
+        hasOwnerName?: string; expiring?: string;
     };
     onCellEdit?: (towerId: number, field: string, value: string) => void;
     sortModel?: { field: string; order: 'asc' | 'desc' } | null;
@@ -308,7 +309,8 @@ export default function TowerTableSimple({
         county: 'County', zip: country === 'USA' ? 'ZIP' : 'Postal Code',
         type: 'Type', status: 'Status', carrier: 'Carrier',
         minBusinessCount: 'Min Businesses', maxAvgDistance: 'Max Distance',
-        minAiScore: 'Min AI Score %', maxAiScore: 'Max AI Score %'
+        minAiScore: 'Min AI Score %', maxAiScore: 'Max AI Score %',
+        expiring: 'Expiring Within'
     };
     for (const [field, label] of Object.entries(fieldLabels)) {
         const val = (filters as any)[field];
@@ -449,6 +451,22 @@ export default function TowerTableSimple({
                         <option value="true">Has owner</option>
                         <option value="false">No owner</option>
                     </TextField>
+                    <TextField
+                        select
+                        label="Lease Expiry"
+                        size="small"
+                        value={filters.expiring || ''}
+                        onChange={(e) => onFilterChange({ ...filters, expiring: e.target.value || undefined })}
+                        sx={{ width: 150 }}
+                        SelectProps={{ native: true }}
+                        InputLabelProps={{ shrink: true }}
+                    >
+                        <option value="">Any time</option>
+                        <option value="30">Within 30 days</option>
+                        <option value="60">Within 60 days</option>
+                        <option value="90">Within 90 days</option>
+                        <option value="365">Within 1 year</option>
+                    </TextField>
                 </Box>
 
                 <Box sx={{ ml: 'auto', display: 'flex', gap: 1 }}>
@@ -583,6 +601,14 @@ export default function TowerTableSimple({
                     </Tooltip>
                 );
             }
+        },
+        {
+            field: 'leaseExpiry',
+            headerName: 'Lease Expiry',
+            width: 140,
+            renderCell: (params: GridRenderCellParams) => (
+                <LeaseExpiryCell value={params.row.parcel?.leaseExpiry} />
+            )
         },
         {
             field: 'hasOwnerName',
@@ -732,8 +758,8 @@ export default function TowerTableSimple({
         },
     ];
 
-    // Sorting runs server-side; only fields the API can order by are sortable.
-    const SERVER_SORTABLE = new Set(['id', 'businessCount', 'avgBusinessDistance', 'aiTowerScore', 'hasOwnerName']);
+    // Only fields the API can order by are sortable.
+    const SERVER_SORTABLE = new Set(['id', 'businessCount', 'avgBusinessDistance', 'aiTowerScore', 'hasOwnerName', 'leaseExpiry']);
     const sortableColumns = columns.map(c => ({ ...c, sortable: SERVER_SORTABLE.has(c.field) }));
 
     const sortModelArray = React.useMemo(

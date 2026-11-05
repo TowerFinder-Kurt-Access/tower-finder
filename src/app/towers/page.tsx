@@ -118,15 +118,19 @@ function TowersPageContent() {
         minAiScore?: string;
         maxAiScore?: string;
         hasOwnerName?: string;
+        expiring?: string;
     }>(() => {
         if (urlIdParam) return { id: urlIdParam };
+        // A sidebar badge deep-link (?expiring=N) pins the expiry window over saved filters.
+        const urlExpiring = searchParams.get('expiring');
+        const pinned = urlExpiring && /^\d+$/.test(urlExpiring) ? { expiring: urlExpiring } : {};
         try {
             const saved = typeof window !== 'undefined' ? localStorage.getItem('towersPageSettings') : null;
-            if (saved) return JSON.parse(saved).filters ?? {};
+            if (saved) return { ...JSON.parse(saved).filters, ...pinned };
         } catch (e) {
             console.error("Unreadable tower page settings:", e);
         }
-        return {};
+        return pinned;
     });
     // Restore sort from localStorage too, so sorting (e.g. AI Score) survives
     // navigating into a tower and back — same as filters/page.
@@ -231,6 +235,7 @@ function TowersPageContent() {
                 if (filters.minAiScore) params.append('minAiScore', filters.minAiScore);
                 if (filters.maxAiScore) params.append('maxAiScore', filters.maxAiScore);
                 if (filters.hasOwnerName) params.append('hasOwnerName', filters.hasOwnerName);
+                if (filters.expiring) params.append('expiring', filters.expiring);
             }
 
             const qs = params.toString();

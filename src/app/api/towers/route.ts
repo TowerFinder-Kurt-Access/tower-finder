@@ -135,6 +135,9 @@ export async function GET(request: Request) {
         const minAiScore = searchParams.get('minAiScore');
         const maxAiScore = searchParams.get('maxAiScore');
 
+        // Lease expiry: 'expiring' is a window in days; expired leases always match.
+        const expiringDays = searchParams.get('expiring');
+
         // Default limit to prevent sending too many towers at once (performance optimization)
         // Use 1000 as default limit if not specified, unless fetching by ID
         const DEFAULT_LIMIT = 1000;
@@ -545,6 +548,13 @@ export async function GET(request: Request) {
                 });
             }
 
+            // Lease expiry window: anything expired or expiring within N days.
+            if (expiringDays && /^\d+$/.test(expiringDays)) {
+                const cutoff = new Date();
+                cutoff.setDate(cutoff.getDate() + parseInt(expiringDays, 10));
+                andConditions.push({ parcel: { leaseExpiry: { lte: cutoff } } });
+            }
+
             // Business count filter
             if (minBusinessCount !== null || maxBusinessCount !== null) {
                 const countFilter: any = {};
@@ -686,6 +696,7 @@ export async function GET(request: Request) {
                         avgBusinessDistance: { avgBusinessDistance: order },
                         aiTowerScore: { aiTowerScore: { sort: order, nulls: 'last' } as Prisma.SortOrderInput },
                         hasOwnerName: { parcel: { ownerId: order } },
+                        leaseExpiry: { parcel: { leaseExpiry: { sort: order, nulls: 'last' } as Prisma.SortOrderInput } },
                         id: { id: order },
                     };
                     const primary = byField[sort ?? ''] ?? { id: 'asc' as Prisma.SortOrder };
