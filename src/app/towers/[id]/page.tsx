@@ -1532,7 +1532,7 @@ export default function TowerDetailPage({ params }: PageProps) {
                                                 startIcon={<EditIcon />}
                                                 onClick={openPropertyDialog}
                                             >
-                                                Edit Property Data
+                                                Update Property Data
                                             </Button>
                                         </Box>
                                     </Box>
@@ -2015,9 +2015,9 @@ export default function TowerDetailPage({ params }: PageProps) {
                 </DialogActions>
             </Dialog>
 
-            {/* Edit Property Data Dialog */}
+            {/* Update Property Data Dialog */}
             <Dialog open={propertyDialogOpen} onClose={handleClosePropertyDialog} maxWidth="sm" fullWidth>
-                <DialogTitle>Edit Property Data{tower ? ` for Tower #${tower.id}` : ''}</DialogTitle>
+                <DialogTitle>Update Property Data{tower ? ` for Tower #${tower.id}` : ''}</DialogTitle>
                 <DialogContent>
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
                         <TextField
