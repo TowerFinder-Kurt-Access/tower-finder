@@ -73,6 +73,8 @@ import {
 } from '@/components/ui/cluster-styles';
 import { getRadiusTiers } from '@/lib/nearby-business';
 import { pinnedMapUrl, towerToPlaceUrl } from '@/lib/google-maps';
+import LeaseExpiryCell from '@/components/LeaseExpiryCell';
+import { formatLeaseExpiry, minLeaseExpiryDate } from '@/lib/lease-expiry';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
 import LayersIcon from '@mui/icons-material/Layers';
@@ -136,6 +138,7 @@ interface Tower {
     streetViewUrl?: string;
     parcel?: {
         address?: string;
+        leaseExpiry?: string | null;
         streetNumber?: string;
         streetName?: string;
         streetType?: string;
@@ -169,6 +172,7 @@ interface Tower {
     };
     phones?: Phone[];
     notes?: Note[];
+    leaseExpiryHistory?: { id: number; oldValue: string | null; newValue: string | null; userName: string | null; createdAt: string }[];
     businessesNearby?: {
         id: number;
         name: string;
@@ -264,6 +268,11 @@ export default function TowerDetailPage({ params }: PageProps) {
         provinceRaw: '',
         county: '',
     });
+
+    // Inline lease expiry edit (per tower, lives on the parcel)
+    const [editingLease, setEditingLease] = useState(false);
+    const [leaseExpiryDraft, setLeaseExpiryDraft] = useState('');
+    const [savingLease, setSavingLease] = useState(false);
     const [savingAddress, setSavingAddress] = useState(false);
 
     // Navigation
@@ -800,6 +809,29 @@ export default function TowerDetailPage({ params }: PageProps) {
 
     const handleAddressFieldChange = (field: string, value: string) => {
         setAddressFields(prev => ({ ...prev, [field]: value }));
+    };
+
+    const handleSaveLeaseExpiry = async () => {
+        if (!tower) return;
+        setSavingLease(true);
+        try {
+            await axios.patch(`/api/towers/${tower.id}`, {
+                parcelUpdate: { leaseExpiry: leaseExpiryDraft || null },
+                // Browser-local today, so the server judges past dates against
+                // the user's calendar, not the server's timezone.
+                clientToday: minLeaseExpiryDate()
+            });
+            setEditingLease(false);
+            await refreshKeepingScroll();
+        } catch (error: unknown) {
+            console.error('Failed to save lease expiry:', error);
+            const message = axios.isAxiosError(error)
+                ? (error.response?.data as { error?: string } | undefined)?.error
+                : undefined;
+            alert(message || 'Failed to save lease expiry');
+        } finally {
+            setSavingLease(false);
+        }
     };
 
     const handleOpenSavedStreetView = () => {
@@ -1420,6 +1452,60 @@ export default function TowerDetailPage({ params }: PageProps) {
                                     <Box>
                                         <Typography variant="body2" color="text.secondary">Data Source</Typography>
                                         <Typography variant="body1">{tower.parcel?.dataSource || tower.source || 'N/A'}</Typography>
+                                    </Box>
+                                    <Box>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
+                                            <Typography variant="body2" color="text.secondary">Lease Expiry</Typography>
+                                            {!editingLease && (
+                                                <IconButton
+                                                    size="small"
+                                                    aria-label="Edit lease expiry"
+                                                    onClick={() => {
+                                                        setLeaseExpiryDraft(tower.parcel?.leaseExpiry ? tower.parcel.leaseExpiry.slice(0, 10) : '');
+                                                        setEditingLease(true);
+                                                    }}
+                                                >
+                                                    <EditIcon fontSize="small" />
+                                                </IconButton>
+                                            )}
+                                        </Box>
+                                        {editingLease ? (
+                                            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
+                                                <TextField
+                                                    label="Lease Expiry"
+                                                    type="date"
+                                                    size="small"
+                                                    value={leaseExpiryDraft}
+                                                    onChange={(e) => setLeaseExpiryDraft(e.target.value)}
+                                                    InputLabelProps={{ shrink: true }}
+                                                    inputProps={{ min: minLeaseExpiryDate() }}
+                                                    helperText="Date cannot be in the past"
+                                                    sx={{ width: 190 }}
+                                                />
+                                                <Button size="small" variant="contained" onClick={handleSaveLeaseExpiry} disabled={savingLease}>
+                                                    {savingLease ? 'Saving...' : 'Save'}
+                                                </Button>
+                                                <Button size="small" onClick={() => setEditingLease(false)}>
+                                                    Cancel
+                                                </Button>
+                                            </Box>
+                                        ) : tower.parcel?.leaseExpiry ? (
+                                            <LeaseExpiryCell value={tower.parcel.leaseExpiry} />
+                                        ) : (
+                                            <Typography variant="body1">N/A</Typography>
+                                        )}
+                                        {!editingLease && tower.leaseExpiryHistory && tower.leaseExpiryHistory.length > 0 && (
+                                            <Box sx={{ mt: 0.5 }}>
+                                                {tower.leaseExpiryHistory.map((entry) => (
+                                                    <Typography key={entry.id} variant="caption" color="text.secondary" display="block">
+                                                        {formatLeaseExpiry(entry.oldValue) || 'empty'}
+                                                        {' to '}
+                                                        {formatLeaseExpiry(entry.newValue) || 'cleared'}
+                                                        {` · ${entry.userName || 'Unknown'} · ${new Date(entry.createdAt).toLocaleDateString()}`}
+                                                    </Typography>
+                                                ))}
+                                            </Box>
+                                        )}
                                     </Box>
                                     {tower.parcel?.owner && (
                                         <>
