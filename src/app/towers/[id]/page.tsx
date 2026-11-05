@@ -58,9 +58,9 @@ import PersonIcon from '@mui/icons-material/Person';
 import PhoneIcon from '@mui/icons-material/Phone';
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
-import DeleteIcon from '@mui/icons-material/Delete';
 import SaveIcon from '@mui/icons-material/Save';
 import CancelIcon from '@mui/icons-material/Cancel';
+import DeleteIcon from '@mui/icons-material/Delete';
 import NotesPanel from '@/components/NotesPanel';
 import TowerDocuments from '@/components/TowerDocuments';
 import AddOwnerDialog from '@/components/AddOwnerDialog';
@@ -254,7 +254,7 @@ export default function TowerDetailPage({ params }: PageProps) {
     const [editLookupValue, setEditLookupValue] = useState('');
     const [lookupActionSaving, setLookupActionSaving] = useState(false);
 
-    // Editable address fields
+    // Editable parcel fields (address + lease expiry), written by the Property form.
     const [editingAddress, setEditingAddress] = useState(false);
     const [addressFields, setAddressFields] = useState({
         address: '',
@@ -269,10 +269,17 @@ export default function TowerDetailPage({ params }: PageProps) {
         county: '',
     });
 
-    // Inline lease expiry edit (per tower, lives on the parcel)
-    const [editingLease, setEditingLease] = useState(false);
+    // Lease expiry draft, edited through the Property dialog (lives on the parcel)
     const [leaseExpiryDraft, setLeaseExpiryDraft] = useState('');
-    const [savingLease, setSavingLease] = useState(false);
+    // Owner fields shown in the same dialog, mirroring Add Property Owner.
+    const [propertyForm, setPropertyForm] = useState<{
+        name: string;
+        type: string;
+        address: string;
+        contacts: { type: 'Phone' | 'Email'; value: string; label: string; isValid: boolean }[];
+    }>({ name: '', type: '', address: '', contacts: [] });
+    const [propertyDialogOpen, setPropertyDialogOpen] = useState(false);
+    const [savingProperty, setSavingProperty] = useState(false);
     const [savingAddress, setSavingAddress] = useState(false);
 
     // Navigation
@@ -795,43 +802,101 @@ export default function TowerDetailPage({ params }: PageProps) {
         setSavingAddress(true);
         try {
             await axios.patch(`/api/towers/${tower.id}`, {
-                parcelUpdate: addressFields
+                parcelUpdate: { ...addressFields }
             });
             setEditingAddress(false);
             await refreshKeepingScroll(top);
-        } catch (error) {
+        } catch (error: unknown) {
             console.error('Error saving address:', error);
-            alert('Failed to save address');
+            const message = axios.isAxiosError(error)
+                ? (error.response?.data as { error?: string } | undefined)?.error
+                : undefined;
+            alert(message || 'Failed to save address');
         } finally {
             setSavingAddress(false);
         }
     };
 
-    const handleAddressFieldChange = (field: string, value: string) => {
-        setAddressFields(prev => ({ ...prev, [field]: value }));
+    const openPropertyDialog = () => {
+        const owner = tower?.parcel?.owner;
+        setPropertyForm({
+            name: owner?.name || '',
+            type: owner?.type || '',
+            address: owner?.address || '',
+            contacts: (owner?.contacts || []).map((contact) => ({
+                type: contact.type === 'Email' ? 'Email' : 'Phone',
+                value: contact.value,
+                label: contact.label || '',
+                // Keep the existing validity flag; a save must not un-flag it.
+                isValid: contact.isValid !== false
+            }))
+        });
+        setLeaseExpiryDraft(tower?.parcel?.leaseExpiry ? tower.parcel.leaseExpiry.slice(0, 10) : '');
+        setPropertyDialogOpen(true);
     };
 
-    const handleSaveLeaseExpiry = async () => {
+    const handleSavePropertyData = async () => {
         if (!tower) return;
-        setSavingLease(true);
+        const owner = tower.parcel?.owner;
+        if (owner && !propertyForm.name.trim()) {
+            alert('Property Owner name is required');
+            return;
+        }
+        setSavingProperty(true);
         try {
+            if (owner?.id) {
+                await axios.patch(`/api/owners/${owner.id}`, {
+                    name: propertyForm.name.trim(),
+                    type: propertyForm.type || null,
+                    address: propertyForm.address.trim() || null,
+                    contacts: propertyForm.contacts
+                        .filter((contact) => contact.value.trim())
+                        .map((contact) => ({
+                            type: contact.type,
+                            value: contact.value,
+                            label: contact.label || null,
+                            isValid: contact.isValid
+                        }))
+                });
+            }
             await axios.patch(`/api/towers/${tower.id}`, {
                 parcelUpdate: { leaseExpiry: leaseExpiryDraft || null },
                 // Browser-local today, so the server judges past dates against
                 // the user's calendar, not the server's timezone.
                 clientToday: minLeaseExpiryDate()
             });
-            setEditingLease(false);
+            setPropertyDialogOpen(false);
             await refreshKeepingScroll();
         } catch (error: unknown) {
-            console.error('Failed to save lease expiry:', error);
+            console.error('Failed to save property data:', error);
             const message = axios.isAxiosError(error)
                 ? (error.response?.data as { error?: string } | undefined)?.error
                 : undefined;
-            alert(message || 'Failed to save lease expiry');
+            alert(message || 'Failed to save property data');
         } finally {
-            setSavingLease(false);
+            setSavingProperty(false);
         }
+    };
+
+    const updatePropertyContact = (index: number, field: 'type' | 'value' | 'label', value: string) => {
+        setPropertyForm((form) => ({
+            ...form,
+            contacts: form.contacts.map((contact, i) => {
+                if (i !== index) return contact;
+                if (field === 'type') return { ...contact, type: value as 'Phone' | 'Email' };
+                return { ...contact, [field]: value };
+            })
+        }));
+    };
+
+    const handleAddressFieldChange = (field: string, value: string) => {
+        setAddressFields(prev => ({ ...prev, [field]: value }));
+    };
+
+    const handleClosePropertyDialog = () => {
+        if (savingProperty) return;
+        setPropertyDialogOpen(false);
+        setLeaseExpiryDraft(tower?.parcel?.leaseExpiry ? tower.parcel.leaseExpiry.slice(0, 10) : '');
     };
 
     const handleOpenSavedStreetView = () => {
@@ -1283,10 +1348,15 @@ export default function TowerDetailPage({ params }: PageProps) {
                     {/* Parcel & Owner Section */}
                     <Paper sx={{ p: 3, mb: 3 }}>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                            <Typography variant="h6">
-                                <PersonIcon fontSize="small" sx={{ verticalAlign: 'text-bottom', mr: 0.5 }} />
-                                Parcel & Property Owner Information
-                            </Typography>
+                            <Box>
+                                <Typography variant="h6">
+                                    <PersonIcon fontSize="small" sx={{ verticalAlign: 'text-bottom', mr: 0.5 }} />
+                                    Parcel & Property Owner Information
+                                </Typography>
+                                <Typography variant="caption" color="text.secondary">
+                                    Data source: {tower.parcel?.dataSource || tower.source || 'N/A'}
+                                </Typography>
+                            </Box>
                             {tower.parcel && !editingAddress && (
                                 <Box sx={{ display: 'flex', gap: 1 }}>
                                     <Button
@@ -1323,7 +1393,6 @@ export default function TowerDetailPage({ params }: PageProps) {
                                         size="small"
                                         onClick={() => {
                                             setEditingAddress(false);
-                                            // Reset fields from tower data
                                             if (tower.parcel) {
                                                 setAddressFields({
                                                     address: tower.parcel.address || '',
@@ -1346,7 +1415,7 @@ export default function TowerDetailPage({ params }: PageProps) {
                             )}
                         </Box>
                         <Divider sx={{ mb: 2 }} />
-                        {tower.parcel || editingAddress ? (
+                        {tower.parcel ? (
                             editingAddress ? (
                                 <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2 }}>
                                     <TextField
@@ -1416,6 +1485,9 @@ export default function TowerDetailPage({ params }: PageProps) {
                                 </Box>
                             ) : (
                                 <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2 }}>
+                                    <Box sx={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>Address</Typography>
+                                    </Box>
                                     <Box>
                                         <Typography variant="body2" color="text.secondary">Address</Typography>
                                         <Typography variant="body1">{tower.parcel?.address || 'N/A'}</Typography>
@@ -1428,6 +1500,18 @@ export default function TowerDetailPage({ params }: PageProps) {
                                         <Typography variant="body2" color="text.secondary">Province</Typography>
                                         <Typography variant="body1">{provinceName || 'N/A'}</Typography>
                                     </Box>
+                                    {tower.parcel?.unit && (
+                                        <Box>
+                                            <Typography variant="body2" color="text.secondary">Unit</Typography>
+                                            <Typography variant="body1">{tower.parcel.unit}</Typography>
+                                        </Box>
+                                    )}
+                                    {tower.parcel?.country && (
+                                        <Box>
+                                            <Typography variant="body2" color="text.secondary">Country</Typography>
+                                            <Typography variant="body1">{tower.parcel.country}</Typography>
+                                        </Box>
+                                    )}
                                     <Box>
                                         <Typography variant="body2" color="text.secondary">Postal Code</Typography>
                                         <Typography variant="body1">{postalCode || 'N/A'}</Typography>
@@ -1439,6 +1523,19 @@ export default function TowerDetailPage({ params }: PageProps) {
                                         </Box>
                                     )}
 
+                                    <Box sx={{ gridColumn: '1 / -1' }}>
+                                        <Divider sx={{ my: 1 }} />
+                                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                                            <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>Property</Typography>
+                                            <Button
+                                                size="small"
+                                                startIcon={<EditIcon />}
+                                                onClick={openPropertyDialog}
+                                            >
+                                                Edit Property Data
+                                            </Button>
+                                        </Box>
+                                    </Box>
                                     <Box>
                                         <Typography variant="body2" color="text.secondary">Parcel ID / PIN</Typography>
                                         <Typography variant="body1">{tower.parcel?.parcelId || 'N/A'}</Typography>
@@ -1450,57 +1547,21 @@ export default function TowerDetailPage({ params }: PageProps) {
                                         </Box>
                                     )}
                                     <Box>
-                                        <Typography variant="body2" color="text.secondary">Data Source</Typography>
-                                        <Typography variant="body1">{tower.parcel?.dataSource || tower.source || 'N/A'}</Typography>
-                                    </Box>
-                                    <Box>
-                                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
-                                            <Typography variant="body2" color="text.secondary">Lease Expiry</Typography>
-                                            {!editingLease && (
-                                                <IconButton
-                                                    size="small"
-                                                    aria-label="Edit lease expiry"
-                                                    onClick={() => {
-                                                        setLeaseExpiryDraft(tower.parcel?.leaseExpiry ? tower.parcel.leaseExpiry.slice(0, 10) : '');
-                                                        setEditingLease(true);
-                                                    }}
-                                                >
-                                                    <EditIcon fontSize="small" />
-                                                </IconButton>
-                                            )}
-                                        </Box>
-                                        {editingLease ? (
-                                            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
-                                                <TextField
-                                                    label="Lease Expiry"
-                                                    type="date"
-                                                    size="small"
-                                                    value={leaseExpiryDraft}
-                                                    onChange={(e) => setLeaseExpiryDraft(e.target.value)}
-                                                    InputLabelProps={{ shrink: true }}
-                                                    inputProps={{ min: minLeaseExpiryDate() }}
-                                                    helperText="Date cannot be in the past"
-                                                    sx={{ width: 190 }}
-                                                />
-                                                <Button size="small" variant="contained" onClick={handleSaveLeaseExpiry} disabled={savingLease}>
-                                                    {savingLease ? 'Saving...' : 'Save'}
-                                                </Button>
-                                                <Button size="small" onClick={() => setEditingLease(false)}>
-                                                    Cancel
-                                                </Button>
-                                            </Box>
-                                        ) : tower.parcel?.leaseExpiry ? (
+                                        <Typography variant="body2" color="text.secondary">Lease Expiry</Typography>
+                                        {tower.parcel?.leaseExpiry ? (
                                             <LeaseExpiryCell value={tower.parcel.leaseExpiry} />
                                         ) : (
                                             <Typography variant="body1">N/A</Typography>
                                         )}
-                                        {!editingLease && tower.leaseExpiryHistory && tower.leaseExpiryHistory.length > 0 && (
+                                        {tower.leaseExpiryHistory && tower.leaseExpiryHistory.length > 0 && (
                                             <Box sx={{ mt: 0.5 }}>
                                                 {tower.leaseExpiryHistory.map((entry) => (
                                                     <Typography key={entry.id} variant="caption" color="text.secondary" display="block">
-                                                        {formatLeaseExpiry(entry.oldValue) || 'empty'}
-                                                        {' to '}
-                                                        {formatLeaseExpiry(entry.newValue) || 'cleared'}
+                                                        {entry.newValue
+                                                            ? (entry.oldValue
+                                                                ? `${formatLeaseExpiry(entry.oldValue)} to ${formatLeaseExpiry(entry.newValue)}`
+                                                                : `Set to ${formatLeaseExpiry(entry.newValue)}`)
+                                                            : `Cleared (was ${formatLeaseExpiry(entry.oldValue)})`}
                                                         {` · ${entry.userName || 'Unknown'} · ${new Date(entry.createdAt).toLocaleDateString()}`}
                                                     </Typography>
                                                 ))}
@@ -1509,9 +1570,6 @@ export default function TowerDetailPage({ params }: PageProps) {
                                     </Box>
                                     {tower.parcel?.owner && (
                                         <>
-                                            <Box sx={{ gridColumn: { xs: '1', md: '1 / -1' } }}>
-                                                <Divider sx={{ my: 1 }} />
-                                            </Box>
                                             <Box>
                                                 <Typography variant="body2" color="text.secondary">Property Owner Name</Typography>
                                                 <Typography variant="body1">
@@ -1953,6 +2011,129 @@ export default function TowerDetailPage({ params }: PageProps) {
                         disabled={saving}
                     >
                         {saving ? <CircularProgress size={20} /> : 'Save With Note'}
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
+            {/* Edit Property Data Dialog */}
+            <Dialog open={propertyDialogOpen} onClose={handleClosePropertyDialog} maxWidth="sm" fullWidth>
+                <DialogTitle>Edit Property Data{tower ? ` for Tower #${tower.id}` : ''}</DialogTitle>
+                <DialogContent>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
+                        <TextField
+                            label="Property Owner Name"
+                            value={propertyForm.name}
+                            onChange={(e) => setPropertyForm((form) => ({ ...form, name: e.target.value }))}
+                            required
+                            fullWidth
+                            autoFocus
+                            disabled={!tower?.parcel?.owner}
+                        />
+
+                        <FormControl fullWidth disabled={!tower?.parcel?.owner}>
+                            <InputLabel>Property Owner Type</InputLabel>
+                            <Select
+                                value={propertyForm.type}
+                                label="Property Owner Type"
+                                onChange={(e) => setPropertyForm((form) => ({ ...form, type: e.target.value }))}
+                            >
+                                <MenuItem value="">None</MenuItem>
+                                <MenuItem value="Individual">Individual</MenuItem>
+                                <MenuItem value="LLC">LLC</MenuItem>
+                                <MenuItem value="Trust">Trust</MenuItem>
+                                <MenuItem value="Corp">Corporation</MenuItem>
+                            </Select>
+                        </FormControl>
+
+                        <TextField
+                            label="Mailing Address"
+                            value={propertyForm.address}
+                            onChange={(e) => setPropertyForm((form) => ({ ...form, address: e.target.value }))}
+                            fullWidth
+                            multiline
+                            rows={2}
+                            disabled={!tower?.parcel?.owner}
+                        />
+
+                        <TextField
+                            label="Lease Expiry"
+                            type="date"
+                            value={leaseExpiryDraft}
+                            onChange={(e) => setLeaseExpiryDraft(e.target.value)}
+                            InputLabelProps={{ shrink: true }}
+                            inputProps={{ min: minLeaseExpiryDate() }}
+                            helperText="Date cannot be in the past"
+                            fullWidth
+                        />
+
+                        <Box>
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                                <Typography variant="subtitle2">Contacts</Typography>
+                                <Button
+                                    size="small"
+                                    startIcon={<AddIcon />}
+                                    disabled={!tower?.parcel?.owner}
+                                    onClick={() => setPropertyForm((form) => ({
+                                        ...form,
+                                        contacts: [...form.contacts, { type: 'Phone', value: '', label: '', isValid: true }]
+                                    }))}
+                                >
+                                    Add Contact
+                                </Button>
+                            </Box>
+                            <Stack spacing={1}>
+                                {propertyForm.contacts.map((contact, index) => (
+                                    <Box key={index} sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                                        <FormControl size="small" sx={{ minWidth: 100 }}>
+                                            <Select
+                                                value={contact.type}
+                                                onChange={(e) => updatePropertyContact(index, 'type', e.target.value)}
+                                            >
+                                                <MenuItem value="Phone">Phone</MenuItem>
+                                                <MenuItem value="Email">Email</MenuItem>
+                                            </Select>
+                                        </FormControl>
+                                        <TextField
+                                            size="small"
+                                            placeholder={contact.type === 'Phone' ? 'Phone number' : 'Email address'}
+                                            value={contact.value}
+                                            onChange={(e) => updatePropertyContact(index, 'value', e.target.value)}
+                                            sx={{ flex: 1 }}
+                                        />
+                                        <TextField
+                                            size="small"
+                                            placeholder="Label"
+                                            value={contact.label}
+                                            onChange={(e) => updatePropertyContact(index, 'label', e.target.value)}
+                                            sx={{ width: 100 }}
+                                        />
+                                        <IconButton
+                                            size="small"
+                                            color="error"
+                                            onClick={() => setPropertyForm((form) => ({
+                                                ...form,
+                                                contacts: form.contacts.filter((_, i) => i !== index)
+                                            }))}
+                                        >
+                                            <DeleteIcon fontSize="small" />
+                                        </IconButton>
+                                    </Box>
+                                ))}
+                            </Stack>
+                            {!tower?.parcel?.owner && (
+                                <Typography variant="body2" color="text.secondary">
+                                    No property owner linked. Use Add Property Owner to create one.
+                                </Typography>
+                            )}
+                        </Box>
+                    </Box>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={handleClosePropertyDialog} disabled={savingProperty}>
+                        Cancel
+                    </Button>
+                    <Button onClick={handleSavePropertyData} variant="contained" disabled={savingProperty}>
+                        {savingProperty ? 'Saving...' : 'Save Property Data'}
                     </Button>
                 </DialogActions>
             </Dialog>
