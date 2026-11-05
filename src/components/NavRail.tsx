@@ -4,6 +4,7 @@ import { signOut, useSession } from 'next-auth/react';
 import { useEffect, useState } from 'react';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
+import Badge from '@mui/material/Badge';
 import MapIcon from '@mui/icons-material/Map';
 import GroupIcon from '@mui/icons-material/Group';
 import TableRowsIcon from '@mui/icons-material/TableRows';
@@ -16,6 +17,8 @@ import MenuIcon from '@mui/icons-material/Menu';
 import MenuOpenIcon from '@mui/icons-material/MenuOpen';
 import { IconButton, MenuItem, Select, FormControl, InputLabel, ListItemIcon, ListItemText, List, ListItemButton, Tooltip } from '@mui/material';
 import { useCountry } from '@/lib/country-context';
+import { LEASE_URGENT_DAYS } from '@/lib/lease-expiry';
+import type { ReactNode } from 'react';
 
 const BP = '/';
 
@@ -29,6 +32,9 @@ export default function NavRail() {
     const { data: session } = useSession();
     const { country, setCountry } = useCountry();
     const [isCollapsed, setIsCollapsed] = useState(false);
+    // Count of urgent lease expiries; shown as a notification badge on Towers.
+    // null means the count is unavailable, so the badge can say so honestly.
+    const [leaseAlertCount, setLeaseAlertCount] = useState<number | null>(null);
 
     // Auto-collapse on small screens; the toggle still works above the breakpoint.
     useEffect(() => {
@@ -41,13 +47,39 @@ export default function NavRail() {
         return () => mq.removeEventListener('change', sync);
     }, []);
 
+    useEffect(() => {
+        let cancelled = false;
+        const loadLeaseAlerts = () => {
+            fetch('/api/lease-alerts')
+                .then((res) => (res.ok ? res.json() : Promise.reject(new Error(`status ${res.status}`))))
+                .then((data) => {
+                    if (!cancelled) setLeaseAlertCount(typeof data?.count === 'number' ? data.count : null);
+                })
+                .catch(() => { /* keep the last known count; never fake a zero */ });
+        };
+        loadLeaseAlerts();
+        // Refresh every few minutes so a long-open tab does not show a stale count.
+        const interval = setInterval(loadLeaseAlerts, 5 * 60 * 1000);
+        return () => {
+            cancelled = true;
+            clearInterval(interval);
+        };
+    }, []);
+
     const isAdmin = session?.user?.role === 'ADMIN';
-    const navItems = [
-        { label: 'Map', icon: <MapIcon />, path: '/' },
-        { label: 'Towers', icon: <TableRowsIcon />, path: '/towers' },
-        { label: 'Leads', icon: <ContactsIcon />, path: '/leads' },
-        { label: 'Property Owners', icon: <GroupIcon />, path: '/owners' },
-        ...(isAdmin ? [{ label: 'Review', icon: <DescriptionIcon />, path: '/review' }] : []),
+    const towersHref = leaseAlertCount !== null && leaseAlertCount > 0
+        ? `/towers?expiring=${LEASE_URGENT_DAYS}`
+        : undefined;
+    const ownersHref = leaseAlertCount !== null && leaseAlertCount > 0
+        ? `/owners?expiring=${LEASE_URGENT_DAYS}`
+        : undefined;
+    const navItems: { label: string; icon: ReactNode; path: string; href?: string; leaseAlerts: boolean }[] = [
+        { label: 'Map', icon: <MapIcon />, path: '/', leaseAlerts: false },
+        // With urgent leases, clicking Towers lands on the expiry-filtered view; the chip row can clear it.
+        { label: 'Towers', icon: <TableRowsIcon />, path: '/towers', href: towersHref, leaseAlerts: true },
+        { label: 'Leads', icon: <ContactsIcon />, path: '/leads', leaseAlerts: false },
+        { label: 'Property Owners', icon: <GroupIcon />, path: '/owners', href: ownersHref, leaseAlerts: true },
+        ...(isAdmin ? [{ label: 'Review', icon: <DescriptionIcon />, path: '/review', leaseAlerts: false }] : []),
     ];
 
     const drawerWidth = isCollapsed ? 80 : 260;
@@ -133,7 +165,7 @@ export default function NavRail() {
                         <Tooltip key={item.path} title={isCollapsed ? item.label : ''}>
                             <ListItemButton
                                 component="a"
-                                href={item.path}
+                                href={item.href ?? item.path}
                                 selected={isActive}
                             sx={{
                                 justifyContent: isCollapsed ? 'center' : 'initial',
@@ -151,7 +183,19 @@ export default function NavRail() {
                                 mr: isCollapsed ? 0 : 2,
                                 justifyContent: 'center'
                             }}>
-                                {item.icon}
+                                {item.leaseAlerts && leaseAlertCount !== null && leaseAlertCount > 0 ? (
+                                    <Tooltip title={`${leaseAlertCount} lease${leaseAlertCount === 1 ? '' : 's'} expired or expiring within ${LEASE_URGENT_DAYS} days`}>
+                                        <Badge badgeContent={leaseAlertCount} color="error" max={99}>
+                                            {item.icon}
+                                        </Badge>
+                                    </Tooltip>
+                                ) : item.leaseAlerts && leaseAlertCount === null ? (
+                                    <Tooltip title="Lease expiry alert count unavailable">
+                                        <Badge variant="dot" color="warning">
+                                            {item.icon}
+                                        </Badge>
+                                    </Tooltip>
+                                ) : item.icon}
                             </ListItemIcon>
                             {!isCollapsed && <ListItemText primary={item.label} />}
                             </ListItemButton>

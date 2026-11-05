@@ -9,6 +9,7 @@ import {
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import axios from 'axios';
+import { isLeaseExpiryInPast, minLeaseExpiryDate } from '@/lib/lease-expiry';
 
 interface Contact {
     type: 'Phone' | 'Email';
@@ -27,6 +28,7 @@ export default function AddOwnerDialog({ open, onClose, onSuccess, towerId }: Ad
     const [name, setName] = useState('');
     const [type, setType] = useState('');
     const [address, setAddress] = useState('');
+    const [leaseExpiry, setLeaseExpiry] = useState('');
     const [contacts, setContacts] = useState<Contact[]>([]);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState('');
@@ -50,6 +52,10 @@ export default function AddOwnerDialog({ open, onClose, onSuccess, towerId }: Ad
             setError('Property Owner name is required');
             return;
         }
+        if (leaseExpiry && isLeaseExpiryInPast(leaseExpiry)) {
+            setError('Lease Expiry cannot be in the past');
+            return;
+        }
 
         setSaving(true);
         setError('');
@@ -60,6 +66,10 @@ export default function AddOwnerDialog({ open, onClose, onSuccess, towerId }: Ad
                 name: name.trim(),
                 type: type || null,
                 address: address.trim() || null,
+                leaseExpiry: leaseExpiry || null,
+                // Browser-local today, so the server rejects past dates against
+                // the user's calendar, not the server's timezone.
+                clientToday: minLeaseExpiryDate(),
                 contacts: validContacts,
                 towerId: towerId || null
             });
@@ -77,6 +87,7 @@ export default function AddOwnerDialog({ open, onClose, onSuccess, towerId }: Ad
         setName('');
         setType('');
         setAddress('');
+        setLeaseExpiry('');
         setContacts([]);
         setError('');
         onClose();
@@ -118,6 +129,17 @@ export default function AddOwnerDialog({ open, onClose, onSuccess, towerId }: Ad
                         fullWidth
                         multiline
                         rows={2}
+                    />
+
+                    <TextField
+                        label="Lease Expiry"
+                        type="date"
+                        value={leaseExpiry}
+                        onChange={(e) => setLeaseExpiry(e.target.value)}
+                        InputLabelProps={{ shrink: true }}
+                        inputProps={{ min: minLeaseExpiryDate() }}
+                        helperText="Date cannot be in the past"
+                        fullWidth
                     />
 
                     {/* Contacts Section */}
