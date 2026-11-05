@@ -6,7 +6,7 @@ import Typography from '@mui/material/Typography';
 import Paper from '@mui/material/Paper';
 import { DataGrid, GridColDef, GridToolbar, GridActionsCellItem } from '@mui/x-data-grid';
 import MapIcon from '@mui/icons-material/Map';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import axios from 'axios';
 import { CircularProgress, TextField, MenuItem, Button, Autocomplete, Checkbox, Badge, Chip } from '@mui/material';
 import FilterListIcon from '@mui/icons-material/FilterList';
@@ -185,13 +185,19 @@ export default function OwnersPage() {
         counties: string[];
         zips: string[];
     }>({ cities: [], states: [], counties: [], zips: [] });
+    const searchParams = useSearchParams();
     const [filters, setFilters] = useState<{
         city?: string;
         state?: string;
         county?: string;
         zip?: string;
         search?: string;
-    }>({});
+        expiring?: string;
+    }>(() => {
+        // Sidebar badge deep-link (?expiring=N) lands on the urgent leases.
+        const urlExpiring = searchParams.get('expiring');
+        return urlExpiring && /^\d+$/.test(urlExpiring) ? { expiring: urlExpiring } : {};
+    });
     const searchRef = useRef<HTMLInputElement>(null);
     const router = useRouter();
 
@@ -240,6 +246,7 @@ export default function OwnersPage() {
                 if (filters.state) params.append('state', filters.state);
                 if (filters.zip) params.append('zip', filters.zip);
                 if (filters.search) params.append('search', filters.search);
+                if (filters.expiring) params.append('expiring', filters.expiring);
 
                 const qs = params.toString();
                 const cached = pageCacheRef.current.get(qs);
@@ -417,7 +424,8 @@ export default function OwnersPage() {
     const fieldLabels: Record<string, string> = {
         city: 'City', county: 'County',
         state: globalCountry === 'USA' ? 'State' : 'Province',
-        zip: globalCountry === 'USA' ? 'ZIP' : 'Postal Code'
+        zip: globalCountry === 'USA' ? 'ZIP' : 'Postal Code',
+        expiring: 'Expiring Within'
     };
     for (const [field, label] of Object.entries(fieldLabels)) {
         const val = (filters as any)[field];

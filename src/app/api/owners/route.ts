@@ -178,6 +178,15 @@ export async function GET(request: Request) {
             ];
         }
 
+        // Lease expiry window: anything expired or expiring within N days.
+        const expiring = searchParams.get('expiring');
+        const hasExpiringFilter = !!expiring && /^\d+$/.test(expiring);
+        if (hasExpiringFilter && expiring) {
+            const cutoff = new Date();
+            cutoff.setDate(cutoff.getDate() + parseInt(expiring, 10));
+            parcelWhere.leaseExpiry = { lte: cutoff };
+        }
+
         // One row per parcel that has a tower, so paginate on Parcel itself.
         // Parcel.towerId is required, so every parcel already has a tower.
         const parcelQuery: Prisma.ParcelWhereInput = { ...parcelWhere };
@@ -217,7 +226,10 @@ export async function GET(request: Request) {
                 where: parcelQuery,
                 skip,
                 take: limit,
-                orderBy: { id: 'asc' } as Prisma.ParcelOrderByWithRelationInput,
+                // Urgent view lists the soonest expiry first.
+                orderBy: (hasExpiringFilter
+                    ? { leaseExpiry: { sort: 'asc', nulls: 'last' } }
+                    : { id: 'asc' }) as Prisma.ParcelOrderByWithRelationInput,
                 select: {
                     id: true,
                     towerId: true,
