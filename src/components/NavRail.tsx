@@ -70,12 +70,15 @@ export default function NavRail() {
     const towersHref = leaseAlertCount !== null && leaseAlertCount > 0
         ? `/towers?expiring=${LEASE_URGENT_DAYS}`
         : undefined;
+    const ownersHref = leaseAlertCount !== null && leaseAlertCount > 0
+        ? `/owners?expiring=${LEASE_URGENT_DAYS}`
+        : undefined;
     const navItems: { label: string; icon: ReactNode; path: string; href?: string; leaseAlerts: boolean }[] = [
         { label: 'Map', icon: <MapIcon />, path: '/', leaseAlerts: false },
         // With urgent leases, clicking Towers lands on the expiry-filtered view; the chip row can clear it.
         { label: 'Towers', icon: <TableRowsIcon />, path: '/towers', href: towersHref, leaseAlerts: true },
         { label: 'Leads', icon: <ContactsIcon />, path: '/leads', leaseAlerts: false },
-        { label: 'Property Owners', icon: <GroupIcon />, path: '/owners', leaseAlerts: false },
+        { label: 'Property Owners', icon: <GroupIcon />, path: '/owners', href: ownersHref, leaseAlerts: true },
         ...(isAdmin ? [{ label: 'Review', icon: <DescriptionIcon />, path: '/review', leaseAlerts: false }] : []),
     ];
 
