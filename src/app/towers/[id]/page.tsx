@@ -781,13 +781,18 @@ export default function TowerDetailPage({ params }: PageProps) {
 
     const handleSaveStreetViewUrl = async () => {
         if (!tower) return;
+        const nextUrl = streetViewUrl.trim() || null;
         setIsSavingStreetView(true);
         try {
-            await axios.patch(`/api/towers/${tower.id}`, {
-                streetViewUrl: streetViewUrl.trim() || null
+            // Trust the write response. A refetch here can return a stale row and
+            // overwrite the URL that just saved, so the field looked unsaved.
+            const res = await axios.patch(`/api/towers/${tower.id}`, {
+                streetViewUrl: nextUrl
             });
+            const savedUrl: string | null = res.data?.streetViewUrl ?? nextUrl;
+            setTower(prev => (prev ? { ...prev, streetViewUrl: savedUrl ?? undefined } : prev));
+            setStreetViewUrl(savedUrl ?? '');
             setIsEditingStreetView(false);
-            await refreshKeepingScroll();
         } catch (error) {
             console.error('Error saving street view URL:', error);
             alert('Failed to save Street View URL');
