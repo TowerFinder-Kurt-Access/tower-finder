@@ -208,24 +208,30 @@ export default function TowerTableSimple({
         avgBusinessDistance: true,
     };
 
+    // Bump when a column must reappear for everyone. A bare model saved before
+    // this version keeps the user's other choices but shows Lease Expiry again,
+    // so a stale save cannot hide a new column.
+    const COLUMN_VISIBILITY_VERSION = 1;
+
     // Column visibility with localStorage persistence.
     const [columnVisibilityModel, setColumnVisibilityModel] = React.useState<GridColumnVisibilityModel>(() => {
-        if (typeof window !== 'undefined') {
-            const saved = localStorage.getItem('towersColumnVisibility');
-            if (saved) {
-                try {
-                    return JSON.parse(saved);
-                } catch (e) {
-                    // ignore.
-                }
-            }
+        if (typeof window === 'undefined') return defaultVisibility;
+        const saved = localStorage.getItem('towersColumnVisibility');
+        if (!saved) return defaultVisibility;
+        try {
+            const parsed = JSON.parse(saved);
+            if (!parsed || typeof parsed !== 'object') return defaultVisibility;
+            if (parsed.version === COLUMN_VISIBILITY_VERSION) return parsed.model ?? defaultVisibility;
+            // Legacy bare model: keep explicit hides, then restore Lease Expiry.
+            return { ...defaultVisibility, ...parsed, leaseExpiry: true };
+        } catch (e) {
+            return defaultVisibility;
         }
-        return defaultVisibility;
     });
 
     const handleColumnVisibilityChange = (model: GridColumnVisibilityModel) => {
         setColumnVisibilityModel(model);
-        localStorage.setItem('towersColumnVisibility', JSON.stringify(model));
+        localStorage.setItem('towersColumnVisibility', JSON.stringify({ version: COLUMN_VISIBILITY_VERSION, model }));
     };
 
     const handleJumpToPage = (e: React.FormEvent) => {

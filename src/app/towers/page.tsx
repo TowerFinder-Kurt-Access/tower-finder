@@ -72,6 +72,14 @@ function withoutPinnedFilters(filters: TowerFilters): TowerFilters {
     return rest;
 }
 
+// Bump when the default view changes. Older saved views keep their filters but
+// take the new default sort, so a stale saved view cannot hide it.
+const SETTINGS_VERSION = 2;
+
+// Default order: soonest lease expiry first, so dated sites open before blank rows.
+// The Property Owners list opens the same way.
+const DEFAULT_SORT: { field: string; order: 'asc' | 'desc' } = { field: 'leaseExpiry', order: 'asc' };
+
 function TowersPageContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -148,7 +156,11 @@ function TowersPageContent() {
         try {
             const saved = typeof window !== 'undefined' ? localStorage.getItem('towersPageSettings') : null;
             // A saved view wins; settings saved without a sort fall back to the default.
-            if (saved) return JSON.parse(saved).sortModel ?? DEFAULT_SORT;
+            // A view saved before the version bump takes the default sort.
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                return parsed.version === SETTINGS_VERSION ? (parsed.sortModel ?? DEFAULT_SORT) : DEFAULT_SORT;
+            }
         } catch (e) {
             console.error("Unreadable tower page settings:", e);
         }
@@ -158,6 +170,7 @@ function TowersPageContent() {
     // Save settings when changed (filters, pagination AND sort)
     useEffect(() => {
         const settings = {
+            version: SETTINGS_VERSION,
             page,
             rowsPerPage,
             filters: withoutPinnedFilters(filters),
@@ -588,10 +601,6 @@ function TowersPageContent() {
         </Box>
     );
 }
-
-// Default order: soonest lease expiry first, so dated sites open before blank rows.
-// The Property Owners list opens the same way.
-const DEFAULT_SORT: { field: string; order: 'asc' | 'desc' } = { field: 'leaseExpiry', order: 'asc' };
 
 export default function TowersPage() {
     return (
