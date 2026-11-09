@@ -210,12 +210,15 @@ export default function OwnersPage() {
     };
     const { country: globalCountry } = useCountry();
 
-    // Load distinct filter values (re-fetch when country changes)
+    // Load distinct filter values (re-fetch when country changes).
+    // Abort the previous request: a slow unfiltered reply must not overwrite the
+    // Canada options with US states after the region is picked.
     useEffect(() => {
+        const controller = new AbortController();
         const loadFilterOptions = async () => {
             try {
                 const countryParam = globalCountry ? `&country=${encodeURIComponent(globalCountry)}` : '';
-                const res = await axios.get(`/api/owners?distinct=filters${countryParam}`);
+                const res = await axios.get(`/api/owners?distinct=filters${countryParam}`, { signal: controller.signal });
                 setFilterOptions({
                     cities: res.data.cities || [],
                     states: res.data.states || [],
@@ -223,10 +226,12 @@ export default function OwnersPage() {
                     zips: res.data.zips || []
                 });
             } catch (error) {
+                if (axios.isCancel(error)) return;
                 console.error("Failed to fetch filter options:", error);
             }
         };
         loadFilterOptions();
+        return () => controller.abort();
     }, [globalCountry]);
 
     useEffect(() => {

@@ -6,6 +6,7 @@
  */
 import canadianCities from '@/lib/canadian_cities.json' with { type: 'json' };
 import canadianCounties from '@/lib/canadian_counties.json' with { type: 'json' };
+import { CANADA_PROVINCES } from '@/lib/constants';
 import { normalizeCountyName } from '@/lib/extract-location';
 
 function key(s: string): string {
@@ -41,6 +42,17 @@ export function isOfficialCanadianCounty(name: string): boolean {
 /** Keep only values that are real Canadian counties / census divisions. */
 export function filterOfficialCanadianCounties(names: string[]): string[] {
     return names.filter(isOfficialCanadianCounty);
+}
+
+const canadianProvinceSet = new Set(Object.keys(CANADA_PROVINCES).map(key));
+
+export function isOfficialCanadianProvince(name: string): boolean {
+    return canadianProvinceSet.has(key(name));
+}
+
+/** Keep only Canadian provinces and territories, so no US state leaks in. */
+export function filterOfficialCanadianProvinces(names: string[]): string[] {
+    return names.filter(isOfficialCanadianProvince);
 }
 
 /** Keep only values that look like a Canadian postal code / FSA. */

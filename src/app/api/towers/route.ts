@@ -6,7 +6,7 @@ import { getAuthUser } from '@/lib/auth-helpers';
 import { buildTowerAccessFilter } from '@/lib/tower-access';
 import { ABBR_TO_PROVINCE, PROVINCE_TO_ABBR } from '@/lib/locations';
 import { dedupeDisplayValues } from '@/lib/normalize';
-import { filterOfficialCanadianCities, filterOfficialCanadianCounties, filterCanadianPostalCodes, isCanada } from '@/lib/official-cities';
+import { filterOfficialCanadianCities, filterOfficialCanadianCounties, filterOfficialCanadianProvinces, filterCanadianPostalCodes, isCanada } from '@/lib/official-cities';
 import { resolveContact } from '@/lib/leads';
 
 // Expand a province/state value into all equivalent search terms (full name +
@@ -191,7 +191,8 @@ export async function GET(request: Request) {
                 const fullName = ABBR_TO_PROVINCE[r.state] || r.state;
                 provinces.add(fullName);
             });
-            return NextResponse.json(dedupeDisplayValues(Array.from(provinces)));
+            const provinceNames = dedupeDisplayValues(Array.from(provinces));
+            return NextResponse.json(isCanada(country) ? filterOfficialCanadianProvinces(provinceNames) : provinceNames);
         }
 
         if (distinct === 'cities') {
@@ -337,7 +338,7 @@ export async function GET(request: Request) {
             const zips = dedupeDisplayValues(valuesByFacet.zips || []);
             return NextResponse.json({
                 cities: isCA ? filterOfficialCanadianCities(cities) : cities,
-                states,
+                states: isCA ? filterOfficialCanadianProvinces(states) : states,
                 counties: isCA ? filterOfficialCanadianCounties(counties) : counties,
                 zips: isCA ? filterCanadianPostalCodes(zips) : zips,
                 types: dedupeDisplayValues(valuesByFacet.types || []),

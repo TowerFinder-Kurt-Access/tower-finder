@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
 import { ABBR_TO_PROVINCE } from '@/lib/locations';
 import { dedupeDisplayValues } from '@/lib/normalize';
-import { filterOfficialCanadianCities, filterOfficialCanadianCounties, filterCanadianPostalCodes, isCanada } from '@/lib/official-cities';
+import { filterOfficialCanadianCities, filterOfficialCanadianCounties, filterOfficialCanadianProvinces, filterCanadianPostalCodes, isCanada } from '@/lib/official-cities';
 import { getAuthUser } from '@/lib/auth-helpers';
 import { isLeaseExpiryInPast, parseLeaseExpiryDate } from '@/lib/lease-expiry';
 
@@ -74,7 +74,7 @@ export async function GET(request: Request) {
             const states = dedupeDisplayValues((byFacet.states || []).map((s) => ABBR_TO_PROVINCE[s] || s));
             return NextResponse.json({
                 cities: isCA ? filterOfficialCanadianCities(cities) : cities,
-                states,
+                states: isCA ? filterOfficialCanadianProvinces(states) : states,
                 counties: isCA ? filterOfficialCanadianCounties(counties) : counties,
                 zips: isCA ? filterCanadianPostalCodes(zips) : zips
             });

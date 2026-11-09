@@ -147,11 +147,12 @@ function TowersPageContent() {
         if (urlIdParam) return null;
         try {
             const saved = typeof window !== 'undefined' ? localStorage.getItem('towersPageSettings') : null;
-            if (saved) return JSON.parse(saved).sortModel ?? null;
+            // A saved view wins; settings saved without a sort fall back to the default.
+            if (saved) return JSON.parse(saved).sortModel ?? DEFAULT_SORT;
         } catch (e) {
             console.error("Unreadable tower page settings:", e);
         }
-        return null;
+        return DEFAULT_SORT;
     });
 
     // Save settings when changed (filters, pagination AND sort)
@@ -180,6 +181,9 @@ function TowersPageContent() {
     // Faceted filter options: re-fetch whenever the country or any categorical filter
     // changes so each dropdown narrows to values compatible with the others (cascade).
     useEffect(() => {
+        // Abort the previous request: a slow unfiltered reply must not overwrite
+        // the Canada options with US states after the region is picked.
+        const controller = new AbortController();
         const loadFilterOptions = async () => {
             try {
                 const params = new URLSearchParams({ distinct: 'filters' });
@@ -188,7 +192,7 @@ function TowersPageContent() {
                     const val = (filters as any)[k];
                     if (val) params.set(k, val);
                 });
-                const res = await axios.get(`/api/towers?${params.toString()}`);
+                const res = await axios.get(`/api/towers?${params.toString()}`, { signal: controller.signal });
                 setFilterOptions({
                     cities: res.data.cities || [],
                     states: res.data.states || [],
@@ -199,10 +203,12 @@ function TowersPageContent() {
                     statuses: res.data.statuses || [],
                 });
             } catch (error) {
+                if (axios.isCancel(error)) return;
                 console.error("Failed to fetch filter options:", error);
             }
         };
         loadFilterOptions();
+        return () => controller.abort();
     }, [globalCountry, filters.city, filters.state, filters.county, filters.zip, filters.type, filters.carrier, filters.status]);
 
     // Load towers function
@@ -582,6 +588,10 @@ function TowersPageContent() {
         </Box>
     );
 }
+
+// Default order: soonest lease expiry first, so dated sites open before blank rows.
+// The Property Owners list opens the same way.
+const DEFAULT_SORT: { field: string; order: 'asc' | 'desc' } = { field: 'leaseExpiry', order: 'asc' };
 
 export default function TowersPage() {
     return (
