@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Paper from '@mui/material/Paper';
-import { DataGrid, GridColDef, GridToolbar, GridActionsCellItem } from '@mui/x-data-grid';
+import { DataGrid, GridColDef, GridToolbar, GridActionsCellItem, GridSortModel } from '@mui/x-data-grid';
 import MapIcon from '@mui/icons-material/Map';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
@@ -179,6 +179,9 @@ export default function OwnersPage() {
         page: 0,
         pageSize: 25,
     });
+    // Sort runs in the database, so a click reorders all rows, not just this page.
+    // Lease Expiry opens first, soonest on top, so dated sites are seen before blank rows.
+    const [sortModel, setSortModel] = useState<GridSortModel>([{ field: 'leaseExpiry', sort: 'asc' }]);
     const [filterOptions, setFilterOptions] = useState<{
         cities: string[];
         states: string[];
@@ -242,6 +245,10 @@ export default function OwnersPage() {
                 if (filters.zip) params.append('zip', filters.zip);
                 if (filters.search) params.append('search', filters.search);
                 if (filters.expiring) params.append('expiring', filters.expiring);
+                if (sortModel[0]) {
+                    params.append('sort', sortModel[0].field);
+                    params.append('dir', sortModel[0].sort ?? 'asc');
+                }
 
                 const qs = params.toString();
                 const cached = pageCacheRef.current.get(qs);
@@ -280,7 +287,7 @@ export default function OwnersPage() {
         };
 
         fetchOwners();
-    }, [paginationModel.page, paginationModel.pageSize, filters, globalCountry]);
+    }, [paginationModel.page, paginationModel.pageSize, filters, globalCountry, sortModel]);
 
     const handleSeeInMap = (row: OwnerRow) => {
         // Build query params to center map
@@ -464,8 +471,14 @@ export default function OwnersPage() {
                         loading={loading}
                         paginationMode="server"
                         filterMode="server"
+                        sortingMode="server"
                         paginationModel={paginationModel}
                         onPaginationModelChange={setPaginationModel}
+                        sortModel={sortModel}
+                        onSortModelChange={(model) => {
+                            setSortModel(model);
+                            setPaginationModel(prev => ({ ...prev, page: 0 }));
+                        }}
                         onFilterModelChange={(model) => {
                             const newFilters = { ...filters };
                             if (model.items && model.items.length > 0) {

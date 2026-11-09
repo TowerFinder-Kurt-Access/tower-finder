@@ -220,16 +220,35 @@ export async function GET(request: Request) {
             }));
         }
 
+        // Server-side sort: the grid sends the clicked column, so a sort orders the
+        // whole result set instead of the rows already loaded on this page.
+        const sortField = searchParams.get('sort') ?? '';
+        const sortDir: Prisma.SortOrder = searchParams.get('dir') === 'desc' ? 'desc' : 'asc';
+        const sortColumns: Record<string, Prisma.ParcelOrderByWithRelationInput[]> = {
+            leaseExpiry: [{ leaseExpiry: { sort: sortDir, nulls: 'last' } }],
+            ownerName: [{ owner: { name: sortDir } }],
+            ownerType: [{ owner: { type: sortDir } }],
+            parcelId: [{ parcelId: sortDir }],
+            address: [{ address: sortDir }],
+            city: [{ city: { name: sortDir } }, { cityRaw: sortDir }],
+            county: [{ countyNormalized: { name: sortDir } }, { countyRaw: sortDir }],
+            state: [{ province: { name: sortDir } }, { provinceRaw: sortDir }, { stateRaw: sortDir }],
+            zip: [{ postalCode: sortDir }, { zip: sortDir }],
+        };
+        // Urgent view defaults to the soonest expiry; id breaks ties so pages stay stable.
+        const orderBy: Prisma.ParcelOrderByWithRelationInput[] = [
+            ...(sortColumns[sortField]
+                ?? (hasExpiringFilter ? sortColumns.leaseExpiry : [{ id: 'asc' as Prisma.SortOrder }])),
+            { id: 'asc' },
+        ];
+
         // Paginate in the database: one row per parcel, only the columns the table shows.
         const [parcels, total] = await Promise.all([
             prisma.parcel.findMany({
                 where: parcelQuery,
                 skip,
                 take: limit,
-                // Urgent view lists the soonest expiry first.
-                orderBy: (hasExpiringFilter
-                    ? { leaseExpiry: { sort: 'asc', nulls: 'last' } }
-                    : { id: 'asc' }) as Prisma.ParcelOrderByWithRelationInput,
+                orderBy,
                 select: {
                     id: true,
                     towerId: true,
