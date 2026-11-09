@@ -17,7 +17,6 @@ import MenuIcon from '@mui/icons-material/Menu';
 import MenuOpenIcon from '@mui/icons-material/MenuOpen';
 import { IconButton, MenuItem, Select, FormControl, InputLabel, ListItemIcon, ListItemText, List, ListItemButton, Tooltip } from '@mui/material';
 import { useCountry } from '@/lib/country-context';
-import { LEASE_URGENT_DAYS } from '@/lib/lease-expiry';
 import type { ReactNode } from 'react';
 
 const BP = '/';
@@ -178,15 +177,11 @@ export default function NavRail() {
                                 mr: isCollapsed ? 0 : 2,
                                 justifyContent: 'center'
                             }}>
+                                {/* No badge when the count is unknown: a placeholder dot reads
+                                    as a lease alert on a screen that may hold no lease data. */}
                                 {item.leaseAlerts && leaseAlertCount !== null && leaseAlertCount > 0 ? (
-                                    <Tooltip title={`${leaseAlertCount} lease${leaseAlertCount === 1 ? '' : 's'} expired or expiring within ${LEASE_URGENT_DAYS} days`}>
+                                    <Tooltip title={`${leaseAlertCount} lease${leaseAlertCount === 1 ? '' : 's'} expired or due within a year`}>
                                         <Badge badgeContent={leaseAlertCount} color="error" max={99}>
-                                            {item.icon}
-                                        </Badge>
-                                    </Tooltip>
-                                ) : item.leaseAlerts && leaseAlertCount === null ? (
-                                    <Tooltip title="Lease expiry alert count unavailable">
-                                        <Badge variant="dot" color="warning">
                                             {item.icon}
                                         </Badge>
                                     </Tooltip>

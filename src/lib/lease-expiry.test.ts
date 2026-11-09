@@ -1,8 +1,8 @@
 /**
  * Self-check for the lease expiry helpers.
  *
- * Guards the "no past dates" rule and the 60-day urgency window: a boundary
- * flip here silently breaks the sidebar badge and the red chips.
+ * Guards the "no past dates" rule and the notice windows: a boundary flip
+ * here silently breaks the sidebar badge and the expiry chips.
  * Run with: npx tsx src/lib/lease-expiry.test.ts
  */
 
@@ -14,6 +14,8 @@ import {
     parseLeaseExpiryDate,
     minLeaseExpiryDate,
     toLocalDateString,
+    leaseExpiryStage,
+    LEASE_NOTICE_DAYS,
     LEASE_URGENT_DAYS,
 } from './lease-expiry';
 
@@ -50,15 +52,27 @@ assert.equal(parseLeaseExpiryDate(42), null, 'non-string does not parse');
 assert.ok(parseLeaseExpiryDate('2027-01-15') instanceof Date, 'date-only parses');
 assert.ok(parseLeaseExpiryDate(new Date().toISOString()) instanceof Date, 'ISO string parses');
 
-// Urgency window: expired or within LEASE_URGENT_DAYS, inclusive. Boundary
-// days are UTC-relative, the reference the stored timestamps serialize to.
-assert.equal(LEASE_URGENT_DAYS, 60, 'urgency window stays at 60 days');
+// Notice windows: expired or within LEASE_NOTICE_DAYS, tightest stage first.
+// Boundary days are UTC-relative, the reference the stored timestamps serialize to.
+assert.equal(LEASE_NOTICE_DAYS.threeMonths, 90, 'three-month window');
+assert.equal(LEASE_NOTICE_DAYS.sixMonths, 182, 'six-month window');
+assert.equal(LEASE_URGENT_DAYS, 365, 'badge window is one year');
 assert.equal(isLeaseExpiryUrgent('2020-01-01'), true, 'expired is urgent');
 assert.equal(isLeaseExpiryUrgent(isoDay(LEASE_URGENT_DAYS)), true, 'last day of the window is urgent');
 assert.equal(isLeaseExpiryUrgent(isoDay(LEASE_URGENT_DAYS + 1)), false, 'day after the window is not urgent');
 assert.equal(isLeaseExpiryUrgent(null), false, 'no date is not urgent');
 assert.equal(isLeaseExpiryUrgent('garbage'), false, 'invalid date is not urgent');
 assert.equal(isLeaseExpiryUrgent(new Date(Date.now() + 30 * DAY_MS)), true, 'thirty days out is urgent');
+
+// Stage labels drive the chip color and its tooltip.
+assert.equal(leaseExpiryStage('2020-01-01'), 'expired', 'past day is expired');
+assert.equal(leaseExpiryStage(isoDay(0)), 'expired', 'today is expired');
+assert.equal(leaseExpiryStage(isoDay(1)), 'threeMonths', 'tomorrow is within three months');
+assert.equal(leaseExpiryStage(isoDay(LEASE_NOTICE_DAYS.threeMonths)), 'threeMonths', 'last three-month day');
+assert.equal(leaseExpiryStage(isoDay(LEASE_NOTICE_DAYS.threeMonths + 1)), 'sixMonths', 'past three months is six months');
+assert.equal(leaseExpiryStage(isoDay(LEASE_NOTICE_DAYS.sixMonths + 1)), 'oneYear', 'past six months is one year');
+assert.equal(leaseExpiryStage(isoDay(LEASE_URGENT_DAYS + 1)), null, 'beyond one year has no stage');
+assert.equal(leaseExpiryStage(null), null, 'no date has no stage');
 
 // Formatting accepts date-only, ISO, and Date; bad input stays empty.
 assert.equal(formatLeaseExpiry('2027-01-15'), 'Jan 15, 2027', 'date-only formats');

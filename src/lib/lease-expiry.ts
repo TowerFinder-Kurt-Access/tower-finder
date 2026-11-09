@@ -1,6 +1,8 @@
-// Lease Expiry urgency window: a lease counts as urgent once it is expired
-// or expires within this many days.
-export const LEASE_URGENT_DAYS = 60;
+// Lease Expiry notice windows, in days before expiry. The widest one is the
+// badge window: renewals need tabbing a year out, not two months.
+export const LEASE_NOTICE_DAYS = { threeMonths: 90, sixMonths: 182, oneYear: 365 } as const;
+/** Widest notice window; anything inside it is counted by the sidebar badge. */
+export const LEASE_URGENT_DAYS = LEASE_NOTICE_DAYS.oneYear;
 
 /** YYYY-MM-DD in the machine's local calendar; the date input's "today". */
 export function toLocalDateString(date: Date): string {
@@ -51,12 +53,24 @@ export function isLeaseExpiryInPast(value: string, clientToday?: unknown): boole
     return !!day && day < resolveToday(clientToday);
 }
 
+export type LeaseExpiryStage = 'expired' | 'threeMonths' | 'sixMonths' | 'oneYear';
+
+/** How close a lease is to expiry, tightest window first. Null when it is not near yet. */
+export function leaseExpiryStage(value: string | Date | null | undefined, now: Date = new Date()): LeaseExpiryStage | null {
+    const day = value ? leaseExpiryDay(value) : null;
+    if (!day) return null;
+    const today = now.toISOString().slice(0, 10);
+    if (day <= today) return 'expired';
+    const cutoff = (days: number) => new Date(now.getTime() + days * DAY_MS).toISOString().slice(0, 10);
+    if (day <= cutoff(LEASE_NOTICE_DAYS.threeMonths)) return 'threeMonths';
+    if (day <= cutoff(LEASE_NOTICE_DAYS.sixMonths)) return 'sixMonths';
+    if (day <= cutoff(LEASE_NOTICE_DAYS.oneYear)) return 'oneYear';
+    return null;
+}
+
 /** Urgent = expired today or expiring within LEASE_URGENT_DAYS. Null/invalid = not urgent. */
 export function isLeaseExpiryUrgent(value: string | Date | null | undefined, now: Date = new Date()): boolean {
-    const day = value ? leaseExpiryDay(value) : null;
-    if (!day) return false;
-    const cutoff = new Date(now.getTime() + LEASE_URGENT_DAYS * DAY_MS);
-    return day <= cutoff.toISOString().slice(0, 10);
+    return leaseExpiryStage(value, now) !== null;
 }
 
 /** Human-readable Lease Expiry, e.g. "Nov 5, 2026". Empty string for null/invalid. */
