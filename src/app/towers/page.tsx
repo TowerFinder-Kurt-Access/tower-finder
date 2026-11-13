@@ -8,6 +8,7 @@ import { Paper, Typography, Drawer, IconButton, Button, Chip } from '@mui/materi
 import MapIcon from '@mui/icons-material/Map';
 import CloseIcon from '@mui/icons-material/Close';
 import TowerTableSimple from '@/components/TowerTableSimple';
+import { MAX_PAGE_SIZE } from '@/lib/pagination';
 import NotesPanel from '@/components/NotesPanel';
 import AddOwnerDialog from '@/components/AddOwnerDialog';
 import { useCountry } from '@/lib/country-context';
@@ -111,7 +112,8 @@ function TowersPageContent() {
         if (urlIdParam) return 25;
         try {
             const saved = typeof window !== 'undefined' ? localStorage.getItem('towersPageSettings') : null;
-            if (saved) return JSON.parse(saved).rowsPerPage ?? 25;
+            // Clamp: an older build let 500 be saved, and the MIT DataGrid rejects it.
+            if (saved) return Math.min(JSON.parse(saved).rowsPerPage ?? 25, MAX_PAGE_SIZE);
         } catch (e) {
             console.error("Unreadable tower page settings:", e);
         }

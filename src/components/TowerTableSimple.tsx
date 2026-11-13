@@ -18,6 +18,7 @@ import NotesIcon from '@mui/icons-material/Notes';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import { pinnedMapUrl } from '@/lib/google-maps';
+import { PAGE_SIZE_OPTIONS, MAX_PAGE_SIZE } from '@/lib/pagination';
 import { calibratedPercent } from '@/lib/ml/calibration';
 import LeaseExpiryCell from '@/components/LeaseExpiryCell';
 
@@ -823,7 +824,7 @@ export default function TowerTableSimple({
                         onPageChange(model.page);
                     }
                     if (model.pageSize !== rowsPerPage) {
-                        onRowsPerPageChange(model.pageSize);
+                        onRowsPerPageChange(Math.min(model.pageSize, MAX_PAGE_SIZE));
                         onPageChange(0);
                     }
                 }}
@@ -843,7 +844,7 @@ export default function TowerTableSimple({
                 onProcessRowUpdateError={(error) => {
                     console.error('Error updating row:', error);
                 }}
-                pageSizeOptions={[25, 50, 100, 500]}
+                pageSizeOptions={PAGE_SIZE_OPTIONS}
                 slots={{
                     toolbar: GridToolbar,
                     footer: CustomFooter
