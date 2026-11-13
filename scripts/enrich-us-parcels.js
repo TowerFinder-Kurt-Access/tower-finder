@@ -67,10 +67,15 @@ const lowerName = (value) => {
 const inUsaBbox = (lat, lon) => lat >= USA_BBOX.minLat && lat <= USA_BBOX.maxLat
     && lon >= USA_BBOX.minLon && lon <= USA_BBOX.maxLon;
 
-/** Builds the address text from the parts that are actually known. */
-const composeAddress = ({ streetNumber, streetName, city, state, zip }) => {
+/**
+ * Builds the address text from the parts that are actually known. Most towers
+ * sit outside any incorporated place, so the county stands in for the city.
+ */
+const composeAddress = ({ streetNumber, streetName, city, county, state, zip }) => {
+    const localityName = city || county;
+    if (!localityName) return null;
     const street = [streetNumber, streetName].filter(Boolean).join(' ');
-    const tail = [city, state].filter(Boolean).join(', ');
+    const tail = [localityName, state].filter(Boolean).join(', ');
     const locality = [tail, zip].filter(Boolean).join(' ');
     return [street, locality].filter(Boolean).join(', ') || null;
 };
@@ -152,6 +157,10 @@ const runSelfCheck = () => {
     );
     assert.strictEqual(composeAddress({ city: 'lakewood', state: 'CO', zip: '80228' }), 'lakewood, CO 80228');
     assert.strictEqual(composeAddress({}), null);
+    // A state and ZIP with no city falls back to the county.
+    assert.strictEqual(composeAddress({ county: 'moffat', state: 'CO', zip: '81640' }), 'moffat, CO 81640');
+    // Neither city nor county is not an address.
+    assert.strictEqual(composeAddress({ state: 'CO', zip: '81640' }), null);
     assert.strictEqual(inUsaBbox(29.76, -95.36), true);
     assert.strictEqual(inUsaBbox(51, -95.36), false);
     assert.deepStrictEqual(
@@ -195,23 +204,47 @@ const prisma = new PrismaClient();
         ${LIMIT ? Prisma.raw(`LIMIT ${Math.max(1, Math.trunc(LIMIT))}`) : Prisma.empty}
     `;
 
-    // --normalize re-derives the stored names from an earlier run, so a fix to
-    // barePlace reaches rows the geocoder already wrote. No network.
+    // --normalize re-derives the stored names and address from an earlier run,
+    // so a fix to barePlace or composeAddress reaches rows already written.
+    // One UPDATE over the set, not a round trip per row.
     if (NORMALIZE) {
         const rows = await prisma.$queryRaw`
-            SELECT p.id, p."cityRaw", p.county FROM "Parcel" p WHERE p.country = 'USA'
+            SELECT p.id, p."cityRaw", p.county, p.address, p."stateRaw", p.zip
+            FROM "Parcel" p
+            WHERE p.country = 'USA' AND p."dataSource" = 'Census TIGERweb'
         `;
-        let changed = 0;
+        const changes = [];
         for (const row of rows) {
             const city = row.cityRaw ? lowerName(row.cityRaw) : null;
             const county = row.county ? lowerName(row.county) : null;
-            if (city === row.cityRaw && county === row.county) continue;
-            changed += 1;
-            if (!WRITE) continue;
-            await prisma.parcel.update({ where: { id: row.id }, data: { cityRaw: city, county } });
+            const address = composeAddress({ city, county, state: row.stateRaw, zip: row.zip });
+            if (city === row.cityRaw && county === row.county && address === row.address) continue;
+            changes.push({ id: row.id, city, county, address });
         }
-        console.log(`${rows.length} US parcel(s) checked, ${changed} need normalizing`);
-        if (!WRITE) console.log('Dry run. Re-run with --write and --normalize to persist.');
+        console.log(`${rows.length} parcel(s) checked, ${changes.length} need normalizing`);
+        if (!WRITE) {
+            console.log('Dry run. Re-run with --write and --normalize to persist.');
+            return;
+        }
+        // Batched so a 14k-row set does not build one giant statement.
+        for (let i = 0; i < changes.length; i += 500) {
+            const batch = changes.slice(i, i + 500);
+            const ids = batch.map((c) => c.id);
+            const cities = batch.map((c) => c.city);
+            const counties = batch.map((c) => c.county);
+            const addresses = batch.map((c) => c.address);
+            await prisma.$executeRaw`
+                UPDATE "Parcel" p
+                SET "cityRaw" = v.city, county = v.county, address = v.address
+                FROM (
+                    SELECT * FROM unnest(
+                        ${ids}::int[], ${cities}::text[], ${counties}::text[], ${addresses}::text[]
+                    ) AS t(id, city, county, address)
+                ) v
+                WHERE p.id = v.id
+            `;
+        }
+        console.log(`updated ${changes.length} parcel(s)`);
         return;
     }
 
@@ -259,6 +292,7 @@ const prisma = new PrismaClient();
                 const address = composeAddress({
                     streetName: street,
                     city: location.city,
+                    county: location.county,
                     state: location.stateCode,
                     zip: location.zip,
                 });
