@@ -16,6 +16,10 @@ const { PrismaClient } = require('@prisma/client');
 
 const prisma = new PrismaClient();
 const WRITE = process.argv.includes('--write');
+// The sheet is the source of truth, duplicates included: a row that lands within
+// 200 m of an existing tower is still inserted when this flag is set. Use it when
+// every sheet row must appear in the list.
+const ALLOW_NEAR_DUPLICATE = process.argv.includes('--allow-near-duplicate');
 const SHEET = "/Users/kurtcalacday/Downloads/_ 11. Remake Brett Larry's Cousin Call Sheet new towers only 20260305.xlsx";
 const BATCH = 'call-sheet-orphans';
 const USA_BBOX = { minLat: 24, maxLat: 50, minLon: -126, maxLon: -66 };
@@ -121,8 +125,8 @@ const haversineMeters = (latA, lonA, latB, lonB) => {
             continue;
         }
         // A geocoded point is an approximation: the source row had no coordinates.
-        // Treat a tower within 200 m as the same site rather than adding a near-copy.
-        if (coords.source !== 'sheet') {
+        // Treat a tower within 200 m as the same site unless duplicates are wanted.
+        if (coords.source !== 'sheet' && !ALLOW_NEAR_DUPLICATE) {
             const nearby = await prisma.$queryRaw`
                 SELECT id, lat, lon FROM "Tower"
                 WHERE lat BETWEEN ${coords.lat - 0.003} AND ${coords.lat + 0.003}
