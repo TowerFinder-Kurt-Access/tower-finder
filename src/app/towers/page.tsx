@@ -504,7 +504,17 @@ function TowersPageContent() {
     return (
         <Box sx={{ display: 'flex', height: '100%', overflow: 'hidden', flexDirection: 'column' }}>
             <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', p: 2, backgroundColor: '#f5f5f5', overflow: 'hidden' }}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                <Box
+                    sx={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        gap: 2,
+                        flexWrap: 'wrap',
+                        rowGap: 1,
+                        mb: 1,
+                    }}
+                >
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
                         <Button
                             component={Link}
@@ -517,6 +527,23 @@ function TowersPageContent() {
                             Back to Map
                         </Button>
                         <Typography variant="h5" sx={{ fontWeight: 600 }}>Towers List</Typography>
+                        {filters.id && (
+                            <Chip
+                                label={`Tower ID: ${filters.id}`}
+                                color="primary"
+                                size="small"
+                                onDelete={() => {
+                                    setFilters({});
+                                    setPage(0);
+                                    router.replace('/towers');
+                                }}
+                            />
+                        )}
+                    </Box>
+
+                    {/* The insert actions sit on the right edge, away from the title. */}
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexShrink: 0 }}>
+                        {isLoading && <Typography variant="body2" color="text.secondary">Loading...</Typography>}
                         {session?.user?.role === 'ADMIN' && (
                             <>
                                 <Button
@@ -537,6 +564,8 @@ function TowersPageContent() {
                                     anchorEl={insertMenuAnchor}
                                     open={Boolean(insertMenuAnchor)}
                                     onClose={() => setInsertMenuAnchor(null)}
+                                    anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                                    transformOrigin={{ vertical: 'top', horizontal: 'right' }}
                                 >
                                     <MenuItem
                                         onClick={() => {
@@ -559,20 +588,7 @@ function TowersPageContent() {
                                 </Menu>
                             </>
                         )}
-                        {filters.id && (
-                            <Chip
-                                label={`Tower ID: ${filters.id}`}
-                                color="primary"
-                                size="small"
-                                onDelete={() => {
-                                    setFilters({});
-                                    setPage(0);
-                                    router.replace('/towers');
-                                }}
-                            />
-                        )}
                     </Box>
-                    {isLoading && <Typography variant="body2" color="text.secondary">Loading...</Typography>}
                 </Box>
                 <Paper sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
                     <TowerTableSimple
