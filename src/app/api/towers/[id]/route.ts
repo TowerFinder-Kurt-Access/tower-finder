@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getAuthUser } from '@/lib/auth-helpers';
+import { getAuthUser, requireAdmin } from '@/lib/auth-helpers';
 import { canAccessTower } from '@/lib/tower-access';
 import { isLeaseExpiryInPast, parseLeaseExpiryDate, toLocalDateString } from '@/lib/lease-expiry';
 
@@ -236,5 +236,52 @@ export async function PATCH(request: Request, { params }: RouteParams) {
     } catch (error) {
         console.error(`Error updating tower:`, error);
         return NextResponse.json({ error: 'Failed to update tower' }, { status: 500 });
+    }
+}
+
+// DELETE /api/towers/[id] - Remove a tower and the rows that exist only for it.
+// ADMIN only: a delete is not reversible, and the list has no restore path.
+export async function DELETE(_request: Request, { params }: RouteParams) {
+    try {
+        await requireAdmin();
+        const { id } = await params;
+        const towerId = parseInt(id, 10);
+        if (!Number.isFinite(towerId)) {
+            return NextResponse.json({ error: 'Invalid tower id' }, { status: 400 });
+        }
+
+        const tower = await prisma.tower.findUnique({
+            where: { id: towerId },
+            select: { id: true, parcel: { select: { ownerId: true } } },
+        });
+        if (!tower) {
+            return NextResponse.json({ error: 'Tower not found' }, { status: 404 });
+        }
+
+        const ownerId = tower.parcel?.ownerId ?? null;
+
+        // Parcel carries no onDelete rule, so it blocks the tower delete.
+        // Everything else cascades; the parcel goes first in the same transaction.
+        await prisma.$transaction(async (tx) => {
+            await tx.parcel.deleteMany({ where: { towerId } });
+            await tx.tower.delete({ where: { id: towerId } });
+        }, { timeout: 30000 });
+
+        // An owner that existed only for this tower goes with it; a shared owner stays.
+        if (ownerId && await prisma.parcel.count({ where: { ownerId } }) === 0) {
+            await prisma.owner.delete({ where: { id: ownerId } });
+        }
+
+        return NextResponse.json({ deleted: towerId });
+    } catch (error) {
+        const message = error instanceof Error ? error.message : '';
+        if (message.includes('Forbidden')) {
+            return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 });
+        }
+        if (message === 'Unauthorized') {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+        console.error('Error deleting tower:', error);
+        return NextResponse.json({ error: 'Failed to delete tower' }, { status: 500 });
     }
 }

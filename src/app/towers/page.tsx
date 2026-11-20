@@ -19,6 +19,8 @@ import { useSession } from 'next-auth/react';
 import TowerTableSimple from '@/components/TowerTableSimple';
 import ImportTowersDialog from '@/components/ImportTowersDialog';
 import InsertTowerDialog from '@/components/InsertTowerDialog';
+import DeleteTowerDialog from '@/components/DeleteTowerDialog';
+import { useSnackbar } from '@/components/GlobalSnackbar';
 import { MAX_PAGE_SIZE } from '@/lib/pagination';
 import NotesPanel from '@/components/NotesPanel';
 import AddOwnerDialog from '@/components/AddOwnerDialog';
@@ -97,6 +99,7 @@ function TowersPageContent() {
     const searchParams = useSearchParams();
     const { country: globalCountry } = useCountry();
     const { data: session } = useSession();
+    const { showSnackbar } = useSnackbar();
 
     const abortControllerRef = useRef<AbortController | null>(null);
     // Recent tower pages keyed by their query string, so a page flip renders without waiting.
@@ -135,6 +138,9 @@ function TowersPageContent() {
     const [isExporting, setIsExporting] = useState<boolean>(false);
     const [importOpen, setImportOpen] = useState<boolean>(false);
     const [insertOpen, setInsertOpen] = useState<boolean>(false);
+    const [deleteTarget, setDeleteTarget] = useState<Tower | null>(null);
+    const [deleting, setDeleting] = useState<boolean>(false);
+    const [deleteError, setDeleteError] = useState<string>('');
     const [insertMenuAnchor, setInsertMenuAnchor] = useState<null | HTMLElement>(null);
     
     const [isOwnerLoading, setIsOwnerLoading] = useState<boolean>(false);
@@ -463,6 +469,28 @@ function TowersPageContent() {
         }
     };
 
+    const handleDeleteTower = async () => {
+        if (!deleteTarget) return;
+        setDeleting(true);
+        setDeleteError('');
+        try {
+            await axios.delete(`/api/towers/${deleteTarget.id}`);
+            showSnackbar(`Tower #${deleteTarget.id} deleted.`, 'success');
+            setDeleteTarget(null);
+            // Drop a cached page so the removed row cannot reappear on a back flip.
+            pageCacheRef.current.clear();
+            loadTowers();
+        } catch (error: unknown) {
+            const message = axios.isAxiosError(error)
+                ? (error.response?.data?.error ?? 'Could not delete the tower')
+                : 'Could not delete the tower';
+            setDeleteError(message);
+            showSnackbar(message, 'error');
+        } finally {
+            setDeleting(false);
+        }
+    };
+
     const handleExport = async (ids?: number[], all?: boolean) => {
         setIsExporting(true);
         try {
@@ -622,6 +650,11 @@ function TowersPageContent() {
                         onAddOwner={(tower) => setAddOwnerTower(tower)}
                         onExport={handleExport}
                         country={globalCountry}
+                        canDelete={session?.user?.role === 'ADMIN'}
+                        onDelete={(tower) => {
+                            setDeleteError('');
+                            setDeleteTarget(tower);
+                        }}
                     />
                 </Paper>
             </Box>
@@ -684,6 +717,19 @@ function TowersPageContent() {
                 open={insertOpen}
                 onClose={() => setInsertOpen(false)}
                 onInserted={() => loadTowers()}
+            />
+
+            <DeleteTowerDialog
+                open={!!deleteTarget}
+                towerId={deleteTarget?.id ?? null}
+                busy={deleting}
+                error={deleteError}
+                onClose={() => {
+                    if (deleting) return;
+                    setDeleteTarget(null);
+                    setDeleteError('');
+                }}
+                onConfirm={() => void handleDeleteTower()}
             />
         </Box>
     );

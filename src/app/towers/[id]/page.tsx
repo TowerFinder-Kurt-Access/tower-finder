@@ -65,6 +65,9 @@ import NotesPanel from '@/components/NotesPanel';
 import TowerDocuments from '@/components/TowerDocuments';
 import AddOwnerDialog from '@/components/AddOwnerDialog';
 import MapDetailsPanel from '@/components/MapDetailsPanel';
+import DeleteTowerDialog from '@/components/DeleteTowerDialog';
+import { useSnackbar } from '@/components/GlobalSnackbar';
+import { useSession } from 'next-auth/react';
 import {
     DEFAULT_MAP_MODES,
     DEFAULT_MAP_STYLE,
@@ -207,6 +210,8 @@ export default function TowerDetailPage({ params }: PageProps) {
     const resolvedParams = use(params);
     const towerId = parseInt(resolvedParams.id);
     const router = useRouter();
+    const { data: session } = useSession();
+    const { showSnackbar } = useSnackbar();
 
     const [tower, setTower] = useState<Tower | null>(null);
     const contentRef = useRef<HTMLDivElement | null>(null);
@@ -228,6 +233,9 @@ export default function TowerDetailPage({ params }: PageProps) {
     const [isNormalizing, setIsNormalizing] = useState(false);
     const [mapMenuAnchor, setMapMenuAnchor] = useState<HTMLElement | null>(null);
     const [ownerMenuAnchor, setOwnerMenuAnchor] = useState<HTMLElement | null>(null);
+    const [deleteOpen, setDeleteOpen] = useState(false);
+    const [deleting, setDeleting] = useState(false);
+    const [deleteError, setDeleteError] = useState('');
     const [bcParcel, setBcParcel] = useState<{ status: 'idle' | 'found' | 'none'; parcel?: BcParcel }>({ status: 'idle' });
 
     // Lookups
@@ -939,6 +947,26 @@ export default function TowerDetailPage({ params }: PageProps) {
         return () => { cancelled = true; };
     }, [tower]);
 
+    const handleDeleteTower = async () => {
+        if (!tower) return;
+        setDeleting(true);
+        setDeleteError('');
+        try {
+            await axios.delete(`/api/towers/${tower.id}`);
+            showSnackbar(`Tower #${tower.id} deleted.`, 'success');
+            setDeleteOpen(false);
+            router.push('/towers');
+        } catch (error: unknown) {
+            const message = axios.isAxiosError(error)
+                ? (error.response?.data?.error ?? 'Could not delete the tower')
+                : 'Could not delete the tower';
+            setDeleteError(message);
+            showSnackbar(message, 'error');
+        } finally {
+            setDeleting(false);
+        }
+    };
+
     if (loading) {
         return (
             <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
@@ -1088,7 +1116,25 @@ export default function TowerDetailPage({ params }: PageProps) {
                             <ListItemIcon><PersonAddIcon color="warning" /></ListItemIcon>
                             <ListItemText>Add Property Owner</ListItemText>
                         </MenuItem>
+                        {session?.user?.role === 'ADMIN' && (
+                            <MenuItem
+                                onClick={() => { setOwnerMenuAnchor(null); setDeleteError(''); setDeleteOpen(true); }}
+                                sx={{ color: 'error.main' }}
+                            >
+                                <ListItemIcon><DeleteIcon sx={{ color: 'error.main' }} /></ListItemIcon>
+                                <ListItemText>Delete Tower</ListItemText>
+                            </MenuItem>
+                        )}
                     </Menu>
+
+                    <DeleteTowerDialog
+                        open={deleteOpen}
+                        towerId={tower.id}
+                        busy={deleting}
+                        error={deleteError}
+                        onClose={() => { if (!deleting) { setDeleteOpen(false); setDeleteError(''); } }}
+                        onConfirm={() => void handleDeleteTower()}
+                    />
 
                 </Toolbar>
             </AppBar>
