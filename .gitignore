@@ -109,3 +109,7 @@ data/*.csv
 #   npx tsx scripts/fetch-registry-cache.ts
 #   npx tsx scripts/import-registry-cache.ts --write
 /data/registry-cache/
+
+# Row-level backups of the USA towers before a destructive cleanup, written by
+# scripts/backup-usa-towers.js. Hundreds of MB; keep off the repo.
+/data/backups/

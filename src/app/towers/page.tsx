@@ -7,7 +7,18 @@ import Link from 'next/link';
 import { Paper, Typography, Drawer, IconButton, Button, Chip } from '@mui/material';
 import MapIcon from '@mui/icons-material/Map';
 import CloseIcon from '@mui/icons-material/Close';
+import UploadFileIcon from '@mui/icons-material/UploadFile';
+import AddIcon from '@mui/icons-material/Add';
+import PersonAddIcon from '@mui/icons-material/PersonAdd';
+import ListItemIcon from '@mui/material/ListItemIcon';
+import ListItemText from '@mui/material/ListItemText';
+import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
+import MenuItem from '@mui/material/MenuItem';
+import Menu from '@mui/material/Menu';
+import { useSession } from 'next-auth/react';
 import TowerTableSimple from '@/components/TowerTableSimple';
+import ImportTowersDialog from '@/components/ImportTowersDialog';
+import InsertTowerDialog from '@/components/InsertTowerDialog';
 import { MAX_PAGE_SIZE } from '@/lib/pagination';
 import NotesPanel from '@/components/NotesPanel';
 import AddOwnerDialog from '@/components/AddOwnerDialog';
@@ -85,6 +96,7 @@ function TowersPageContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const { country: globalCountry } = useCountry();
+    const { data: session } = useSession();
 
     const abortControllerRef = useRef<AbortController | null>(null);
     // Recent tower pages keyed by their query string, so a page flip renders without waiting.
@@ -121,6 +133,9 @@ function TowersPageContent() {
     });
     const [isLoading, setIsLoading] = useState<boolean>(false);
     const [isExporting, setIsExporting] = useState<boolean>(false);
+    const [importOpen, setImportOpen] = useState<boolean>(false);
+    const [insertOpen, setInsertOpen] = useState<boolean>(false);
+    const [insertMenuAnchor, setInsertMenuAnchor] = useState<null | HTMLElement>(null);
     
     const [isOwnerLoading, setIsOwnerLoading] = useState<boolean>(false);
     const [notesDrawerTower, setNotesDrawerTower] = useState<any>(null);
@@ -489,7 +504,17 @@ function TowersPageContent() {
     return (
         <Box sx={{ display: 'flex', height: '100%', overflow: 'hidden', flexDirection: 'column' }}>
             <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', p: 2, backgroundColor: '#f5f5f5', overflow: 'hidden' }}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                <Box
+                    sx={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        gap: 2,
+                        flexWrap: 'wrap',
+                        rowGap: 1,
+                        mb: 1,
+                    }}
+                >
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
                         <Button
                             component={Link}
@@ -515,7 +540,55 @@ function TowersPageContent() {
                             />
                         )}
                     </Box>
-                    {isLoading && <Typography variant="body2" color="text.secondary">Loading...</Typography>}
+
+                    {/* The insert actions sit on the right edge, away from the title. */}
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexShrink: 0 }}>
+                        {isLoading && <Typography variant="body2" color="text.secondary">Loading...</Typography>}
+                        {session?.user?.role === 'ADMIN' && (
+                            <>
+                                <Button
+                                    variant="outlined"
+                                    color="primary"
+                                    startIcon={<AddIcon />}
+                                    endIcon={<KeyboardArrowDownIcon />}
+                                    onClick={(event) => setInsertMenuAnchor(event.currentTarget)}
+                                    sx={{
+                                        textTransform: 'none',
+                                        bgcolor: 'rgba(25, 118, 210, 0.08)',
+                                        '&:hover': { bgcolor: 'rgba(25, 118, 210, 0.16)' },
+                                    }}
+                                >
+                                    Insert
+                                </Button>
+                                <Menu
+                                    anchorEl={insertMenuAnchor}
+                                    open={Boolean(insertMenuAnchor)}
+                                    onClose={() => setInsertMenuAnchor(null)}
+                                    anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                                    transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+                                >
+                                    <MenuItem
+                                        onClick={() => {
+                                            setInsertMenuAnchor(null);
+                                            setInsertOpen(true);
+                                        }}
+                                    >
+                                        <ListItemIcon><PersonAddIcon fontSize="small" sx={{ color: 'warning.main' }} /></ListItemIcon>
+                                        <ListItemText>Insert Manually</ListItemText>
+                                    </MenuItem>
+                                    <MenuItem
+                                        onClick={() => {
+                                            setInsertMenuAnchor(null);
+                                            setImportOpen(true);
+                                        }}
+                                    >
+                                        <ListItemIcon><UploadFileIcon fontSize="small" color="primary" /></ListItemIcon>
+                                        <ListItemText>Import CSV</ListItemText>
+                                    </MenuItem>
+                                </Menu>
+                            </>
+                        )}
+                    </Box>
                 </Box>
                 <Paper sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
                     <TowerTableSimple
@@ -599,6 +672,18 @@ function TowersPageContent() {
                 onClose={() => setAddOwnerTower(null)}
                 onSuccess={() => loadTowers()}
                 towerId={addOwnerTower?.id}
+            />
+
+            <ImportTowersDialog
+                open={importOpen}
+                onClose={() => setImportOpen(false)}
+                onImported={() => loadTowers()}
+            />
+
+            <InsertTowerDialog
+                open={insertOpen}
+                onClose={() => setInsertOpen(false)}
+                onInserted={() => loadTowers()}
             />
         </Box>
     );

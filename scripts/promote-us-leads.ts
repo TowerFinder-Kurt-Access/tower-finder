@@ -87,10 +87,34 @@ async function main() {
         return;
     }
 
-    // Tower type is resolved once, created only if missing so no migration is needed.
-    const typeRow = await prisma.towerType.findFirst({ where: { name: typeName } })
-        ?? await prisma.towerType.create({ data: { name: typeName } });
-    console.log(`tower type used: ${typeRow.name} (id ${typeRow.id})`);
+    // Tower type is resolved once per tag, created only if missing so no migration is needed.
+    // Every promoted lead used to be stamped with one constant type, which is how
+    // 13,893 US towers ended up in "Other Structure" while their own tags named a
+    // lattice, guyed or monopole structure. Read the tag instead.
+    const CONSTRUCTION_TYPES: Record<string, string> = {
+        lattice: 'Lattice Tower',
+        lattice_steel: 'Lattice Tower',
+        guyed_lattice: 'Guyed',
+        guyed: 'Guyed',
+        monopole: 'Monopole Tower',
+        pole: 'Monopole Tower',
+        tube: 'Monopole Tower',
+        bldg: 'Building Mounted',
+    };
+    const typeIdFor = (tags: unknown): string => {
+        const data = (tags ?? {}) as Record<string, unknown>;
+        const construction = String(data['tower:construction'] ?? '').trim().toLowerCase();
+        const faa = String(data.TYPE ?? '').trim().toLowerCase();
+        return CONSTRUCTION_TYPES[construction] ?? CONSTRUCTION_TYPES[faa] ?? typeName;
+    };
+
+    const typeIds = new Map<string, number>();
+    for (const name of new Set([...toInsert.map(l => typeIdFor(l.tags)), typeName])) {
+        const row = await prisma.towerType.findFirst({ where: { name } })
+            ?? await prisma.towerType.create({ data: { name } });
+        typeIds.set(name, row.id);
+    }
+    console.log(`tower types used: ${Array.from(typeIds.keys()).join(', ')}`);
 
     // Bulk insert, not per-row: an interactive transaction times out (P2028) and rolls back.
     const CHUNK = 1000;
@@ -101,7 +125,7 @@ async function main() {
             data: chunk.map(lead => ({
                 lat: lead.lat,
                 lon: lead.lon,
-                typeId: typeRow.id,
+                typeId: typeIds.get(typeIdFor(lead.tags)),
                 source: 'OpenStreetMap (promoted lead)',
                 statusId: 1,
                 // Keep the OSM tags: they are the only structure evidence these rows have.
