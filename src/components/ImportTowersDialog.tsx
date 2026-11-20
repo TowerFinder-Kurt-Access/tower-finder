@@ -9,7 +9,11 @@ import {
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import DownloadIcon from '@mui/icons-material/Download';
 import axios from 'axios';
-import { TEMPLATE_COLUMNS, type ImportCountry } from '@/lib/tower-csv-import';
+import {
+    COUNTRY_TABS, OPTIONAL_COLUMNS, REQUIRED_COLUMNS, TEMPLATE_COLUMNS, type ImportCountry,
+} from '@/lib/tower-import-fields';
+import { useCountry } from '@/lib/country-context';
+import { useSnackbar } from '@/components/GlobalSnackbar';
 
 interface ImportError { row: number; message: string }
 interface ImportRegion { country: string; province: string; count: number }
@@ -32,14 +36,16 @@ interface ImportTowersDialogProps {
 
 type Step = 'setup' | 'file' | 'region' | 'done';
 
-const COUNTRY_TABS: { country: ImportCountry; label: string; hint: string }[] = [
-    { country: 'USA', label: 'USA', hint: 'State, 5-digit ZIP, county' },
-    { country: 'Canada', label: 'Canada', hint: 'Province, A1A 1A1 postal code, census division' },
-];
-
 export default function ImportTowersDialog({ open, onClose, onImported }: ImportTowersDialogProps) {
+    // Start on the sidebar region so the tab is not a redundant question.
+    // `picked` holds an explicit tab choice; until then the sidebar value wins.
+    const { country: sidebarCountry } = useCountry();
+    const { showSnackbar } = useSnackbar();
+    const sidebarDefault: ImportCountry | '' = sidebarCountry === 'USA' || sidebarCountry === 'Canada' ? sidebarCountry : '';
     const [step, setStep] = useState<Step>('setup');
-    const [country, setCountry] = useState<ImportCountry | ''>('');
+    const [picked, setPicked] = useState<ImportCountry | '' | null>(null);
+    const country = picked ?? sidebarDefault;
+    const setCountry = setPicked;
     const [fileName, setFileName] = useState('');
     const [csv, setCsv] = useState('');
     const [preview, setPreview] = useState<ImportPreview | null>(null);
@@ -54,7 +60,7 @@ export default function ImportTowersDialog({ open, onClose, onImported }: Import
 
     const reset = () => {
         setStep('setup');
-        setCountry('');
+        setPicked(null);
         setFileName('');
         setCsv('');
         setPreview(null);
@@ -88,13 +94,18 @@ export default function ImportTowersDialog({ open, onClose, onImported }: Import
             link.remove();
             window.URL.revokeObjectURL(url);
         } catch (err: unknown) {
-            setError(axios.isAxiosError(err) ? (err.response?.data?.error ?? 'Could not build the template') : 'Could not build the template');
+            const message = axios.isAxiosError(err)
+                ? (err.response?.data?.error ?? 'Could not build the template')
+                : 'Could not build the template';
+            setError(message);
+            showSnackbar(message, 'error');
         }
     };
 
     const loadFile = async (file: File) => {
         if (!country) {
             setError('Pick the import region first');
+            showSnackbar('Pick the import region first', 'warning');
             return;
         }
         setError('');
@@ -104,6 +115,7 @@ export default function ImportTowersDialog({ open, onClose, onImported }: Import
         setDataConfirmed(false);
         if (!/\.csv$/i.test(file.name)) {
             setError('Choose a .csv file');
+            showSnackbar('Choose a .csv file', 'error');
             return;
         }
         const text = await file.text();
@@ -114,7 +126,11 @@ export default function ImportTowersDialog({ open, onClose, onImported }: Import
             const response = await axios.post('/api/towers/import', { csv: text, country });
             setPreview(response.data);
         } catch (err: unknown) {
-            setError(axios.isAxiosError(err) ? (err.response?.data?.error ?? 'Could not read the file') : 'Could not read the file');
+            const message = axios.isAxiosError(err)
+                ? (err.response?.data?.error ?? 'Could not read the file')
+                : 'Could not read the file';
+            setError(message);
+            showSnackbar(message, 'error');
         } finally {
             setBusy(false);
         }
@@ -141,9 +157,19 @@ export default function ImportTowersDialog({ open, onClose, onImported }: Import
             setProgress(100);
             setResult(response.data);
             setStep('done');
-            if ((response.data.created ?? 0) + (response.data.updated ?? 0) > 0) onImported();
+            const changed = (response.data.created ?? 0) + (response.data.updated ?? 0);
+            if (changed > 0) onImported();
+            showSnackbar(
+                `Import finished: ${response.data.created ?? 0} added, ${response.data.updated ?? 0} updated, `
+                    + `${response.data.errorCount ?? 0} skipped.`,
+                (response.data.errorCount ?? 0) > 0 ? 'warning' : 'success',
+            );
         } catch (err: unknown) {
-            setError(axios.isAxiosError(err) ? (err.response?.data?.error ?? 'Import failed') : 'Import failed');
+            const message = axios.isAxiosError(err)
+                ? (err.response?.data?.error ?? 'Import failed')
+                : 'Import failed';
+            setError(message);
+            showSnackbar(message, 'error');
         } finally {
             clearInterval(timer);
             setBusy(false);
@@ -203,12 +229,12 @@ export default function ImportTowersDialog({ open, onClose, onImported }: Import
     const setupStep = (
         <Stack spacing={2}>
             <Typography variant="body2" color="text.secondary">
-                Choose the region first. The file is checked against that region only, so a US state in a Canada
-                import is rejected instead of quietly landing in the wrong list.
+                Choose the region first. A row whose state belongs to the other country is rejected, so it cannot
+                land in the wrong list. Every other value is accepted as written.
             </Typography>
 
             <Box>
-                <Typography variant="subtitle2" sx={{ mb: 0.5 }}>Import Region</Typography>
+                <Typography variant="subtitle2" sx={{ mb: 0.5 }}>Import Region *</Typography>
                 <Tabs
                     value={country || false}
                     onChange={(_event, value: ImportCountry) => {
@@ -234,15 +260,15 @@ export default function ImportTowersDialog({ open, onClose, onImported }: Import
             <Box>
                 <Typography variant="subtitle2" sx={{ mb: 0.5 }}>Required columns</Typography>
                 <Typography variant="body2" color="text.secondary">
-                    Address, City, County, State, ZIP. Latitude and Longitude are not columns: the importer
-                    geocodes each address.
+                    {REQUIRED_COLUMNS.join(', ')}. A row needs every one to be non-empty; the value itself is
+                    accepted as written. Latitude and Longitude are not columns: the importer geocodes each address.
                 </Typography>
             </Box>
 
             <Box>
                 <Typography variant="subtitle2" sx={{ mb: 0.5 }}>Optional columns</Typography>
                 <Typography variant="body2" color="text.secondary">
-                    Type, Owner Name, Contact Person, Notes, Lease Expiry. Each one is stored when the cell has a value.
+                    {OPTIONAL_COLUMNS.join(', ')}. Each one is stored when the cell has a value.
                     Business counts come from the nightly job, so the file cannot set them.
                 </Typography>
             </Box>
@@ -259,7 +285,16 @@ export default function ImportTowersDialog({ open, onClose, onImported }: Import
                     Download Excel Template
                 </Button>
                 <Typography variant="caption" display="block" sx={{ mt: 0.5, color: 'text.secondary' }}>
-                    Columns: {TEMPLATE_COLUMNS.join(', ')}
+                    Columns:{' '}
+                    {TEMPLATE_COLUMNS.map((column, index) => (
+                        <Box component="span" key={column}>
+                            {column}
+                            {REQUIRED_COLUMNS.includes(column as typeof REQUIRED_COLUMNS[number]) && (
+                                <Box component="span" sx={{ color: 'error.main', fontWeight: 700 }}> *</Box>
+                            )}
+                            {index < TEMPLATE_COLUMNS.length - 1 ? ', ' : ''}
+                        </Box>
+                    ))}
                 </Typography>
             </Box>
             <Alert severity="info">

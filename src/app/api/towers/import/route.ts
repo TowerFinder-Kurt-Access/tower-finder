@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/auth-helpers';
 import { importTowerRows } from '@/services/TowerImportService';
-import { MAX_IMPORT_ROWS, parseTowerCsv, type ImportCountry } from '@/lib/tower-csv-import';
+import { MAX_IMPORT_ROWS, parseTowerCsv } from '@/lib/tower-csv-import';
+import type { ImportCountry } from '@/lib/tower-import-fields';
 
 // POST /api/towers/import - Bulk-import towers from a CSV file.
 // Body: { csv: string, country: 'USA' | 'Canada', commit?: boolean }

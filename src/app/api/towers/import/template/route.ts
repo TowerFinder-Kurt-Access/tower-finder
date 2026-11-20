@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/auth-helpers';
-import { TEMPLATE_COLUMNS, type ImportCountry } from '@/lib/tower-csv-import';
+import { TEMPLATE_COLUMNS, type ImportCountry } from '@/lib/tower-import-fields';
 import ExcelJS from 'exceljs';
 
 // GET /api/towers/import/template?country=USA|Canada

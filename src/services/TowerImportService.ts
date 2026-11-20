@@ -84,7 +84,11 @@ async function geocodeAll(rows: CsvRow[]): Promise<Map<number, Geocoded | null>>
  * row instead of adding a duplicate. Optional columns update only when filled.
  * New towers are queued for the nightly Geoapify business-count job.
  */
-export async function importTowerRows(rows: CsvRow[], userEmail: string): Promise<ImportOutcome> {
+export async function importTowerRows(
+    rows: CsvRow[],
+    userEmail: string,
+    source = 'CSV Import',
+): Promise<ImportOutcome> {
     const errors: { row: number; message: string }[] = [];
     const points = await geocodeAll(rows);
     if (!process.env.GEOAPIFY_API_KEY) {
@@ -127,12 +131,12 @@ export async function importTowerRows(rows: CsvRow[], userEmail: string): Promis
 
             // Only a row this importer created is updated. Matching any nearby
             // tower would overwrite an Excel- or API-sourced parcel, which the
-            // CSV file cannot legitimately claim. 25 m because the geocoder
+            // import cannot legitimately claim. 25 m because the geocoder
             // snaps an address to a building, so the same address must land on
             // the same tower across re-imports.
             const existing = await prisma.tower.findFirst({
                 where: {
-                    source: 'CSV Import',
+                    source,
                     lat: { gte: point.lat - 0.00025, lte: point.lat + 0.00025 },
                     lon: { gte: point.lon - 0.00025, lte: point.lon + 0.00025 },
                 },
@@ -151,8 +155,10 @@ export async function importTowerRows(rows: CsvRow[], userEmail: string): Promis
                 postalCode: row.country === 'Canada' ? row.zip : null,
                 zip: row.country === 'USA' ? row.zip : null,
                 country: row.country,
+                // null when the file had no readable date, so the parcel keeps
+                // no expiry rather than a guessed one.
                 leaseExpiry: parseLeaseExpiryDate(row.leaseExpiry),
-                dataSource: 'CSV Import',
+                dataSource: source,
             };
 
             const contact = cleanPersonName(row.contactPerson);
@@ -171,7 +177,7 @@ export async function importTowerRows(rows: CsvRow[], userEmail: string): Promis
                             lon: point.lon,
                             typeId: typeId ?? undefined,
                             statusId: defaultStatusId,
-                            source: 'CSV Import',
+                            source,
                             rawImportData: { ...row.raw, _importedBy: userEmail },
                         },
                     });

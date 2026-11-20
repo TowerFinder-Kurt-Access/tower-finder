@@ -8,9 +8,17 @@ import { Paper, Typography, Drawer, IconButton, Button, Chip } from '@mui/materi
 import MapIcon from '@mui/icons-material/Map';
 import CloseIcon from '@mui/icons-material/Close';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
+import AddIcon from '@mui/icons-material/Add';
+import PersonAddIcon from '@mui/icons-material/PersonAdd';
+import ListItemIcon from '@mui/material/ListItemIcon';
+import ListItemText from '@mui/material/ListItemText';
+import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
+import MenuItem from '@mui/material/MenuItem';
+import Menu from '@mui/material/Menu';
 import { useSession } from 'next-auth/react';
 import TowerTableSimple from '@/components/TowerTableSimple';
 import ImportTowersDialog from '@/components/ImportTowersDialog';
+import InsertTowerDialog from '@/components/InsertTowerDialog';
 import { MAX_PAGE_SIZE } from '@/lib/pagination';
 import NotesPanel from '@/components/NotesPanel';
 import AddOwnerDialog from '@/components/AddOwnerDialog';
@@ -126,6 +134,8 @@ function TowersPageContent() {
     const [isLoading, setIsLoading] = useState<boolean>(false);
     const [isExporting, setIsExporting] = useState<boolean>(false);
     const [importOpen, setImportOpen] = useState<boolean>(false);
+    const [insertOpen, setInsertOpen] = useState<boolean>(false);
+    const [insertMenuAnchor, setInsertMenuAnchor] = useState<null | HTMLElement>(null);
     
     const [isOwnerLoading, setIsOwnerLoading] = useState<boolean>(false);
     const [notesDrawerTower, setNotesDrawerTower] = useState<any>(null);
@@ -508,15 +518,46 @@ function TowersPageContent() {
                         </Button>
                         <Typography variant="h5" sx={{ fontWeight: 600 }}>Towers List</Typography>
                         {session?.user?.role === 'ADMIN' && (
-                            <Button
-                                variant="outlined"
-                                size="small"
-                                startIcon={<UploadFileIcon />}
-                                onClick={() => setImportOpen(true)}
-                                sx={{ textTransform: 'none' }}
-                            >
-                                Import CSV
-                            </Button>
+                            <>
+                                <Button
+                                    variant="outlined"
+                                    color="primary"
+                                    startIcon={<AddIcon />}
+                                    endIcon={<KeyboardArrowDownIcon />}
+                                    onClick={(event) => setInsertMenuAnchor(event.currentTarget)}
+                                    sx={{
+                                        textTransform: 'none',
+                                        bgcolor: 'rgba(25, 118, 210, 0.08)',
+                                        '&:hover': { bgcolor: 'rgba(25, 118, 210, 0.16)' },
+                                    }}
+                                >
+                                    Insert
+                                </Button>
+                                <Menu
+                                    anchorEl={insertMenuAnchor}
+                                    open={Boolean(insertMenuAnchor)}
+                                    onClose={() => setInsertMenuAnchor(null)}
+                                >
+                                    <MenuItem
+                                        onClick={() => {
+                                            setInsertMenuAnchor(null);
+                                            setInsertOpen(true);
+                                        }}
+                                    >
+                                        <ListItemIcon><PersonAddIcon fontSize="small" sx={{ color: 'warning.main' }} /></ListItemIcon>
+                                        <ListItemText>Insert Manually</ListItemText>
+                                    </MenuItem>
+                                    <MenuItem
+                                        onClick={() => {
+                                            setInsertMenuAnchor(null);
+                                            setImportOpen(true);
+                                        }}
+                                    >
+                                        <ListItemIcon><UploadFileIcon fontSize="small" color="primary" /></ListItemIcon>
+                                        <ListItemText>Import CSV</ListItemText>
+                                    </MenuItem>
+                                </Menu>
+                            </>
                         )}
                         {filters.id && (
                             <Chip
@@ -621,6 +662,12 @@ function TowersPageContent() {
                 open={importOpen}
                 onClose={() => setImportOpen(false)}
                 onImported={() => loadTowers()}
+            />
+
+            <InsertTowerDialog
+                open={insertOpen}
+                onClose={() => setInsertOpen(false)}
+                onInserted={() => loadTowers()}
             />
         </Box>
     );

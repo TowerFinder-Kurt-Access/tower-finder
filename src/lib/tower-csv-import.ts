@@ -8,15 +8,14 @@
  *
  * Pure module: no Prisma and no network, so the API and the tests share it.
  */
-import canadianCities from '@/lib/canadian_cities.json';
-import canadianCounties from '@/lib/canadian_counties.json';
 import { CANADA_PROVINCES, USA_STATES } from '@/lib/constants';
-import { normalizeCityName, normalizeCountyName } from '@/lib/extract-location';
+import { REQUIRED_COLUMNS } from '@/lib/tower-import-fields';
 import { parseLeaseExpiryDate } from '@/lib/lease-expiry';
+import type { ImportCountry } from '@/lib/tower-import-fields';
+
+export type { ImportCountry };
 
 export const MAX_IMPORT_ROWS = 500;
-
-export type ImportCountry = 'USA' | 'Canada';
 
 export interface CsvRow {
     row: number;
@@ -32,7 +31,6 @@ export interface CsvRow {
     contactPerson: string | null;
     notes: string | null;
     leaseExpiry: string | null;
-    warnings: string[];
     raw: Record<string, string>;
 }
 
@@ -80,12 +78,6 @@ export function parseCsv(text: string): string[][] {
     return records;
 }
 
-/** Template column order, matching the Tower List table left to right. */
-export const TEMPLATE_COLUMNS = [
-    'Type', 'Lease Expiry', 'Owner Name', 'Contact Person', 'Notes',
-    'Address', 'City', 'County', 'State', 'ZIP',
-] as const;
-
 type ColumnKey =
     | 'address' | 'city' | 'county' | 'state' | 'zip' | 'type'
     | 'ownerName' | 'contactPerson' | 'notes' | 'leaseExpiry';
@@ -120,31 +112,11 @@ for (const [country, list] of [['Canada', CANADA_PROVINCES], ['USA', USA_STATES]
     }
 }
 
-const citySets = new Map<string, Set<string>>();
-const countySets = new Map<string, Set<string>>();
-
-function officialCities(code: string): Set<string> {
-    if (!citySets.has(code)) {
-        citySets.set(code, new Set(
-            ((canadianCities as Record<string, string[]>)[code] ?? []).map(normalizeCityName),
-        ));
-    }
-    return citySets.get(code) as Set<string>;
-}
-
-function officialCounties(code: string): Set<string> {
-    if (!countySets.has(code)) {
-        countySets.set(code, new Set(
-            ((canadianCounties as Record<string, string[]>)[code] ?? []).map(normalizeCountyName),
-        ));
-    }
-    return countySets.get(code) as Set<string>;
-}
-
+// Postal patterns only tidy a value that already fits; nothing is rejected.
 const US_ZIP_RE = /^\d{5}(-\d{4})?$/;
 const CA_POSTAL_RE = /^[A-Za-z]\d[A-Za-z]\s?\d[A-Za-z]\d$/;
-const COUNTY_NAME_RE = /^[A-Za-z][A-Za-z .'\-]{1,59}$/;
 
+/** Canada rows keep Title Case; US rows store lower case, as the list does. */
 function titleCase(value: string): string {
     return value
         .toLowerCase()
@@ -179,12 +151,7 @@ export function parseTowerCsv(text: string, country: ImportCountry): CsvParseRes
         if (key && columns[key] === undefined) columns[key] = index;
     }
     // Required columns are named in list order, independent of the template order.
-    const absent: string[] = [];
-    if (columns.address === undefined) absent.push('Address');
-    if (columns.city === undefined) absent.push('City');
-    if (columns.county === undefined) absent.push('County');
-    if (columns.state === undefined) absent.push('State');
-    if (columns.zip === undefined) absent.push('ZIP');
+    const absent = REQUIRED_COLUMNS.filter((column) => columns[HEADER_ALIASES[headerKey(column)]] === undefined);
     if (absent.length > 0) {
         return {
             totalRows: 0, rows: [], regions: [],
@@ -211,7 +178,6 @@ export function parseTowerCsv(text: string, country: ImportCountry): CsvParseRes
             return position === undefined ? '' : (values[position] ?? '').trim();
         };
         const rowErrors: string[] = [];
-        const warnings: string[] = [];
 
         const address = cell('address');
         const cityRaw = cell('city');
@@ -219,49 +185,31 @@ export function parseTowerCsv(text: string, country: ImportCountry): CsvParseRes
         const stateRaw = cell('state');
         const zipRaw = cell('zip');
 
+        // Required means non-empty. The value itself is not second-guessed:
+        // county, city and ZIP are stored as the file gives them.
         if (!address) rowErrors.push('Address is required');
         if (!cityRaw) rowErrors.push('City is required');
         if (!countyRaw) rowErrors.push('County is required');
+        if (!stateRaw) rowErrors.push('State or Province is required');
         if (!zipRaw) rowErrors.push('ZIP is required');
 
-        // The dialog's country decides the allowed states; a row cannot cross it.
+        // A state code or name resolves to its province row when known; an
+        // unrecognised value is still kept, and the row still imports.
         const province = provinceByKey.get(headerKey(stateRaw))
             ?? (stateRaw.length === 2 ? provinceByCode.get(stateRaw.toUpperCase()) : undefined);
-        if (!stateRaw) rowErrors.push('State or Province is required');
-        else if (!province) rowErrors.push(`State or Province "${stateRaw}" is not a US state or Canadian province`);
-        else if (province.country !== country) rowErrors.push(`${province.name} is in ${province.country}, not ${country}`);
-
-        // ZIP / postal code: format must match the country.
-        let zip = '';
-        if (zipRaw && country === 'Canada') {
-            if (!CA_POSTAL_RE.test(zipRaw)) rowErrors.push(`Postal code "${zipRaw}" is not A1A 1A1`);
-            else {
-                const compact = zipRaw.toUpperCase().replace(/\s+/g, '');
-                zip = `${compact.slice(0, 3)} ${compact.slice(3)}`;
-            }
-        } else if (zipRaw) {
-            if (!US_ZIP_RE.test(zipRaw)) rowErrors.push(`ZIP "${zipRaw}" is not a 5-digit ZIP or ZIP+4`);
-            else zip = zipRaw.slice(0, 5);
+        if (province && province.country !== country) {
+            rowErrors.push(`${province.name} is in ${province.country}, not ${country}`);
         }
 
-        // Canada is checked against the official municipality and division lists.
-        let city = cityRaw;
-        if (cityRaw && country === 'Canada' && province) {
-            if (!officialCities(province.code).has(normalizeCityName(cityRaw))) {
-                rowErrors.push(`City "${cityRaw}" is not an official ${province.name} municipality`);
-            } else city = titleCase(cityRaw);
-        } else if (cityRaw) city = titleCase(cityRaw);
+        // The country's postal form is normalised when it fits, otherwise kept.
+        const zip = country === 'Canada' && CA_POSTAL_RE.test(zipRaw)
+            ? `${zipRaw.toUpperCase().replace(/\s+/g, '').slice(0, 3)} ${zipRaw.toUpperCase().replace(/\s+/g, '').slice(3)}`
+            : country === 'USA' && US_ZIP_RE.test(zipRaw)
+                ? zipRaw.slice(0, 5)
+                : zipRaw;
 
-        const bareCounty = countyRaw.replace(/\s+(county|parish|borough|census area)$/i, '').trim();
-        let county = bareCounty;
-        if (bareCounty && country === 'Canada' && province) {
-            if (!officialCounties(province.code).has(normalizeCountyName(bareCounty))) {
-                rowErrors.push(`County "${countyRaw}" is not an official ${province.name} census division`);
-            } else county = bareCounty;
-        } else if (bareCounty) {
-            if (!COUNTY_NAME_RE.test(bareCounty)) rowErrors.push(`County "${countyRaw}" is not a county name`);
-            else county = titleCase(bareCounty);
-        }
+        const city = country === 'Canada' ? titleCase(cityRaw) : cityRaw;
+        const county = country === 'Canada' ? countyRaw : titleCase(countyRaw);
 
         // A repeated location in one file would create two towers on one point.
         const fingerprint = `${address}|${city}|${stateRaw}`.toLowerCase();
@@ -270,17 +218,15 @@ export function parseTowerCsv(text: string, country: ImportCountry): CsvParseRes
             seen.add(fingerprint);
         }
 
-        // Lease Expiry is optional; when a date is present it must be a real one.
-        const leaseRaw = cell('leaseExpiry');
-        if (leaseRaw && !parseLeaseExpiryDate(leaseRaw)) {
-            rowErrors.push(`Lease Expiry "${leaseRaw}" is not a date (use YYYY-MM-DD)`);
-        }
+        // Lease Expiry is optional. A blank cell, or text the parser cannot read
+        // as a date, is skipped: the row still imports with no expiry. The raw
+        // text survives in rawImportData, so nothing is lost.
+        const leaseDate = parseLeaseExpiryDate(cell('leaseExpiry'));
 
         if (rowErrors.length > 0) {
             errors.push({ row: rowNumber, message: rowErrors.join('. ') });
             return;
         }
-        if (!province) return;
 
         rows.push({
             row: rowNumber,
@@ -288,15 +234,14 @@ export function parseTowerCsv(text: string, country: ImportCountry): CsvParseRes
             address,
             city,
             county,
-            state: province.name,
-            stateCode: province.code,
+            state: province?.name ?? stateRaw,
+            stateCode: province?.code ?? stateRaw.toUpperCase(),
             zip,
             typeName: cell('type') || null,
             ownerName: cell('ownerName') || null,
             contactPerson: cell('contactPerson') || null,
             notes: cell('notes') || null,
-            leaseExpiry: leaseRaw || null,
-            warnings,
+            leaseExpiry: leaseDate ? cell('leaseExpiry') : null,
             raw: Object.fromEntries(headers.map((header, position) => [header, values[position] ?? ''])),
         });
     });
