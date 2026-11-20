@@ -16,6 +16,7 @@ import TravelExploreIcon from '@mui/icons-material/TravelExplore';
 import InfoIcon from '@mui/icons-material/Info';
 import NotesIcon from '@mui/icons-material/Notes';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
+import DeleteIcon from '@mui/icons-material/Delete';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import { pinnedMapUrl } from '@/lib/google-maps';
 import { PAGE_SIZE_OPTIONS, MAX_PAGE_SIZE } from '@/lib/pagination';
@@ -130,6 +131,9 @@ interface TowerTableSimpleProps {
     onExport?: (ids?: number[], all?: boolean) => void;
     isExporting?: boolean;
     country?: string;
+    /** A tower delete is destructive, so the row action only shows for an admin. */
+    canDelete?: boolean;
+    onDelete?: (tower: any) => void;
 }
 
 export default function TowerTableSimple({
@@ -154,7 +158,9 @@ export default function TowerTableSimple({
     onAddOwner,
     onSelectionChange,
     onExport,
-    country
+    country,
+    canDelete = false,
+    onDelete
 }: TowerTableSimpleProps) {
     const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
     const [selectedTower, setSelectedTower] = React.useState<any>(null);
@@ -922,6 +928,22 @@ export default function TowerTableSimple({
                             <PersonAddIcon fontSize="small" />
                         </ListItemIcon>
                         <ListItemText>Add Property Owner</ListItemText>
+                    </MenuItem>
+                )}
+                {canDelete && onDelete && (
+                    <MenuItem
+                        onClick={() => {
+                            if (selectedTower) {
+                                onDelete(selectedTower);
+                                handleMenuClose();
+                            }
+                        }}
+                        sx={{ color: 'error.main' }}
+                    >
+                        <ListItemIcon>
+                            <DeleteIcon fontSize="small" sx={{ color: 'error.main' }} />
+                        </ListItemIcon>
+                        <ListItemText>Delete Tower</ListItemText>
                     </MenuItem>
                 )}
             </Menu>
