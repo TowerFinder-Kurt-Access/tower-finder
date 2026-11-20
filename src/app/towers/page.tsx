@@ -7,7 +7,10 @@ import Link from 'next/link';
 import { Paper, Typography, Drawer, IconButton, Button, Chip } from '@mui/material';
 import MapIcon from '@mui/icons-material/Map';
 import CloseIcon from '@mui/icons-material/Close';
+import UploadFileIcon from '@mui/icons-material/UploadFile';
+import { useSession } from 'next-auth/react';
 import TowerTableSimple from '@/components/TowerTableSimple';
+import ImportTowersDialog from '@/components/ImportTowersDialog';
 import { MAX_PAGE_SIZE } from '@/lib/pagination';
 import NotesPanel from '@/components/NotesPanel';
 import AddOwnerDialog from '@/components/AddOwnerDialog';
@@ -85,6 +88,7 @@ function TowersPageContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const { country: globalCountry } = useCountry();
+    const { data: session } = useSession();
 
     const abortControllerRef = useRef<AbortController | null>(null);
     // Recent tower pages keyed by their query string, so a page flip renders without waiting.
@@ -121,6 +125,7 @@ function TowersPageContent() {
     });
     const [isLoading, setIsLoading] = useState<boolean>(false);
     const [isExporting, setIsExporting] = useState<boolean>(false);
+    const [importOpen, setImportOpen] = useState<boolean>(false);
     
     const [isOwnerLoading, setIsOwnerLoading] = useState<boolean>(false);
     const [notesDrawerTower, setNotesDrawerTower] = useState<any>(null);
@@ -502,6 +507,17 @@ function TowersPageContent() {
                             Back to Map
                         </Button>
                         <Typography variant="h5" sx={{ fontWeight: 600 }}>Towers List</Typography>
+                        {session?.user?.role === 'ADMIN' && (
+                            <Button
+                                variant="outlined"
+                                size="small"
+                                startIcon={<UploadFileIcon />}
+                                onClick={() => setImportOpen(true)}
+                                sx={{ textTransform: 'none' }}
+                            >
+                                Import CSV
+                            </Button>
+                        )}
                         {filters.id && (
                             <Chip
                                 label={`Tower ID: ${filters.id}`}
@@ -599,6 +615,12 @@ function TowersPageContent() {
                 onClose={() => setAddOwnerTower(null)}
                 onSuccess={() => loadTowers()}
                 towerId={addOwnerTower?.id}
+            />
+
+            <ImportTowersDialog
+                open={importOpen}
+                onClose={() => setImportOpen(false)}
+                onImported={() => loadTowers()}
             />
         </Box>
     );
