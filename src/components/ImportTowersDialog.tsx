@@ -248,7 +248,12 @@ export default function ImportTowersDialog({ open, onClose, onImported }: Import
                     sx={{ minHeight: 40, borderBottom: 1, borderColor: 'divider' }}
                 >
                     {COUNTRY_TABS.map((tab) => (
-                        <Tab key={tab.country} value={tab.country} label={tab.label} sx={{ textTransform: 'none', minHeight: 40 }} />
+                        <Tab
+                            key={tab.country}
+                            value={tab.country}
+                            label={`${tab.flag} ${tab.label}`}
+                            sx={{ textTransform: 'none', minHeight: 40 }}
+                        />
                     ))}
                 </Tabs>
             </Box>
@@ -261,7 +266,7 @@ export default function ImportTowersDialog({ open, onClose, onImported }: Import
                 <Typography variant="subtitle2" sx={{ mb: 0.5 }}>Required columns</Typography>
                 <Typography variant="body2" color="text.secondary">
                     {REQUIRED_COLUMNS.join(', ')}. A row needs every one to be non-empty; the value itself is
-                    accepted as written. Latitude and Longitude are not columns: the importer geocodes each address.
+                    accepted as written.
                 </Typography>
             </Box>
 

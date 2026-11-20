@@ -20,7 +20,8 @@ export const REQUIRED_COLUMNS = ['Address', 'City', 'County', 'State', 'ZIP'] as
 /** Columns stored only when the cell has a value. */
 export const OPTIONAL_COLUMNS = ['Type', 'Lease Expiry', 'Owner Name', 'Contact Person', 'Notes'] as const;
 
-export const COUNTRY_TABS: { country: ImportCountry; label: string; hint: string }[] = [
-    { country: 'USA', label: 'USA', hint: 'State, ZIP, county' },
-    { country: 'Canada', label: 'Canada', hint: 'Province, postal code, census division' },
+// The flag matches the one the sidebar shows for the same region.
+export const COUNTRY_TABS: { country: ImportCountry; label: string; flag: string; hint: string }[] = [
+    { country: 'USA', label: 'USA', flag: '\u{1F1FA}\u{1F1F8}', hint: 'State, ZIP, county' },
+    { country: 'Canada', label: 'Canada', flag: '\u{1F1E8}\u{1F1E6}', hint: 'Province, postal code, census division' },
 ];

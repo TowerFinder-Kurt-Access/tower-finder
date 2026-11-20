@@ -142,7 +142,12 @@ export default function InsertTowerDialog({ open, onClose, onInserted }: InsertT
                             sx={{ minHeight: 40, borderBottom: 1, borderColor: 'divider' }}
                         >
                             {COUNTRY_TABS.map((tab) => (
-                                <Tab key={tab.country} value={tab.country} label={tab.label} sx={{ textTransform: 'none', minHeight: 40 }} />
+                                <Tab
+                                    key={tab.country}
+                                    value={tab.country}
+                                    label={`${tab.flag} ${tab.label}`}
+                                    sx={{ textTransform: 'none', minHeight: 40 }}
+                                />
                             ))}
                         </Tabs>
                         <Typography variant="caption" color="text.secondary">
